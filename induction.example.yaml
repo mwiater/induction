@@ -1,0 +1,21 @@
+server: your-llamacpp-inference-endpoint
+timeout: 20m
+poll_interval: 2s
+load_wait_interval: 1s
+enableLiveMetricsOverlay: true
+persistSnapshots: true
+sidebarWidth: 64
+MCPServers:
+  - MCPServerAllow: true
+    MCPServerName: your-mcp-server-name
+    MCPServerURL: your-mcp-server-endpoint
+log:
+  path: induction.log
+  console: true
+  prefix: "app: "
+  microseconds: true
+ModelManager:
+  SearchResults: 20
+  PreferredProviders:
+    - unsloth
+  ModelsPath: /path/to/saved/models
