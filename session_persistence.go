@@ -1,7 +1,6 @@
 package induction
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -212,52 +211,6 @@ func listChatSessionsFromDir(directory string) ([]ChatSessionSummary, error) {
 		return result[i].UpdatedAt.After(result[j].UpdatedAt)
 	})
 	return result, nil
-}
-
-// cleanupNullSnapshotSessions removes sessions that never recorded an
-// inference snapshot. A null snapshots field is intentionally distinct from
-// an empty array, which represents a valid session with an initialized
-// snapshot collection.
-func cleanupNullSnapshotSessions() (int, error) {
-	return cleanupNullSnapshotSessionsFromDir(sessionDirectory)
-}
-
-func cleanupNullSnapshotSessionsFromDir(directory string) (int, error) {
-	entries, err := os.ReadDir(directory)
-	if os.IsNotExist(err) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("list sessions for cleanup: %w", err)
-	}
-
-	removed := 0
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
-			continue
-		}
-		path := filepath.Join(directory, entry.Name())
-		contents, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		var fields map[string]json.RawMessage
-		if err := json.Unmarshal(contents, &fields); err != nil {
-			continue
-		}
-		snapshots, ok := fields["snapshots"]
-		if !ok || !bytes.Equal(bytes.TrimSpace(snapshots), []byte("null")) {
-			continue
-		}
-		if _, err := loadChatSessionFromPath(path); err != nil {
-			continue
-		}
-		if err := os.Remove(path); err != nil {
-			return removed, fmt.Errorf("remove session %q: %w", path, err)
-		}
-		removed++
-	}
-	return removed, nil
 }
 
 func validateChatSession(session *ChatSession) error {

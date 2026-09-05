@@ -14,6 +14,8 @@ type inferenceMonitor struct {
 	overlay     *liveMetricsOverlay
 	slots       SlotsData
 	ownsOverlay bool
+	slotsReady  chan struct{}
+	readyOnce   sync.Once
 }
 
 // startInferenceMonitor begins monitoring before inference so model-loading
@@ -26,6 +28,9 @@ func (c *Client) startInferenceMonitor(ctx context.Context, model string, collec
 func (c *Client) startInferenceMonitorWithOverlay(ctx context.Context, model string, collectSamples bool, supplied *liveMetricsOverlay) *inferenceMonitor {
 	monitorCtx, cancel := context.WithCancel(ctx)
 	monitor := &inferenceMonitor{cancel: cancel, overlay: supplied}
+	if supplied != nil {
+		monitor.slotsReady = make(chan struct{})
+	}
 	if monitor.overlay == nil && c.opts.liveMetricsOverlay != nil {
 		monitor.overlay = c.opts.liveMetricsOverlay
 	}
@@ -38,6 +43,13 @@ func (c *Client) startInferenceMonitorWithOverlay(ctx context.Context, model str
 		monitor.wg.Add(1)
 		go func() {
 			defer monitor.wg.Done()
+			if monitor.slotsReady != nil {
+				select {
+				case <-monitor.slotsReady:
+				case <-monitorCtx.Done():
+					return
+				}
+			}
 			monitor.slots = c.pollSlots(monitorCtx, model, monitor.overlay)
 		}()
 	}
@@ -55,6 +67,13 @@ func (c *Client) startInferenceMonitorWithOverlay(ctx context.Context, model str
 	}
 
 	return monitor
+}
+
+func (m *inferenceMonitor) markModelReady() {
+	if m == nil || m.slotsReady == nil {
+		return
+	}
+	m.readyOnce.Do(func() { close(m.slotsReady) })
 }
 
 func waitForMonitorReady(ctx context.Context, ready <-chan struct{}) {

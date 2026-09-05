@@ -80,34 +80,6 @@ func GenerateSnapshot(ctx context.Context, endpoint string, req *ChatRequest, op
 	return client.GenerateSnapshot(ctx, req)
 }
 
-// InferSnapshot loads induction.yaml from the current working directory,
-// applies its model and timeout, and runs inference with telemetry collection.
-func InferSnapshot(ctx context.Context, req *ChatRequest, options ...ClientOption) (*ModelSnapshot, error) {
-	client, request, inferenceCtx, cancel, err := configuredInference(ctx, req, options...)
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
-	snapshot, err := client.GenerateSnapshot(inferenceCtx, request)
-	if err != nil {
-		return nil, err
-	}
-	cfg, err := LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	if cfg.PersistSnapshots {
-		session, err := newSnapshotSession(request.Model)
-		if err != nil {
-			return nil, err
-		}
-		if err := session.save([]*ModelSnapshot{snapshot}); err != nil {
-			return nil, err
-		}
-	}
-	return snapshot, nil
-}
-
 // Infer runs a standard OpenAI-compatible inference request using the model,
 // server, and timeout configured in induction.yaml.
 func Infer(ctx context.Context, req *ChatRequest, options ...ClientOption) (*InferenceResponse, error) {

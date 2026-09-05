@@ -117,29 +117,3 @@ func TestListChatSessionsMissingDirectory(t *testing.T) {
 		t.Fatalf("missing directory: %v %#v", err, list)
 	}
 }
-
-func TestCleanupNullSnapshotSessions(t *testing.T) {
-	directory := t.TempDir()
-	base := `{"version":1,"id":"11111111-1111-4111-8111-111111111111","type":"unsaved","title":"","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","model":"model","messages":[]}`
-	if err := os.WriteFile(filepath.Join(directory, "null.json"), []byte(strings.TrimSuffix(base, "}")+`,"snapshots":null}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(directory, "empty.json"), []byte(strings.TrimSuffix(base, "}")+`,"snapshots":[]}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(directory, "broken.json"), []byte(`{"snapshots":null`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	removed, err := cleanupNullSnapshotSessionsFromDir(directory)
-	if err != nil || removed != 1 {
-		t.Fatalf("cleanup removed=%d err=%v", removed, err)
-	}
-	if _, err := os.Stat(filepath.Join(directory, "null.json")); !os.IsNotExist(err) {
-		t.Fatalf("null snapshot session remains: %v", err)
-	}
-	for _, name := range []string{"empty.json", "broken.json"} {
-		if _, err := os.Stat(filepath.Join(directory, name)); err != nil {
-			t.Fatalf("cleanup removed %s: %v", name, err)
-		}
-	}
-}

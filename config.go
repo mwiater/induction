@@ -69,7 +69,6 @@ type Config struct {
 	PollInterval             Duration           `yaml:"poll_interval"`
 	LoadWaitInterval         Duration           `yaml:"load_wait_interval"`
 	EnableLiveMetricsOverlay bool               `yaml:"enableLiveMetricsOverlay"`
-	PersistSnapshots         bool               `yaml:"persistSnapshots"`
 	SidebarWidth             int                `yaml:"sidebarWidth"`
 	MCPServers               []MCPServerConfig  `yaml:"MCPServers"`
 	Log                      LogConfig          `yaml:"log"`

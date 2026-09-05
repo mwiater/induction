@@ -2,6 +2,7 @@ package induction
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -48,8 +49,8 @@ func TestClient_GenerateSnapshot_Success(t *testing.T) {
 	if snapshot.ModelID != "test-model" {
 		t.Fatalf("expected ModelID 'test-model', got %s", snapshot.ModelID)
 	}
-	if snapshot.LoadTime < 0 {
-		t.Fatalf("expected LoadTime to be non-negative, got %v", snapshot.LoadTime)
+	if snapshot.ModelLoadTime < 0 {
+		t.Fatalf("expected ModelLoadTime to be non-negative, got %v", snapshot.ModelLoadTime)
 	}
 	if len(snapshot.Interaction) != 1 || snapshot.Interaction[0].Content != "success" {
 		t.Fatalf("expected inference content 'success', got %#v", snapshot.Interaction)
@@ -128,7 +129,7 @@ func TestClient_GenerateSnapshot_PollsSlotsDuringInference(t *testing.T) {
 	}
 }
 
-func TestClient_LoadModelSkipsPostWhenAlreadyLoaded(t *testing.T) {
+func TestClient_LoadModelRecordsExplicitLoadWhenFreshClientSeesLoaded(t *testing.T) {
 	var loadPosts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -137,6 +138,8 @@ func TestClient_LoadModelSkipsPostWhenAlreadyLoaded(t *testing.T) {
 		case "/models/load":
 			loadPosts.Add(1)
 			_, _ = w.Write([]byte(`{"success":true}`))
+		case "/v1/chat/completions":
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"1"}}]}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -147,8 +150,11 @@ func TestClient_LoadModelSkipsPostWhenAlreadyLoaded(t *testing.T) {
 	if err := client.loadModel(context.Background(), "test-model"); err != nil {
 		t.Fatalf("loadModel failed: %v", err)
 	}
-	if loadPosts.Load() != 0 {
-		t.Fatalf("already-loaded model triggered %d load requests", loadPosts.Load())
+	if loadPosts.Load() != 1 {
+		t.Fatalf("fresh client triggered %d load requests, want 1", loadPosts.Load())
+	}
+	if value, ok := client.pendingModelLoadDurations.LoadAndDelete("test-model"); !ok || value.(time.Duration) <= 0 {
+		t.Fatalf("explicit load duration was not recorded: %v", value)
 	}
 }
 
@@ -170,6 +176,8 @@ func TestClient_LoadModelWaitsUntilLoaded(t *testing.T) {
 				loaded.Store(true)
 			}()
 			_, _ = w.Write([]byte(`{"success":true}`))
+		case "/v1/chat/completions":
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"1"}}]}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -182,6 +190,50 @@ func TestClient_LoadModelWaitsUntilLoaded(t *testing.T) {
 	}
 	if !loaded.Load() || statusChecks.Load() < 2 {
 		t.Fatalf("loadModel returned before readiness: loaded=%v checks=%d", loaded.Load(), statusChecks.Load())
+	}
+}
+
+func TestClientWarmupIsNotIncludedInSessionSnapshot(t *testing.T) {
+	var requests []ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/models":
+			_, _ = w.Write([]byte(`{"data":[{"id":"test-model","status":{"value":"loaded"}}]}`))
+		case "/v1/chat/completions":
+			var request ChatRequest
+			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+				t.Fatal(err)
+			}
+			requests = append(requests, request)
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"answer"}}]}`))
+		case "/props":
+			_, _ = w.Write([]byte(`{"total_slots":1}`))
+		case "/slots":
+			_, _ = w.Write([]byte(`[]`))
+		case "/metrics":
+			_, _ = w.Write([]byte(""))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewClient(context.Background(), srv.URL)
+	if err := client.loadModel(context.Background(), "test-model"); err != nil {
+		t.Fatalf("loadModel failed: %v", err)
+	}
+	snapshot, err := client.GenerateSnapshot(context.Background(), &ChatRequest{
+		Model:    "test-model",
+		Messages: []Message{{Role: "user", Content: "real question"}},
+	})
+	if err != nil {
+		t.Fatalf("GenerateSnapshot failed: %v", err)
+	}
+	if len(requests) != 2 || len(requests[0].Messages) != 1 || requests[0].Messages[0].Content != "1" || requests[0].MaxTokens == nil || *requests[0].MaxTokens != 1 {
+		t.Fatalf("unexpected warmup/request sequence: %#v", requests)
+	}
+	if len(snapshot.Messages) != 2 || snapshot.Messages[0].Content != "real question" || snapshot.Messages[1].Content != "answer" || len(snapshot.Interaction) != 1 {
+		t.Fatalf("warmup affected session snapshot: %#v", snapshot)
 	}
 }
 

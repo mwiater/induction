@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -30,6 +31,18 @@ type ClientOptions struct {
 	enableLiveMetricsOverlay bool
 	// liveMetricsOverlay shares a caller-owned overlay across a compound request.
 	liveMetricsOverlay *liveMetricsOverlay
+	// initialChatPrompt is inserted into the console input when the initial
+	// model load completes.
+	initialChatPrompt string
+	// initialChatPromptAutoSubmit submits initialChatPrompt after it is inserted.
+	initialChatPromptAutoSubmit bool
+	// autoExitAfterInitialChat exits after the automated turn's session save.
+	autoExitAfterInitialChat bool
+	// mcpTools marks snapshots produced by the configured MCP tool loop.
+	mcpTools               bool
+	mcpToolNames           []string
+	applicationToolHandler ApplicationToolHandler
+	applicationToolChain   ApplicationToolChain
 }
 
 // Logger is the logging contract used by Induction. The standard library's
@@ -49,6 +62,9 @@ type Client struct {
 	opts *ClientOptions
 	// loadedModel caches the last observed loaded model name.
 	loadedModel atomic.Pointer[string]
+	// pendingModelLoadDurations carries explicit load operations to the next
+	// snapshot client, including clients created by withoutLiveMetricsOverlay.
+	pendingModelLoadDurations *sync.Map
 	// runtimeMu serializes lifecycle mutations issued by this client.
 	runtimeMu sync.Mutex
 }
@@ -69,8 +85,9 @@ func NewClient(ctx context.Context, endpoint string, options ...ClientOption) *C
 	}
 
 	c := &Client{
-		endpoint: endpoint,
-		opts:     opts,
+		endpoint:                  endpoint,
+		opts:                      opts,
+		pendingModelLoadDurations: &sync.Map{},
 	}
 
 	empty := ""
@@ -90,11 +107,12 @@ func (c *Client) GenerateSnapshot(ctx context.Context, req *ChatRequest) (*Model
 	}
 
 	snapshot := &ModelSnapshot{
-		ModelID:     req.Model,
-		LoadTime:    loadTime,
-		CollectedAt: time.Now(),
-		Messages:    cloneMessages(req.Messages),
+		ModelID:       req.Model,
+		ModelLoadTime: loadTime,
+		CollectedAt:   time.Now(),
+		Messages:      cloneMessages(req.Messages),
 	}
+	initializeSnapshotMetadataForMCPWithNames(snapshot, req, c.opts.mcpTools, c.opts.mcpToolNames)
 
 	monitor := c.startInferenceMonitor(ctx, req.Model, true)
 
@@ -165,7 +183,8 @@ func (c *Client) GenerateStreamingSnapshot(ctx context.Context, req *ChatRequest
 	if err != nil {
 		return nil, fmt.Errorf("gatekeeper check failed: %w", err)
 	}
-	snapshot := &ModelSnapshot{ModelID: req.Model, LoadTime: loadTime, CollectedAt: time.Now(), Messages: cloneMessages(req.Messages)}
+	snapshot := &ModelSnapshot{ModelID: req.Model, ModelLoadTime: loadTime, CollectedAt: time.Now(), Messages: cloneMessages(req.Messages)}
+	initializeSnapshotMetadataForMCPWithNames(snapshot, req, c.opts.mcpTools, c.opts.mcpToolNames)
 	monitor := c.startInferenceMonitor(ctx, req.Model, true)
 	var content, reasoning strings.Builder
 	chunks := make([]InferenceStreamChunk, 0)
@@ -250,19 +269,15 @@ func (c *Client) pollSlots(ctx context.Context, model string, overlay *liveMetri
 
 // loadModel asks the server to begin loading model before the first inference.
 func (c *Client) loadModel(ctx context.Context, model string) error {
-	// Runtime status is authoritative for lifecycle state. The OpenAI model
-	// listing does not consistently expose loaded state on all server builds.
-	if status, err := c.GetRuntimeStatus(ctx); err == nil {
-		for _, runtimeModel := range status.Models {
-			if runtimeModel.ID == model && runtimeModel.State == ModelRuntimeLoaded {
-				c.loadedModel.Store(&model)
-				return nil
-			}
-		}
-	}
-	if loaded, err := c.modelIsLoaded(ctx, model); err == nil && loaded {
+	start := time.Now()
+	// Only the client's own cache can prove that this client already loaded the
+	// target. A fresh client must issue an explicit load request: some servers
+	// report installed/known models as "loaded" even when max_models=1 has
+	// evicted the model from memory.
+	current := c.loadedModel.Load()
+	if current != nil && *current == model {
 		c.loadedModel.Store(&model)
-		return nil
+		return c.warmupModel(ctx, model)
 	}
 
 	payload, err := json.Marshal(map[string]string{"model": model})
@@ -279,6 +294,15 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 		return fmt.Errorf("load model request failed: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		// Older or proxy-style servers may not implement explicit model loads.
+		// Retain compatibility when the target is already resident according to
+		// the legacy model listing.
+		if loaded, checkErr := c.modelIsLoaded(ctx, model); checkErr == nil && loaded {
+			c.loadedModel.Store(&model)
+			return c.warmupModel(ctx, model)
+		}
+	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("load model request returned %d", resp.StatusCode)
 	}
@@ -297,14 +321,16 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 			for _, runtimeModel := range status.Models {
 				if runtimeModel.ID == model && runtimeModel.State == ModelRuntimeLoaded {
 					c.loadedModel.Store(&model)
-					return nil
+					c.recordModelLoadDuration(model, time.Since(start))
+					return c.warmupModel(ctx, model)
 				}
 			}
 		}
 		loaded, checkErr := c.modelIsLoaded(ctx, model)
 		if checkErr == nil && loaded {
 			c.loadedModel.Store(&model)
-			return nil
+			c.recordModelLoadDuration(model, time.Since(start))
+			return c.warmupModel(ctx, model)
 		}
 		select {
 		case <-ctx.Done():
@@ -312,6 +338,29 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 		case <-ticker.C:
 		}
 	}
+}
+
+func (c *Client) recordModelLoadDuration(model string, duration time.Duration) {
+	if c.pendingModelLoadDurations == nil {
+		c.pendingModelLoadDurations = &sync.Map{}
+	}
+	c.pendingModelLoadDurations.Store(strings.TrimSpace(model), duration)
+}
+
+// warmupModel performs one deliberately minimal chat completion after a model
+// becomes ready. llama.cpp populates /slots only after inference has started,
+// so this primes the slot before the UI reads its model information.
+func (c *Client) warmupModel(ctx context.Context, model string) error {
+	maxTokens := 1
+	_, err := c.infer(ctx, &ChatRequest{
+		Model:     model,
+		Messages:  []Message{{Role: "user", Content: "1"}},
+		MaxTokens: &maxTokens,
+	})
+	if err != nil {
+		return fmt.Errorf("warm up model %q: %w", model, err)
+	}
+	return nil
 }
 
 func (c *Client) modelIsLoaded(ctx context.Context, model string) (bool, error) {
@@ -334,18 +383,46 @@ func (c *Client) logf(format string, args ...interface{}) {
 	}
 }
 
-// ensureModelLoaded records the requested model as the active target.
+// ensureModelLoaded loads the requested model when the server exposes its
+// lifecycle API and returns the measured load transition duration.
 func (c *Client) ensureModelLoaded(ctx context.Context, targetModel string) (time.Duration, error) {
-	start := time.Now()
 	targetModel = strings.TrimSpace(targetModel)
 	if targetModel == "" {
 		return 0, fmt.Errorf("request model is required")
 	}
+	if c.pendingModelLoadDurations != nil {
+		if value, ok := c.pendingModelLoadDurations.LoadAndDelete(targetModel); ok {
+			c.loadedModel.Store(&targetModel)
+			return value.(time.Duration), nil
+		}
+	}
 	current := c.loadedModel.Load()
 	if current != nil && *current == targetModel {
-		return time.Since(start), nil
+		return 0, nil
 	}
-	_ = ctx // inference keeps request-scoped, server-managed model selection.
+
+	// When the server exposes the runtime lifecycle API, use its measured
+	// operation duration. This is the actual load transition, rather than the
+	// time spent updating the client's local model cache.
+	operation, err := c.changeModelState(ctx, targetModel, ModelRuntimeLoaded)
+	if err == nil {
+		c.loadedModel.Store(&targetModel)
+		if operation.Changed {
+			return operation.Duration, nil
+		}
+		return 0, nil
+	}
+	if !runtimeLifecycleUnavailable(err) {
+		return 0, fmt.Errorf("load model %q: %w", targetModel, err)
+	}
+
+	// Older or proxy-style servers select models from the inference request and
+	// do not expose a lifecycle API. Preserve that compatibility, but do not
+	// claim a model-load duration that was not measured.
 	c.loadedModel.Store(&targetModel)
-	return time.Since(start), nil
+	return 0, nil
+}
+
+func runtimeLifecycleUnavailable(err error) bool {
+	return errors.Is(err, ErrRuntimeUnsupported) || strings.Contains(err.Error(), "models request failed:")
 }

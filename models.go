@@ -260,8 +260,25 @@ type MetricsData struct {
 type ModelSnapshot struct {
 	// ModelID identifies the model used for the snapshot.
 	ModelID string
-	// LoadTime records how long the load gate took before inference began.
-	LoadTime time.Duration
+	// InputType classifies the request input as text, image, or vision.
+	InputType string `json:"inputType"`
+	// OutputType classifies the requested output constraint.
+	OutputType string `json:"outputType"`
+	// ApplicationTools reports whether an application-managed tool was used.
+	ApplicationTools bool `json:"applicationTools"`
+	// MCPTools reports whether an MCP tool was used.
+	MCPTools                  bool     `json:"MCPTools"`
+	ApplicationToolsAvailable bool     `json:"applicationToolsAvailable"`
+	MCPToolsAvailable         bool     `json:"MCPToolsAvailable"`
+	ApplicationToolsUsed      bool     `json:"applicationToolsUsed"`
+	MCPToolsUsed              bool     `json:"MCPToolsUsed"`
+	MCPToolNames              []string `json:"MCPToolNames,omitempty"`
+	ApplicationToolUseOutcome string   `json:"applicationToolUseOutcome"`
+	MCPToolUseOutcome         string   `json:"MCPToolUseOutcome"`
+	// ModelLoadTime records the server-reported model load transition duration
+	// before inference began. It is zero when the model was already loaded or
+	// the server does not expose lifecycle timing.
+	ModelLoadTime time.Duration
 	// CollectedAt records when the snapshot was finished.
 	CollectedAt time.Time
 	// Interaction stores the inference responses represented by this snapshot.

@@ -116,7 +116,6 @@ func TestChatEntryPointRejectsInvalidArguments(t *testing.T) {
 		{"nil input", func() error { return InferChat(ctx, &ChatRequest{}, nil, io.Discard) }},
 		{"nil output", func() error { return InferChat(ctx, &ChatRequest{}, strings.NewReader(""), nil) }},
 		{"stream nil request", func() error { return InferStreamChat(ctx, nil, strings.NewReader(""), io.Discard) }},
-		{"snapshot nil request", func() error { _, err := InferSnapshotChat(ctx, nil, strings.NewReader(""), io.Discard); return err }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

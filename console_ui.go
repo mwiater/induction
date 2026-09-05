@@ -31,7 +31,6 @@ type consoleMode int
 const (
 	consoleNonStreaming consoleMode = iota
 	consoleStreaming
-	consoleSnapshot
 )
 
 type consoleMessage struct {
@@ -50,7 +49,11 @@ type consoleChunkMsg string
 type consoleOverlayMsg overlayUpdate
 type consoleMCPMsg string
 type consoleMCPActivityMsg string
-type consoleModelLoadedMsg struct{ err error }
+type consoleModelLoadedMsg struct {
+	err   error
+	props *PropsData
+	slots SlotsData
+}
 type consoleMonitorStartedMsg struct{ monitor *inferenceMonitor }
 
 type sessionViewMode int
@@ -75,6 +78,8 @@ type sessionListLoadedMsg struct {
 }
 type sessionLoadedMsg struct {
 	session *ChatSession
+	props   *PropsData
+	slots   SlotsData
 	err     error
 }
 type modelListLoadedMsg struct {
@@ -85,51 +90,58 @@ type modelLoadedMsg struct {
 	model    string
 	previous string
 	monitor  *inferenceMonitor
+	props    *PropsData
+	slots    SlotsData
 	err      error
 }
 
 type consoleModel struct {
-	ctx               context.Context
-	client            *Client
-	request           ChatRequest
-	timeout           time.Duration
-	mode              consoleMode
-	persistence       *snapshotSession
-	snapshots         []*ModelSnapshot
-	transcript        viewport.Model
-	sidebar           viewport.Model
-	input             textinput.Model
-	messages          []consoleMessage
-	slots             SlotsData
-	footer            string
-	mcpFooter         string
-	width             int
-	height            int
-	sidebarWidth      int
-	sidebarOpen       bool
-	waiting           bool
-	loading           bool
-	err               error
-	session           *ChatSession
-	sessionDirty      bool
-	sessionView       sessionViewMode
-	sessionTitleInput textinput.Model
-	sessionList       []ChatSessionSummary
-	sessionCursor     int
-	modelList         []RuntimeModel
-	modelCursor       int
-	modelLoading      string
-	mcpTools          []boundMCPTool
-	modelOverlay      *liveMetricsOverlay
-	modelMonitor      *inferenceMonitor
-	sessionStatus     string
-	sessionLoading    bool
-	exitSaving        bool
-	send              func(tea.Msg)
-	complete          func()
-	inferTurn         func(context.Context, *ChatRequest) (*InferenceResponse, error)
-	startMonitor      func() tea.Cmd
-	cancel            context.CancelFunc
+	ctx                      context.Context
+	client                   *Client
+	request                  ChatRequest
+	timeout                  time.Duration
+	mode                     consoleMode
+	snapshots                []*ModelSnapshot
+	transcript               viewport.Model
+	sidebar                  viewport.Model
+	input                    textinput.Model
+	messages                 []consoleMessage
+	slots                    SlotsData
+	footer                   string
+	mcpFooter                string
+	width                    int
+	height                   int
+	sidebarWidth             int
+	sidebarOpen              bool
+	waiting                  bool
+	loading                  bool
+	initialPrompt            string
+	autoSubmitInitialPrompt  bool
+	initialPromptApplied     bool
+	autoExitAfterInitialChat bool
+	err                      error
+	session                  *ChatSession
+	sessionDirty             bool
+	sessionView              sessionViewMode
+	sessionTitleInput        textinput.Model
+	sessionList              []ChatSessionSummary
+	sessionCursor            int
+	modelList                []RuntimeModel
+	modelCursor              int
+	modelLoading             string
+	mcpTools                 []boundMCPTool
+	modelOverlay             *liveMetricsOverlay
+	modelMonitor             *inferenceMonitor
+	props                    *PropsData
+	sessionStatus            string
+	sessionLoading           bool
+	exitSaving               bool
+	send                     func(tea.Msg)
+	complete                 func()
+	inferTurn                func(context.Context, *ChatRequest) (*InferenceResponse, error)
+	inferSnapshotTurn        func(context.Context, *ChatRequest) (*InferenceResponse, *ModelSnapshot, error)
+	startMonitor             func() tea.Cmd
+	cancel                   context.CancelFunc
 
 	mainUserPromptStyle         lipgloss.Style
 	mainAssistantReasoningStyle lipgloss.Style
@@ -188,6 +200,11 @@ func newConsoleModel(ctx context.Context, client *Client, request ChatRequest, t
 		mainErrorStyle:              defaultConsoleUITheme.mainError,
 		mcpActivityStyle:            defaultConsoleUITheme.mcpActivity,
 	}
+	if client != nil && client.opts != nil {
+		m.initialPrompt = client.opts.initialChatPrompt
+		m.autoSubmitInitialPrompt = client.opts.initialChatPromptAutoSubmit
+		m.autoExitAfterInitialChat = client.opts.autoExitAfterInitialChat
+	}
 	return m
 }
 
@@ -198,7 +215,13 @@ func (m consoleModel) Init() tea.Cmd {
 		}
 		loadCtx, cancel := context.WithTimeout(m.ctx, m.timeout)
 		defer cancel()
-		return consoleModelLoadedMsg{err: m.client.loadModel(loadCtx, m.request.Model)}
+		err := m.client.loadModel(loadCtx, m.request.Model)
+		if err != nil {
+			return consoleModelLoadedMsg{err: err}
+		}
+		props, _ := m.client.fetchProps(loadCtx, m.request.Model)
+		slots, _ := m.client.fetchSlots(loadCtx, m.request.Model)
+		return consoleModelLoadedMsg{props: props, slots: slots}
 	}
 	if m.startMonitor != nil {
 		// Subscribe to lifecycle events before asking the server to load the
@@ -223,6 +246,12 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, textinput.Blink
 		}
 		m.loading = false
+		m.props = msg.props
+		m.slots = msg.slots
+		if m.modelMonitor != nil {
+			m.modelMonitor.markModelReady()
+		}
+		m.refreshSidebar()
 		if m.modelOverlay != nil {
 			m.modelOverlay.ModelLoaded()
 		}
@@ -230,7 +259,8 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input.SetValue("")
 		m.input.Prompt = " " + renderWhiteIcon(DefaultUnicode.Star) + " You: "
 		m.input.Focus()
-		return m, textinput.Blink
+		cmd := m.applyInitialChatPrompt(textinput.Blink)
+		return m, cmd
 	case consoleMonitorStartedMsg:
 		m.modelMonitor = msg.monitor
 		return m, nil
@@ -298,7 +328,9 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds := []tea.Cmd{textinput.Blink}
 		if m.session != nil {
 			m.syncSessionFromRequest()
-			cmds = append(cmds, saveSessionCmd(m.session, false))
+			cmds = append(cmds, saveSessionCmd(m.session, m.autoExitAfterInitialChat))
+		} else if m.autoExitAfterInitialChat {
+			cmds = append(cmds, tea.Quit)
 		}
 		return m, tea.Batch(cmds...)
 	case sessionSavedMsg:
@@ -345,6 +377,8 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.request.Model = sessionMostRecentModel(msg.session)
+		m.props = msg.props
+		m.slots = msg.slots
 		m.request.Messages = cloneMessages(msg.session.Messages)
 		m.messages = consoleMessagesFromMessages(msg.session.Messages)
 		m.session = msg.session
@@ -384,16 +418,21 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.request.Model = msg.model
+		m.props = msg.props
+		m.slots = msg.slots
 		m.loading = false
 		m.input.Prompt = " " + renderWhiteIcon(DefaultUnicode.Star) + " You: "
 		m.footer = formatModelReadyPlain(msg.model)
 		m.modelMonitor = msg.monitor
+		if m.modelMonitor != nil {
+			m.modelMonitor.markModelReady()
+		}
 		m.sessionStatus = "Loaded model: " + msg.model
 		m.sessionView = sessionViewChat
 		m.input.Focus()
 		m.refreshSidebar()
-		m.refreshSidebar()
-		return m, textinput.Blink
+		cmd := m.applyInitialChatPrompt(textinput.Blink)
+		return m, cmd
 	case tea.KeyMsg:
 		key := msg.String()
 		if key == "ctrl+c" {
@@ -576,19 +615,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.input.Focused() && !m.loading {
 			switch msg.String() {
 			case "enter":
-				value := strings.TrimSpace(m.input.Value())
-				if value == "" || m.waiting {
-					return m, nil
-				}
-				m.input.SetValue("")
-				m.input.Blur()
-				m.err = nil
-				m.waiting = true
-				m.messages = append(m.messages, consoleMessage{role: "user", content: value})
-				m.request.Messages = append(m.request.Messages, Message{Role: "user", Content: value})
-				m.sessionDirty = true
-				m.refreshTranscript()
-				return m, m.runTurn(m.request)
+				return m, m.submitInput()
 			}
 		}
 	}
@@ -599,6 +626,37 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 	return m, nil
+}
+
+// applyInitialChatPrompt runs only once, after a model-ready event has
+// enabled the input. This keeps automated startup behavior aligned with the
+// normal user Enter path.
+func (m *consoleModel) applyInitialChatPrompt(blink tea.Cmd) tea.Cmd {
+	if m.initialPromptApplied || m.initialPrompt == "" {
+		return blink
+	}
+	m.initialPromptApplied = true
+	m.input.SetValue(m.initialPrompt)
+	if !m.autoSubmitInitialPrompt {
+		return blink
+	}
+	return tea.Batch(blink, m.submitInput())
+}
+
+func (m *consoleModel) submitInput() tea.Cmd {
+	value := strings.TrimSpace(m.input.Value())
+	if value == "" || m.waiting || m.loading {
+		return nil
+	}
+	m.input.SetValue("")
+	m.input.Blur()
+	m.err = nil
+	m.waiting = true
+	m.messages = append(m.messages, consoleMessage{role: "user", content: value})
+	m.request.Messages = append(m.request.Messages, Message{Role: "user", Content: value})
+	m.sessionDirty = true
+	m.refreshTranscript()
+	return m.runTurn(m.request)
 }
 
 func (m consoleModel) hasUnsavedSessionChanges() bool {
@@ -676,7 +734,16 @@ func loadModelCmd(client *Client, ctx context.Context, timeout time.Duration, mo
 		if err == nil && overlay != nil {
 			overlay.ModelLoaded()
 		}
-		return modelLoadedMsg{model: model, previous: previous, monitor: monitor, err: err}
+		var props *PropsData
+		var slots SlotsData
+		if err == nil {
+			props, _ = client.fetchProps(loadCtx, model)
+			slots, _ = client.fetchSlots(loadCtx, model)
+			if monitor != nil {
+				monitor.markModelReady()
+			}
+		}
+		return modelLoadedMsg{model: model, previous: previous, monitor: monitor, props: props, slots: slots, err: err}
 	}
 }
 
@@ -693,6 +760,9 @@ func loadSessionCmd(summary ChatSessionSummary, client *Client, ctx context.Cont
 			if err := client.loadModel(loadCtx, model); err != nil {
 				return sessionLoadedMsg{err: err}
 			}
+			props, _ := client.fetchProps(loadCtx, model)
+			slots, _ := client.fetchSlots(loadCtx, model)
+			return sessionLoadedMsg{session: session, props: props, slots: slots}
 		}
 		return sessionLoadedMsg{session: session}
 	}
@@ -702,6 +772,20 @@ func (m consoleModel) runTurn(request ChatRequest) tea.Cmd {
 	return func() tea.Msg {
 		turnCtx, cancel := context.WithTimeout(m.ctx, m.timeout)
 		defer cancel()
+		if m.client != nil && m.client.opts != nil && m.client.opts.applicationToolHandler != nil {
+			response, snapshot, err := runApplicationToolLoopWith(turnCtx, &request, m.client.opts.applicationToolHandler, m.client.opts.applicationToolChain, func(inferCtx context.Context, turn *ChatRequest) (*InferenceResponse, *ModelSnapshot, error) {
+				snapshot, err := m.client.withoutLiveMetricsOverlay(inferCtx).GenerateSnapshot(inferCtx, turn)
+				if err != nil {
+					return nil, snapshot, err
+				}
+				response, err := decodeSnapshotResponse(snapshot)
+				return response, snapshot, err
+			})
+			if err == nil && m.complete != nil {
+				m.complete()
+			}
+			return consoleTurnResult{content: inferenceResponseContent(response), snapshot: snapshot, model: request.Model, err: err}
+		}
 		switch m.mode {
 		case consoleStreaming:
 			reasoningOpen := false
@@ -743,21 +827,14 @@ func (m consoleModel) runTurn(request ChatRequest) tea.Cmd {
 				m.complete()
 			}
 			return consoleTurnResult{content: lastInteractionContent(snapshot), snapshot: snapshot, model: request.Model, err: err}
-		case consoleSnapshot:
-			snapshot, err := m.client.withoutLiveMetricsOverlay(turnCtx).GenerateSnapshot(turnCtx, &request)
-			content := ""
-			if snapshot != nil && len(snapshot.Interaction) > 0 {
-				content = snapshot.Interaction[len(snapshot.Interaction)-1].Content
-			}
-			if err == nil && m.persistence != nil {
-				all := append(append([]*ModelSnapshot(nil), m.snapshots...), snapshot)
-				err = m.persistence.save(all)
-			}
-			if err == nil && m.complete != nil {
-				m.complete()
-			}
-			return consoleTurnResult{content: content, snapshot: snapshot, model: request.Model, err: err}
 		default:
+			if m.inferSnapshotTurn != nil {
+				response, snapshot, err := m.inferSnapshotTurn(turnCtx, &request)
+				if err == nil && m.complete != nil {
+					m.complete()
+				}
+				return consoleTurnResult{content: inferenceResponseContent(response), snapshot: snapshot, model: request.Model, err: err}
+			}
 			if m.inferTurn != nil {
 				response, err := m.inferTurn(turnCtx, &request)
 				if err == nil && m.complete != nil {
@@ -884,6 +961,13 @@ var sidebarKeys = []string{
 
 func (m *consoleModel) refreshSidebar() {
 	fields := sidebarFields(m.slots)
+	if m.props != nil {
+		for key, value := range m.props.DefaultGenerationSettings {
+			if _, exists := fields[key]; !exists {
+				fields[key] = value
+			}
+		}
+	}
 	keys := append([]string(nil), sidebarKeys...)
 	sort.Strings(keys)
 	lines := make([]string, 0, len(keys)+1)
@@ -1095,20 +1179,12 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 	defer cancel()
 	model := newConsoleModel(runCtx, client, request, time.Duration(cfg.Timeout), cfg.SidebarWidth, mode)
 	model.cancel = cancel
-	if mode != consoleSnapshot {
-		model.session, err = newUnsavedChatSession(request)
-		if err == nil {
-			err = saveChatSession(model.session)
-		}
-		if err != nil {
-			return nil, err
-		}
+	model.session, err = newUnsavedChatSession(request)
+	if err == nil {
+		err = saveChatSession(model.session)
 	}
-	if mode == consoleSnapshot && cfg.PersistSnapshots {
-		model.persistence, err = newSnapshotSession(request.Model)
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
 	}
 
 	var program *tea.Program
@@ -1170,6 +1246,7 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 	}
 
 	client := newClientFromConfig(ctx, cfg, append(options, WithLiveMetricsOverlay(false))...)
+	client.opts.mcpTools = true
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	model := newConsoleModel(runCtx, client, request, timeout, cfg.SidebarWidth, consoleNonStreaming)
@@ -1183,6 +1260,7 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 	}
 	model.mcpFooter = fmt.Sprintf("  [Induction: MCP] %d tools available ", len(tools))
 	model.mcpTools = tools
+	client.opts.mcpToolNames = mcpToolNames(tools)
 
 	var program *tea.Program
 	var monitor *inferenceMonitor
@@ -1194,10 +1272,31 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 			}
 		}
 	}
-	model.inferTurn = func(turnCtx context.Context, turn *ChatRequest) (*InferenceResponse, error) {
-		return runMCPToolLoopWith(turnCtx, turn, tools, timeout, approve, status, func(inferCtx context.Context, toolTurn *ChatRequest) (*InferenceResponse, error) {
-			return client.infer(inferCtx, toolTurn)
+	model.inferSnapshotTurn = func(turnCtx context.Context, turn *ChatRequest) (*InferenceResponse, *ModelSnapshot, error) {
+		var finalSnapshot *ModelSnapshot
+		var modelLoadTime time.Duration
+		response, err := runMCPToolLoopWith(turnCtx, turn, tools, timeout, approve, status, func(inferCtx context.Context, toolTurn *ChatRequest) (*InferenceResponse, error) {
+			snapshot, err := client.withoutLiveMetricsOverlay(inferCtx).GenerateSnapshot(inferCtx, toolTurn)
+			if err != nil {
+				return nil, err
+			}
+			if snapshot == nil || len(snapshot.Interaction) == 0 {
+				return nil, fmt.Errorf("MCP snapshot contains no interaction")
+			}
+			if snapshot.ModelLoadTime > modelLoadTime {
+				modelLoadTime = snapshot.ModelLoadTime
+			}
+			if snapshot.ModelLoadTime == 0 {
+				snapshot.ModelLoadTime = modelLoadTime
+			}
+			var response InferenceResponse
+			if err := json.Unmarshal([]byte(snapshot.Interaction[len(snapshot.Interaction)-1].Response), &response); err != nil {
+				return nil, fmt.Errorf("decode MCP snapshot response: %w", err)
+			}
+			finalSnapshot = snapshot
+			return &response, nil
 		})
+		return response, finalSnapshot, err
 	}
 
 	overlay := &liveMetricsOverlay{startedAt: time.Now(), model: request.Model, notify: func(update overlayUpdate) {

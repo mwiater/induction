@@ -49,7 +49,19 @@ func InferChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.Write
 	return runChatSession(ctx, in, out, &request, func(turn *ChatRequest) (string, error) {
 		turnCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		snapshot, err := snapshotClient.GenerateSnapshot(turnCtx, turn)
+		var snapshot *ModelSnapshot
+		if client.opts.applicationToolHandler != nil {
+			_, snapshot, err = runApplicationToolLoopWith(turnCtx, turn, client.opts.applicationToolHandler, client.opts.applicationToolChain, func(inferCtx context.Context, toolTurn *ChatRequest) (*InferenceResponse, *ModelSnapshot, error) {
+				toolSnapshot, inferErr := snapshotClient.GenerateSnapshot(inferCtx, toolTurn)
+				if inferErr != nil {
+					return nil, toolSnapshot, inferErr
+				}
+				response, decodeErr := decodeSnapshotResponse(toolSnapshot)
+				return response, toolSnapshot, decodeErr
+			})
+		} else {
+			snapshot, err = snapshotClient.GenerateSnapshot(turnCtx, turn)
+		}
 		if err != nil {
 			session.Messages = cloneMessages(turn.Messages)
 			_ = saveChatSession(session)
@@ -159,76 +171,18 @@ func InferStreamChat(ctx context.Context, req *ChatRequest, in io.Reader, out io
 	})
 }
 
-// InferSnapshotChat runs a multi-turn, non-streaming chat session and returns
-// one telemetry snapshot for every completed assistant response. The returned
-// slice remains available when the session ends through cancellation or EOF.
-func InferSnapshotChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.Writer, options ...ClientOption) ([]*ModelSnapshot, error) {
-	if req == nil {
-		return nil, fmt.Errorf("request is nil")
-	}
-	if in == nil {
-		return nil, fmt.Errorf("input reader is nil")
-	}
-	if out == nil {
-		return nil, fmt.Errorf("output writer is nil")
-	}
-	if canRunConsole(in, out) {
-		return runConsoleChat(ctx, req, in, out, consoleSnapshot, options...)
-	}
-
-	client, request, monitor, timeout, err := startChatMonitor(ctx, req, options...)
-	if err != nil {
-		return nil, err
-	}
-	defer monitor.stopKeepingOverlay()
-	snapshotClient := client.withoutLiveMetricsOverlay(ctx)
-	cfg, err := LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	var persistence *snapshotSession
-	if cfg.PersistSnapshots {
-		persistence, err = newSnapshotSession(request.Model)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var snapshots []*ModelSnapshot
-	err = runChatSession(ctx, in, out, &request, func(turn *ChatRequest) (string, error) {
-		turnCtx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-		snapshot, err := snapshotClient.GenerateSnapshot(turnCtx, turn)
-		if err != nil {
-			return "", err
-		}
-		monitor.overlay.Complete()
-		snapshots = append(snapshots, snapshot)
-		if persistence != nil {
-			if err := persistence.save(snapshots); err != nil {
-				return "", err
-			}
-		}
-		content := ""
-		if len(snapshot.Interaction) > 0 {
-			content = snapshot.Interaction[len(snapshot.Interaction)-1].Content
-		}
-		if _, err := fmt.Fprintln(out, content); err != nil {
-			return "", fmt.Errorf("write assistant response: %w", err)
-		}
-		return content, nil
-	})
-	return snapshots, err
-}
-
 func (c *Client) withoutLiveMetricsOverlay(ctx context.Context) *Client {
-	return NewClient(ctx, c.endpoint,
+	client := NewClient(ctx, c.endpoint,
 		WithHTTPClient(c.opts.httpClient),
 		WithPollInterval(c.opts.pollInterval),
 		WithLoadWaitInterval(c.opts.loadWaitInterval),
 		WithLogger(c.opts.logger),
 		WithLiveMetricsOverlay(false),
+		func(o *ClientOptions) { o.mcpTools = c.opts.mcpTools },
+		func(o *ClientOptions) { o.mcpToolNames = append([]string(nil), c.opts.mcpToolNames...) },
 	)
+	client.pendingModelLoadDurations = c.pendingModelLoadDurations
+	return client
 }
 
 func startChatMonitor(ctx context.Context, req *ChatRequest, options ...ClientOption) (*Client, ChatRequest, *inferenceMonitor, time.Duration, error) {

@@ -10,85 +10,176 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mwiater/induction"
 )
 
-var infer = induction.Infer
+var inferChat = induction.InferApplicationToolsChat
+var fatal = log.Fatal
 
-type weatherArguments struct {
-	City string `json:"city"`
+const (
+	systemTimeTool = "current_system_date_time"
+	diskSpaceTool  = "current_free_disk_space"
+	freeRAMTool    = "current_free_ram"
+)
+
+var applicationTools = []induction.Tool{
+	localTool(systemTimeTool, "Return the current system date and time.", nil),
+	localTool(diskSpaceTool, "Return the free space remaining on the root filesystem at /. Include bytes and percentage of total.", nil),
+	localTool(freeRAMTool, "Return the currently available system RAM. Include bytes and percentage of total.", nil),
 }
 
-var weatherTool = induction.Tool{Type: "function", Function: induction.ToolFunction{
-	Name: "get_weather", Description: "Get the current weather for a city.",
-	Parameters: map[string]any{"type": "object", "properties": map[string]any{
-		"city": map[string]any{"type": "string", "description": "City name"},
-	}, "required": []string{"city"}, "additionalProperties": false},
-}}
+func localTool(name, description string, properties any) induction.Tool {
+	if properties == nil {
+		properties = map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false}
+	}
+	return induction.Tool{Type: "function", Function: induction.ToolFunction{Name: name, Description: description, Parameters: properties}}
+}
 
 func request(model string, messages []induction.Message) *induction.ChatRequest {
-	return &induction.ChatRequest{Model: model, Messages: messages, Tools: []induction.Tool{weatherTool}, ToolChoice: "auto"}
+	return &induction.ChatRequest{Model: model, Messages: messages, Tools: applicationTools, ToolChoice: "auto"}
 }
 
 func run(ctx context.Context, model string, out io.Writer) error {
-	messages := []induction.Message{{Role: "user", Content: "What is the weather in Paris?"}}
-	first, err := infer(ctx, request(model, messages))
-	if err != nil {
-		return fmt.Errorf("initial inference: %w", err)
-	}
-	if len(first.Choices) == 0 || first.Choices[0].Message == nil {
-		return errors.New("model returned no assistant message")
-	}
-	assistant := first.Choices[0].Message
-	if len(assistant.ToolCalls) == 0 {
-		return errors.New("model did not request get_weather")
-	}
-	messages = append(messages, induction.Message{Role: "assistant", Content: assistant.Content, ToolCalls: assistant.ToolCalls})
-	for _, call := range assistant.ToolCalls {
-		if call.Function.Name != weatherTool.Function.Name {
-			return fmt.Errorf("unknown function %q", call.Function.Name)
-		}
-		var args weatherArguments
-		decoder := json.NewDecoder(strings.NewReader(call.Function.Arguments))
-		if err := decoder.Decode(&args); err != nil || strings.TrimSpace(args.City) == "" {
-			return fmt.Errorf("invalid get_weather arguments: %q", call.Function.Arguments)
-		}
-		result, err := getWeather(args)
-		if err != nil {
-			return err
-		}
-		messages = append(messages, induction.Message{Role: "tool", ToolCallID: call.ID, Name: call.Function.Name, Content: result})
-	}
-	final, err := infer(ctx, request(model, messages))
-	if err != nil {
-		return fmt.Errorf("final inference: %w", err)
-	}
-	if len(final.Choices) == 0 || final.Choices[0].Message == nil || strings.TrimSpace(final.Choices[0].Message.Content) == "" {
-		return errors.New("final response has no textual content")
-	}
-	_, err = fmt.Fprintln(out, final.Choices[0].Message.Content)
-	return err
+	return runWithOptions(ctx, model, os.Stdin, out, "", false, false)
 }
 
-func getWeather(args weatherArguments) (string, error) {
-	if strings.EqualFold(strings.TrimSpace(args.City), "paris") {
-		return "Paris: sunny, 18°C.", nil
+func runWithOptions(ctx context.Context, model string, in io.Reader, out io.Writer, prompt string, autosubmit, autoexit bool) error {
+	options := []induction.ClientOption{induction.WithInitialChatPrompt(prompt, autosubmit), induction.WithAutoExitAfterInitialChat(autoexit)}
+	options = append(options, induction.WithApplicationToolChain(chainApplicationToolCalls))
+	if err := inferChat(ctx, request(model, nil), in, out, func(toolCtx context.Context, name, _ string) (string, error) {
+		return runLocalTool(toolCtx, name)
+	}, options...); err != nil {
+		return fmt.Errorf("chat with local tools: %w", err)
 	}
-	return "Weather unavailable for " + args.City + ".", nil
+	return nil
+}
+
+func chainApplicationToolCalls(calls []induction.InferenceToolCall) []induction.InferenceToolCall {
+	if len(calls) > 0 && !requestsTool(calls, systemTimeTool) {
+		return append(calls, induction.InferenceToolCall{ID: "auto-" + systemTimeTool, Type: "function", Function: induction.InferenceFunctionCall{Name: systemTimeTool, Arguments: "{}"}})
+	}
+	return calls
+}
+
+func requestsTool(calls []induction.InferenceToolCall, name string) bool {
+	for _, call := range calls {
+		if call.Function.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func runLocalTool(ctx context.Context, name string) (string, error) {
+	switch name {
+	case systemTimeTool:
+		return jsonResult(map[string]any{"date_time": time.Now().Format(time.RFC3339), "timezone": time.Now().Location().String()})
+	case diskSpaceTool:
+		return diskSpace(ctx)
+	case freeRAMTool:
+		return freeRAM(ctx)
+	default:
+		return "", fmt.Errorf("unknown local tool %q", name)
+	}
+}
+
+func jsonResult(value any) (string, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return "", fmt.Errorf("encode local tool result: %w", err)
+	}
+	return string(encoded), nil
+}
+
+func diskSpace(ctx context.Context) (string, error) {
+	output, err := exec.CommandContext(ctx, "df", "-Pk", "/").Output()
+	if err != nil {
+		return "", fmt.Errorf("run df for /: %w", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) < 2 {
+		return "", errors.New("df returned no filesystem data for /")
+	}
+	fields := strings.Fields(lines[len(lines)-1])
+	if len(fields) < 5 {
+		return "", fmt.Errorf("unexpected df output: %q", lines[len(lines)-1])
+	}
+	total, err := strconv.ParseUint(fields[1], 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("parse df total: %w", err)
+	}
+	available, err := strconv.ParseUint(fields[3], 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("parse df available: %w", err)
+	}
+	return jsonResult(map[string]any{"path": "/", "total_bytes": total * 1024, "available_bytes": available * 1024, "available_percent": percent(available, total), "total": humanBytes(total * 1024), "available": humanBytes(available * 1024)})
+}
+
+func freeRAM(ctx context.Context) (string, error) {
+	output, err := exec.CommandContext(ctx, "free", "-b").Output()
+	if err != nil {
+		return "", fmt.Errorf("run free: %w", err)
+	}
+	for _, line := range strings.Split(string(output), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 7 && fields[0] == "Mem:" {
+			total, err1 := strconv.ParseUint(fields[1], 10, 64)
+			available, err2 := strconv.ParseUint(fields[6], 10, 64)
+			if err1 != nil || err2 != nil {
+				return "", fmt.Errorf("parse free output: %q", line)
+			}
+			return jsonResult(map[string]any{"total_bytes": total, "available_bytes": available, "available_percent": percent(available, total), "total": humanBytes(total), "available": humanBytes(available)})
+		}
+	}
+	return "", fmt.Errorf("free returned no Mem data: %q", string(output))
+}
+
+func percent(value, total uint64) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(value) * 100 / float64(total)
+}
+
+func humanBytes(value uint64) string {
+	const unit = 1024.0
+	amount := float64(value)
+	units := []string{"B", "KiB", "MiB", "GiB", "TiB"}
+	i := 0
+	for amount >= unit && i < len(units)-1 {
+		amount /= unit
+		i++
+	}
+	return fmt.Sprintf("%.2f %s", amount, units[i])
 }
 
 func main() {
-	model := flag.String("model", "", "model ID to use for inference (required)")
-	flag.Parse()
+	flags := flag.NewFlagSet("infer_tools", flag.ExitOnError)
+	model := flags.String("model", "", "model ID to use for inference (required)")
+	prompt := flags.String("prompt", "", "initial user prompt")
+	autosubmit := flags.Bool("autosubmit", false, "submit --prompt automatically after the model is ready")
+	autoexit := flags.Bool("autoexit", false, "exit after the automated response and session save")
+	flags.Parse(os.Args[1:])
 	if *model == "" {
-		log.Fatal("missing required --model flag")
+		fatal("missing required --model flag")
+		return
+	}
+	if *autosubmit && strings.TrimSpace(*prompt) == "" {
+		fatal("--autosubmit requires --prompt with non-empty text")
+		return
+	}
+	if *autoexit && !*autosubmit {
+		fatal("--autoexit requires --autosubmit")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	if err := run(ctx, *model, os.Stdout); err != nil {
-		log.Fatal(err)
+	if err := runWithOptions(ctx, *model, os.Stdin, os.Stdout, *prompt, *autosubmit, *autoexit); err != nil {
+		fatal(err)
 	}
 }

@@ -1,7 +1,9 @@
+.sessions/
+data/dashboard/session_metrics.json
 coverage.out
 dist/
 examples/induction.log
 induction-model-manager.log
 induction.log
-.sessions/
 induction.yaml
+TO_DO.md

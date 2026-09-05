@@ -102,6 +102,23 @@ func TestConsoleInitialModelLoadMarksOverlayReady(t *testing.T) {
 	}
 }
 
+func TestConsoleInitialModelLoadRefreshesSidebarFromProps(t *testing.T) {
+	m := newConsoleModel(context.Background(), nil, ChatRequest{Model: "model"}, 0, 32, consoleNonStreaming)
+	updated, _ := m.Update(consoleModelLoadedMsg{props: &PropsData{DefaultGenerationSettings: map[string]interface{}{
+		"n_ctx":       float64(4096),
+		"temperature": float64(0.7),
+	}}})
+	m = updated.(consoleModel)
+	m.width, m.height = 90, 30
+	m.resize()
+	content := m.sidebar.View()
+	for _, want := range []string{"n_ctx: 4096", "temperature: 0.7"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("sidebar does not contain startup model parameter %q: %q", want, content)
+		}
+	}
+}
+
 func TestConsoleOverlayReadyEnablesInput(t *testing.T) {
 	m := newConsoleModel(context.Background(), nil, ChatRequest{Model: "model"}, time.Second, 24, consoleNonStreaming)
 	updated, _ := m.Update(consoleOverlayMsg(overlayUpdate{
@@ -116,6 +133,32 @@ func TestConsoleOverlayReadyEnablesInput(t *testing.T) {
 	m = updated.(consoleModel)
 	if m.input.Value() != "x" {
 		t.Fatalf("ready chat input did not accept text: %q", m.input.Value())
+	}
+}
+
+func TestConsoleInitialPromptIsFilledAfterModelReady(t *testing.T) {
+	client := NewClient(context.Background(), "http://server", WithInitialChatPrompt("hello", false))
+	m := newConsoleModel(context.Background(), client, ChatRequest{Model: "model"}, 0, 24, consoleNonStreaming)
+	updated, _ := m.Update(consoleModelLoadedMsg{})
+	m = updated.(consoleModel)
+	if m.input.Value() != "hello" || !m.input.Focused() || m.waiting {
+		t.Fatalf("initial prompt was not left in the ready input: value=%q focused=%v waiting=%v", m.input.Value(), m.input.Focused(), m.waiting)
+	}
+}
+
+func TestConsoleInitialPromptCanBeAutosubmittedAfterModelReady(t *testing.T) {
+	client := NewClient(context.Background(), "http://server", WithInitialChatPrompt("hello", true))
+	m := newConsoleModel(context.Background(), client, ChatRequest{Model: "model"}, time.Second, 24, consoleNonStreaming)
+	m.inferTurn = func(context.Context, *ChatRequest) (*InferenceResponse, error) {
+		return &InferenceResponse{Choices: []InferenceChoice{{Text: "answer"}}}, nil
+	}
+	updated, cmd := m.Update(consoleModelLoadedMsg{})
+	m = updated.(consoleModel)
+	if m.input.Value() != "" || !m.waiting || len(m.request.Messages) != 1 || m.request.Messages[0].Content != "hello" {
+		t.Fatalf("initial prompt was not submitted: value=%q waiting=%v messages=%#v", m.input.Value(), m.waiting, m.request.Messages)
+	}
+	if cmd == nil {
+		t.Fatal("autosubmit did not return an inference command")
 	}
 }
 

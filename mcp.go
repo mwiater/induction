@@ -65,7 +65,16 @@ func InferMCPWithApproval(ctx context.Context, req *ChatRequest, approve MCPAppr
 		return nil, err
 	}
 	updateMCPStatus(options, fmt.Sprintf("  [Induction: MCP] %d tools available ", len(bound)))
+	options = append(options, withMCPTools(mcpToolNames(bound)...))
 	return runMCPToolLoop(ctx, req, bound, timeout, approve, options...)
+}
+
+func mcpToolNames(tools []boundMCPTool) []string {
+	names := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		names = append(names, tool.tool.Name)
+	}
+	return names
 }
 
 func prepareMCPOverlay(ctx context.Context, cfg *Config, model string, options []ClientOption) (*liveMetricsOverlay, []ClientOption, bool) {

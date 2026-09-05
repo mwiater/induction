@@ -170,7 +170,11 @@ func (c *Client) ServerRole(ctx context.Context) (ServerRole, error) {
 
 // LoadModel asks the server to load model and waits for its resulting state.
 func (c *Client) LoadModel(ctx context.Context, model string) (*RuntimeOperation, error) {
-	return c.changeModelState(ctx, model, ModelRuntimeLoaded)
+	operation, err := c.changeModelState(ctx, model, ModelRuntimeLoaded)
+	if err == nil && operation.Changed {
+		c.recordModelLoadDuration(model, operation.Duration)
+	}
+	return operation, err
 }
 
 // LoadModel asks endpoint to load model using a convenience client.

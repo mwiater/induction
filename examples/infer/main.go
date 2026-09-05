@@ -1,110 +1,80 @@
-// Command infer demonstrates the default, streaming, chat, and snapshot
-// inference output modes.
+// Command infer demonstrates a streaming chat session.
 package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/mwiater/induction"
 )
 
-const (
-	modeDefault  = "default"
-	modeStream   = "stream"
-	modeChat     = "chat"
-	modeSnapshot = "snapshot"
-)
-
 var systemPrompt = "You are a precise technical assistant."
-var userPrompt = "Explain the purpose of an atomic pointer in Go in two detailed paragraphs."
-
-var infer = induction.Infer
-var inferStream = induction.InferStream
-var inferStreamChat = induction.InferStreamChat
-var inferSnapshot = induction.InferSnapshot
+var inferChat = induction.InferStreamChat
 var runMain = run
 var fatal = log.Fatal
 
-func request(model string, includeUserPrompt bool) *induction.ChatRequest {
-	messages := []induction.Message{{Role: "system", Content: systemPrompt}}
-	if includeUserPrompt {
-		messages = append(messages, induction.Message{Role: "user", Content: userPrompt})
-	}
-	return &induction.ChatRequest{Model: model, Messages: messages}
+func request(model string) *induction.ChatRequest {
+	return &induction.ChatRequest{Model: model, Messages: []induction.Message{{Role: "system", Content: systemPrompt}}}
 }
 
-func encode(out io.Writer, value any) error {
-	encoder := json.NewEncoder(out)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(value)
+func run(ctx context.Context, model string, in io.Reader, out io.Writer) error {
+	return runWithOptions(ctx, model, in, out, "", false, false)
 }
 
-func run(ctx context.Context, model, mode string, in io.Reader, out io.Writer) error {
-	switch mode {
-	case modeDefault:
-		response, err := infer(ctx, request(model, true))
-		if err != nil {
-			return fmt.Errorf("infer: %w", err)
-		}
-		if err := encode(out, response); err != nil {
-			return fmt.Errorf("encode response: %w", err)
-		}
-		return nil
-	case modeStream:
-		if err := inferStream(ctx, request(model, true), out); err != nil {
-			return fmt.Errorf("infer stream: %w", err)
-		}
-		return nil
-	case modeChat:
-		if _, err := fmt.Fprintln(out, "Ask me anything. Press Ctrl-C to end the chat."); err != nil {
-			return fmt.Errorf("write chat prompt: %w", err)
-		}
-		if err := inferStreamChat(ctx, request(model, false), in, out); err != nil {
-			return fmt.Errorf("infer chat: %w", err)
-		}
-		return nil
-	case modeSnapshot:
-		snapshot, err := inferSnapshot(ctx, request(model, true))
-		if err != nil {
-			return fmt.Errorf("infer snapshot: %w", err)
-		}
-		if err := encode(out, snapshot); err != nil {
-			return fmt.Errorf("encode snapshot: %w", err)
-		}
-		return nil
-	default:
-		return fmt.Errorf("unsupported mode %q (choose default, stream, chat, or snapshot)", mode)
+func runWithOptions(ctx context.Context, model string, in io.Reader, out io.Writer, prompt string, autosubmit, autoexit bool) error {
+	if _, err := fmt.Fprintln(out, "Ask me anything. Press Ctrl-C to end the chat."); err != nil {
+		return fmt.Errorf("write chat prompt: %w", err)
 	}
+	options := []induction.ClientOption(nil)
+	if prompt != "" {
+		options = append(options, induction.WithInitialChatPrompt(prompt, autosubmit))
+	}
+	if autoexit {
+		options = append(options, induction.WithAutoExitAfterInitialChat(true))
+	}
+	if err := inferChat(ctx, request(model), in, out, options...); err != nil {
+		return fmt.Errorf("infer chat: %w", err)
+	}
+	return nil
+}
+
+func parseArgs(args []string) (string, string, bool, bool, error) {
+	flags := flag.NewFlagSet("infer", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	model := flags.String("model", "", "model ID to use for inference (required)")
+	prompt := flags.String("prompt", "", "initial user prompt")
+	autosubmit := flags.Bool("autosubmit", false, "submit --prompt automatically after the model is ready")
+	autoexit := flags.Bool("autoexit", false, "exit after the automated response and session save")
+	if err := flags.Parse(args); err != nil {
+		return "", "", false, false, err
+	}
+	if *model == "" {
+		return "", "", false, false, fmt.Errorf("missing required --model flag")
+	}
+	if *autosubmit && strings.TrimSpace(*prompt) == "" {
+		return "", "", false, false, fmt.Errorf("--autosubmit requires --prompt with non-empty text")
+	}
+	if *autoexit && !*autosubmit {
+		return "", "", false, false, fmt.Errorf("--autoexit requires --autosubmit")
+	}
+	return *model, *prompt, *autosubmit, *autoexit, nil
 }
 
 func main() {
-	mode := flag.String("mode", modeDefault, "output mode: default, stream, chat, or snapshot")
-	model := flag.String("model", "", "model ID to use for inference (required)")
-	flag.Parse()
-	if *model == "" {
-		fatal("missing required --model flag")
+	model, prompt, autosubmit, autoexit, err := parseArgs(os.Args[1:])
+	if err != nil {
+		fatal(err)
 		return
 	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-
-	fmt.Println()
-	fmt.Println("System Prompt:", systemPrompt)
-	fmt.Println("User Prompt:  ", userPrompt)
-	fmt.Println("Model:        ", *model)
-	fmt.Println()
-
-	err := runMain(ctx, *model, *mode, os.Stdin, os.Stdout)
-	induction.Cleanup(os.Stdout)
-	if err != nil {
+	if err := runWithOptions(ctx, model, os.Stdin, os.Stdout, prompt, autosubmit, autoexit); err != nil {
 		fatal(err)
 	}
 }

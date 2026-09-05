@@ -29,10 +29,6 @@ func Cleanup(out io.Writer) {
 	if len(overlays) > 0 {
 		_, _ = fmt.Fprintln(out, "Removing: Live Metrics Overlay")
 	}
-	_, err := cleanupNullSnapshotSessions()
-	if err != nil {
-		_, _ = fmt.Fprintln(out, "Session cleanup failed:", err)
-	}
 	_, _ = fmt.Fprintln(out, "Cleanup: Complete")
 }
 

@@ -42,6 +42,43 @@ func WithLogger(logger Logger) ClientOption {
 	}
 }
 
+// WithInitialChatPrompt pre-fills the console chat input after the initial
+// model is ready. If autoSubmit is true, the prompt is submitted immediately
+// using the same path as pressing Enter.
+func WithInitialChatPrompt(prompt string, autoSubmit bool) ClientOption {
+	return func(o *ClientOptions) {
+		o.initialChatPrompt = prompt
+		o.initialChatPromptAutoSubmit = autoSubmit
+	}
+}
+
+// WithAutoExitAfterInitialChat exits the console after the automated initial
+// chat turn and its session snapshot have been saved.
+func WithAutoExitAfterInitialChat(enabled bool) ClientOption {
+	return func(o *ClientOptions) {
+		o.autoExitAfterInitialChat = enabled
+	}
+}
+
+func withMCPTools(names ...string) ClientOption {
+	return func(o *ClientOptions) {
+		o.mcpTools = true
+		o.mcpToolNames = append([]string(nil), names...)
+	}
+}
+
+// WithApplicationToolHandler supplies the local implementation for tools in
+// ChatRequest.Tools when using InferApplicationToolsChat.
+func WithApplicationToolHandler(handler ApplicationToolHandler) ClientOption {
+	return func(o *ClientOptions) { o.applicationToolHandler = handler }
+}
+
+// WithApplicationToolChain adds related calls to model-requested application
+// tool calls before their results are returned to the model.
+func WithApplicationToolChain(chain ApplicationToolChain) ClientOption {
+	return func(o *ClientOptions) { o.applicationToolChain = chain }
+}
+
 func withLiveMetricsOverlay(overlay *liveMetricsOverlay) ClientOption {
 	return func(o *ClientOptions) {
 		o.liveMetricsOverlay = overlay

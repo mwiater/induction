@@ -104,8 +104,8 @@ func TestGenerateSnapshot_Wrapper(t *testing.T) {
 	if snapshot == nil || snapshot.ModelID != "test-model" {
 		t.Fatalf("unexpected snapshot: %#v", snapshot)
 	}
-	if snapshot.LoadTime < 0 {
-		t.Fatalf("unexpected load time: %v", snapshot.LoadTime)
+	if snapshot.ModelLoadTime < 0 {
+		t.Fatalf("unexpected model load time: %v", snapshot.ModelLoadTime)
 	}
 	if len(snapshot.Interaction) != 1 || snapshot.Interaction[0].Content != "snapshot-success" {
 		t.Fatalf("unexpected interaction: %#v", snapshot.Interaction)

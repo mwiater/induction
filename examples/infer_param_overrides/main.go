@@ -1,4 +1,5 @@
-// Command infer_mcp demonstrates a chat session with MCP tools.
+// Command infer_param_overrides demonstrates per-request parameter overrides
+// in a streaming chat session.
 package main
 
 import (
@@ -14,13 +15,35 @@ import (
 	"github.com/mwiater/induction"
 )
 
-var userPrompt = "Use the available MCP tools to explain what information they provide."
-var inferChat = induction.InferMCPChat
+var systemPrompt = "You are a precise technical assistant."
+var userPrompt = "Explain the purpose of an atomic pointer in Go in two detailed paragraphs."
+
+// Sampling and generation parameters can be changed for each request.
+var temperature = 0.85
+var topP = 0.95
+var topK = 20
+var maxTokens = 1024
+var repeatPenalty = 1.0
+var seed = 42
+
+var inferChat = induction.InferStreamChat
 var runMain = run
 var fatal = log.Fatal
 
 func request(model string) *induction.ChatRequest {
-	return &induction.ChatRequest{Model: model, Messages: []induction.Message{{Role: "system", Content: userPrompt}}}
+	return &induction.ChatRequest{
+		Model: model,
+		Messages: []induction.Message{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+		Temperature:   &temperature,
+		TopP:          &topP,
+		TopK:          &topK,
+		MaxTokens:     &maxTokens,
+		RepeatPenalty: &repeatPenalty,
+		Seed:          &seed,
+	}
 }
 
 func run(ctx context.Context, model string, in io.Reader, out io.Writer) error {
@@ -28,20 +51,22 @@ func run(ctx context.Context, model string, in io.Reader, out io.Writer) error {
 }
 
 func runWithOptions(ctx context.Context, model string, in io.Reader, out io.Writer, prompt string, autosubmit, autoexit bool) error {
-	if _, err := fmt.Fprintln(out, "Ask me anything. Press Ctrl-C to end the MCP chat."); err != nil {
-		return fmt.Errorf("write MCP chat prompt: %w", err)
+	if _, err := fmt.Fprintln(out, "Ask me anything. Press Ctrl-C to end the chat."); err != nil {
+		return fmt.Errorf("write chat prompt: %w", err)
 	}
 	chatRequest := request(model)
-	chatRequest.Messages = nil
 	options := []induction.ClientOption(nil)
 	if prompt != "" {
+		// The default request prompt is for the interactive example; a CLI
+		// prompt replaces it as the first user turn.
+		chatRequest.Messages = chatRequest.Messages[:1]
 		options = append(options, induction.WithInitialChatPrompt(prompt, autosubmit))
 	}
 	if autoexit {
 		options = append(options, induction.WithAutoExitAfterInitialChat(true))
 	}
 	if err := inferChat(ctx, chatRequest, in, out, options...); err != nil {
-		return fmt.Errorf("chat with MCP: %w", err)
+		return fmt.Errorf("infer chat with parameter overrides: %w", err)
 	}
 	return nil
 }
@@ -60,7 +85,7 @@ func main() {
 }
 
 func parseArgs(args []string) (string, string, bool, bool, error) {
-	flags := flag.NewFlagSet("infer_mcp", flag.ContinueOnError)
+	flags := flag.NewFlagSet("infer_param_overrides", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	model := flags.String("model", "", "model ID to use for inference (required)")
 	prompt := flags.String("prompt", "", "initial user prompt")

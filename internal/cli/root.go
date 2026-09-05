@@ -28,7 +28,27 @@ func NewRootCommand() *cobra.Command {
 	root.AddCommand(newRuntimeCommand(&configPath))
 	root.AddCommand(newInspectCommand(&configPath))
 	root.AddCommand(newUICommand())
+	root.AddCommand(newGenerateCommand())
+	root.AddCommand(newCleanCommand())
 	return root
+}
+
+func newCleanCommand() *cobra.Command {
+	clean := &cobra.Command{Use: "clean", Short: "remove invalid persisted data"}
+	sessions := &cobra.Command{
+		Use: "sessions", Args: cobra.NoArgs,
+		Short: "remove invalid sessions and sessions with null snapshots",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			result, err := induction.CleanSessions("")
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Sessions scanned: %d\nSessions deleted: %d\nInvalid sessions deleted: %d\nNull-snapshot sessions deleted: %d\n", result.Scanned, result.Deleted, result.InvalidDeleted, result.NullSnapshotsDeleted)
+			return nil
+		},
+	}
+	clean.AddCommand(sessions)
+	return clean
 }
 
 func newUICommand() *cobra.Command {
