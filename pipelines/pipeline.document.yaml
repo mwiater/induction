@@ -1,0 +1,9 @@
+name: document-analysis
+
+steps:
+  - name: analyze-document
+    model: MiniCPM5-2B-Q8_0
+    userPrompt: |
+      Summarize the provided document. Identify its main argument, supporting
+      points, important evidence, and conclusions.
+    document: ../data/fixtures/documents/fixture.pdf

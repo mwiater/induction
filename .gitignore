@@ -1,0 +1,13 @@
+/.docker-build.log
+/.sessions/
+/coverage.out
+/data/dashboard/session_metrics.json
+/dist/
+/DOCUMENTATION.md
+/induction.log
+/induction.yaml
+/pipelines/seeds/
+/sandbox
+/TESTING_NOTES.md
+/TO_DO.md
+/GIT.md

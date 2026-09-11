@@ -1,0 +1,22 @@
+name: MCP Test
+
+steps:
+  - name: discover
+    model: Agents-A1-MTP-Apex-I-Quality
+    systemPrompt: You are a helpful assistant.
+    userPrompt: List the tools and tool details you have available to you.
+
+  - name: fetchRSS1
+    model: Agents-A1-MTP-Apex-I-Quality
+    systemPrompt: You are a helpful assistant.
+    userPrompt: "Gather the items in this RSS feed: https://www.wweek.com/arc/outboundfeeds/rss/?outputType=xml"
+
+  - name: fetchRSS2
+    model: Agents-A1-MTP-Apex-I-Quality
+    systemPrompt: You are a helpful assistant.
+    userPrompt: "Gather the items in this RSS feed: https://www.koin.com/news/portland/feed/"
+
+  - name: list
+    model: Agents-A1-MTP-Apex-I-Quality
+    systemPrompt: You are a helpful assistant.
+    userPrompt: List all of the feed items you found from each source, grouped by source.

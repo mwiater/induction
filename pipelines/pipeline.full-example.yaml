@@ -1,0 +1,60 @@
+name: full-pipeline-example
+
+# Optional. Defaults to induction.yaml when omitted.
+config: induction.yaml
+
+steps:
+  - name: analyze-input
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a careful multimodal analysis assistant.
+    userPrompt: |
+      Analyze the provided image and produce a detailed analysis that can be
+      transformed into the final structured response by the next step.
+    image: ../data/fixtures/images/fixture.jpg
+    # Use document instead of image when analyzing a document. Image and
+    # document are mutually exclusive, and attachments are only allowed here.
+    parameters:
+      temperature: 0.7
+      topP: 0.95
+      topK: 40
+      maxTokens: 2048
+      repeatPenalty: 1.1
+      seed: 42
+
+  - name: return-json
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a precise data-formatting assistant.
+    userPrompt: |
+      Convert all accumulated analysis into one valid JSON object matching the
+      supplied schema. Return JSON only, without Markdown fences, commentary,
+      or additional keys.
+    responseFormat:
+      type: json_object
+    jsonSchema:
+      type: object
+      properties:
+        subjects:
+          type: string
+          description: The primary subjects identified in the input.
+        composition:
+          type: string
+          description: The composition and visual arrangement of the input.
+        environmental_context:
+          type: string
+          description: The environmental or contextual setting of the input.
+      required:
+        - subjects
+        - composition
+        - environmental_context
+      additionalProperties: false
+    parameters:
+      temperature: 0.2
+      topP: 0.9
+      topK: 20
+      maxTokens: 2048
+      repeatPenalty: 1.0
+      seed: 42

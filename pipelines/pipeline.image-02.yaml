@@ -1,0 +1,158 @@
+name: image-analysis-pipeline
+
+config: induction.yaml
+
+steps:
+  - name: classify-image
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an expert visual classification system. Determine the primary category of the provided photograph (e.g., landscape, portrait, architectural, macro, document, abstract). Be objective and state only what is visually evident.
+    userPrompt: |
+      Classify the primary category of this photograph and provide a brief justification for this classification based on the framing and subject matter.
+    image: ../data/fixtures/images/fixture.jpg
+
+  - name: assess-technical-quality
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an expert technical photography analyst. Assess the image for exposure balance, noise, sharpness, and potential compression artifacts. Focus strictly on technical execution.
+    userPrompt: |
+      Evaluate the technical quality of this image. Identify any overexposed highlights, crushed shadows, motion blur, or digital artifacts.
+
+  - name: analyze-color-lighting
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a precise color and lighting analyst. Identify the dominant color palette and the primary lighting conditions (e.g., natural, harsh, diffused, studio).
+    userPrompt: |
+      Describe the dominant colors in this scene and estimate the lighting setup or natural light conditions present.
+
+  - name: detect-entities
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a visual extraction system. Identify and list all primary subjects, objects, and secondary elements visible within the frame. Note their spatial relationships.
+    userPrompt: |
+      Catalog the primary and secondary entities in this image. Describe where they are located relative to one another.
+
+  - name: recognize-text
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an OCR and transcription assistant. Transcribe any readable text, signage, handwriting, or documents present in the image. If no text is visible, state that clearly.
+    userPrompt: |
+      Identify and transcribe all visible text in this photograph.
+
+  - name: analyze-actions
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an action and motion analyst. Describe any physical motion, interactions between subjects, or implied events taking place.
+    userPrompt: |
+      Describe the actions, posture, or trajectory of the subjects. What interactions or events are occurring in this frame?
+
+  - name: infer-environment
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an environmental and geospatial analyst. Estimate the likely environment, weather, time of day, and potential geographic region based strictly on visual cues. Label inferences clearly.
+    userPrompt: |
+      Analyze the terrain, weather, and atmosphere. What geographic region or time of day does this appear to be?
+
+  - name: analyze-mood
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a thematic and aesthetic analyst. Describe the overarching emotional tone or atmosphere conveyed by the composition, lighting, and subjects.
+    userPrompt: |
+      Evaluate the thematic elements of this photograph. What specific mood or atmosphere does the image evoke?
+
+  - name: detect-anomalies
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a critical inspection assistant. Flag any unusual elements, structural damage, safety hazards, or potential signs of digital manipulation.
+    userPrompt: |
+      Inspect the image for anomalies. Are there any physical hazards, structural issues, or visual inconsistencies that suggest digital alteration?
+
+  - name: generate-tags
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a metadata generation system. Produce a set of highly relevant, single-word tags that describe the visual and thematic elements of the image. Do not use multi-word phrases.
+    userPrompt: |
+      Generate a list of at least 20 single-word tags that accurately categorize the content, style, and mood of this image.
+
+  - name: transcribe-accessibility
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an accessibility expert. Generate a comprehensive, objective alt-text description suitable for screen readers and strict web accessibility standards.
+    userPrompt: |
+      Write a detailed accessibility description for this image, focusing on objective visual clarity for a visually impaired user.
+
+  - name: return-json
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a precise JSON serialization assistant. Synthesize the accumulated analyses into the exact JSON schema provided. 
+      CRITICAL CONSTRAINTS: 
+      1. Every string property describing the image MUST be limited to exactly one dense, detailed paragraph. 
+      2. The 'tags' property MUST be an array of single-word strings.
+      3. Return exactly one JSON object. Do not add Markdown fences or trailing commentary.
+    userPrompt: |
+      Map all previous analyses (classification, technical quality, lighting, entities, text, actions, environment, mood, anomalies, tags, and accessibility) into the required JSON schema. Ensure text fields are strictly limited to one paragraph each.
+    responseFormat:
+      type: json_object
+    jsonSchema:
+      type: object
+      properties:
+        classification:
+          type: string
+          description: One paragraph summarizing the primary category of the image.
+        technical_quality:
+          type: string
+          description: One paragraph detailing exposure, sharpness, and artifacts.
+        color_and_lighting:
+          type: string
+          description: One paragraph describing dominant colors and lighting conditions.
+        entities:
+          type: string
+          description: One paragraph listing subjects, objects, and spatial relationships.
+        text_recognition:
+          type: string
+          description: One paragraph transcribing any visible text or confirming none exists.
+        actions:
+          type: string
+          description: One paragraph detailing physical motion or subject interactions.
+        environment:
+          type: string
+          description: One paragraph inferring weather, location, and time of day.
+        mood:
+          type: string
+          description: One paragraph summarizing the aesthetic and emotional tone.
+        anomalies:
+          type: string
+          description: One paragraph noting hazards, damage, or digital manipulation.
+        accessibility:
+          type: string
+          description: One paragraph providing an objective alt-text description.
+        tags:
+          type: array
+          items:
+            type: string
+          description: An array of at least 20 single-word strings.
+      required:
+        - classification
+        - technical_quality
+        - color_and_lighting
+        - entities
+        - text_recognition
+        - actions
+        - environment
+        - mood
+        - anomalies
+        - accessibility
+        - tags
+      additionalProperties: false

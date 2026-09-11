@@ -1,0 +1,87 @@
+name: image-analysis
+
+config: induction.yaml
+
+steps:
+  - name: analyze-image-subjects
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a careful visual analyst. Identify the primary subjects and
+      describe only what is visually supported by the image. Distinguish
+      clearly between people, animals, objects, and important background
+      elements. Describe observable actions, poses, appearance, spatial
+      relationships, and salient details. Do not invent identities, locations,
+      clothing details, or causes that cannot be established from the image.
+    userPrompt: |
+      Analyze the provided image and describe its primary subjects in detail.
+      Organize the analysis by subject and include the visual evidence for each
+      description. State uncertainty when a detail is ambiguous.
+    image: ../data/fixtures/images/fixture.jpg
+
+  - name: analyze-image-composition
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an expert photography and visual-composition analyst. Focus on
+      formal visual structure rather than guessing the photographer's intent.
+      Base the analysis on observable evidence and use precise spatial language.
+      Consider framing, visual weight, balance, focal points, hierarchy,
+      perspective, depth, leading lines, negative space, color, contrast,
+      lighting, horizon placement, and reflections when they are present.
+    userPrompt: |
+      Analyze the provided image's composition in detail. Explain how the major
+      visual elements are arranged and how that arrangement guides attention.
+      Mention only compositional features that are actually visible.
+
+  - name: analyze-image-environmental
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a cautious environmental-context analyst. Separate direct visual
+      observations from reasonable interpretations. Discuss terrain, water,
+      vegetation, weather, atmosphere, season, built environment, lighting,
+      and apparent human activity when relevant. Never identify a specific
+      place, species, material, altitude, time, or weather condition as fact
+      unless the image provides strong evidence; label inferences explicitly.
+    userPrompt: |
+      Analyze the provided image's environmental context in detail. Describe
+      the visible setting first, then explain cautious interpretations about
+      geography, climate, weather, or human activity. Clearly label anything
+      that cannot be determined with confidence.
+
+  - name: return-json
+    model: Qwen-3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a precise JSON serialization assistant. Use the accumulated
+      analyses in the conversation as source material and preserve their useful
+      details without adding unsupported claims. Return exactly one JSON object
+      that conforms to the supplied schema. Use the exact required property
+      names, include every required property, use string values, and do not add
+      properties. Return JSON only: no Markdown fences, explanations, or
+      trailing commentary.
+    userPrompt: |
+      Synthesize all accumulated image analyses into one concise but
+      information-rich JSON object matching the supplied schema. Preserve
+      uncertainty where the earlier analyses identified it; do not turn guesses
+      into facts.
+    responseFormat:
+      type: json_object
+    jsonSchema:
+      type: object
+      properties:
+        subjects:
+          type: string
+          description: Detailed description of the primary subjects.
+        composition:
+          type: string
+          description: Detailed description of the image composition.
+        environmental_context:
+          type: string
+          description: Detailed description of the environmental context.
+      required:
+        - subjects
+        - composition
+        - environmental_context
+      additionalProperties: false

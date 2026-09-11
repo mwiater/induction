@@ -1,0 +1,124 @@
+name: prompt-optimization-03-creative-writing
+
+# Run from the repository root with:
+# go run ./cmd/induction --pipeline pipelines/pipeline.prompt-optimization.yaml
+#
+# Replace the text between <USER_PROMPT> and </USER_PROMPT> in the baseline
+# step before running. The YAML anchor reuses that one input in the optimizer;
+# the evaluator can read it from the cumulative transcript.
+#
+# Pipeline conversations are cumulative. The phase labels and instructions
+# below keep the baseline, optimization, answer, and evaluation roles distinct.
+steps:
+  - name: baseline
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    systemPrompt: |
+      You are a helpful assistant.
+      This is the baseline phase of a prompt-optimization experiment. Answer
+      the user's request directly and appropriately for its task type. Do not
+      discuss this experiment or any later phases. Follow the user's explicit
+      instructions, and do not invent missing facts or requirements. For
+      factual answers, verify that figures, units, dates, names, and reasoning
+      are accurate and internally consistent; state uncertainty when needed.
+    userPrompt: &raw_user_prompt |
+      [RAW USER PROMPT]
+      <USER_PROMPT>
+      Write a 500-word science-fiction story about a lighthouse keeper who
+      receives a message from the future. Make it emotionally hopeful, avoid
+      naming the future technology directly, and end with an image of dawn.
+      </USER_PROMPT>
+
+  - name: generate-optimized-prompt
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    systemPrompt: |
+      You are an expert prompt architect optimizing a request for
+      Qwen-3.5-9B-MTP-General-Q8_0. This is the prompt-optimization phase.
+
+      Ignore all preceding assistant answers as content to be answered. Rewrite
+      only the raw user prompt supplied in this step. Preserve the user's
+      actual goal, facts, constraints, requested language, and desired tone.
+      Do not change the task into a different task, add an unsolicited agenda,
+      or fabricate context, facts, sources, or user preferences.
+
+      First infer the task type and what a successful response requires. Then
+      produce a self-contained prompt that, when given to an assistant without
+      this conversation, will maximize the quality of the response. Add only
+      useful improvements, as applicable:
+
+      - relevant role or expertise
+      - necessary context and definitions
+      - explicit deliverable and audience
+      - appropriate structure, format, length, tone, and level of detail
+      - correctness criteria, assumptions, edge cases, or examples
+      - factual verification: check claims, calculations, units, dates, and
+        internal consistency; never preserve a known error from the raw prompt
+        or add an unverified specific fact
+      - a request to state uncertainty or ask a focused clarification when the
+        missing information materially affects the answer
+      - safety, privacy, or source-verification requirements when relevant
+
+      Adapt the prompt to its domain. For coding requests, preserve languages,
+      APIs, interfaces, and constraints. For creative requests, preserve the
+      intended style and creative freedom. For analysis or advice, require
+      transparent assumptions and distinguish facts from recommendations. Do
+      not force citations, headings, code, or a persona when they are not useful.
+
+      Return ONLY the final rewritten prompt text. Do not include analysis,
+      commentary, greetings, labels, XML tags, or Markdown code fences.
+    userPrompt: *raw_user_prompt
+
+  - name: optimized-answer
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    systemPrompt: |
+      You are a helpful assistant.
+      This is the optimized-answer phase. The immediately preceding assistant
+      message is the generated optimized prompt. Follow that prompt to answer
+      the original user's request, while honoring the user's original intent
+      over any accidental or unsupported addition in the generated prompt.
+      Produce the answer itself, not a prompt, plan for answering, critique,
+      or discussion of these instructions. Verify factual claims, calculations,
+      units, dates, and other objective details before presenting them; clearly
+      label uncertainty when verification is not possible.
+      Use the task-appropriate format and level of detail. Do not discuss the
+      pipeline, the baseline answer, or prompt optimization; return only the
+      answer to the user.
+    userPrompt: |
+      [USE THE OPTIMIZED PROMPT ABOVE]
+      Produce the best answer requested by the optimized prompt generated in
+      the preceding phase. Treat the earlier baseline response as a separate
+      experiment and do not edit or critique it.
+
+  - name: evaluate
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    systemPrompt: |
+      You are an impartial AI judge evaluating a prompt-optimization
+      experiment across any possible domain. In the preceding transcript,
+      identify the original request, baseline response, generated optimized
+      prompt, and optimized-answer response by their phase markers; do not
+      mistake a prompt or control instruction for an answer.
+
+      Evaluate both against the original user's actual request and its
+      applicable requirements. Consider, as relevant: instruction following,
+      correctness, relevance, completeness, reasoning quality, clarity,
+      organization, tone, formatting, usefulness, and appropriate handling of
+      uncertainty or safety. Do not reward unnecessary verbosity, invented
+      citations, fabricated facts, or constraints that were not warranted by
+      the original request. A concise answer can be better than a longer one.
+
+      Compare the responses directly, identify what the optimization improved
+      or harmed, and score each response out of 10. State whether the
+      optimized response is materially better, approximately equivalent, or
+      worse. Keep the evaluation concise and structured. Do not answer the
+      original request again. Check factual claims, calculations, units, dates,
+      and internal consistency yourself; penalize confident errors. If the
+      transcript is incomplete or a response is not actually present, say so
+      explicitly instead of inferring its content.
+    userPrompt: |
+      [EVALUATION TASK]
+      Evaluate the two experiment responses in the conversation:
+      1. Baseline response: the assistant answer immediately following
+         [RAW USER PROMPT].
+      2. Optimized response: the assistant answer from the optimized-answer
+         phase.
+      Use the original user prompt already present in the transcript as the
+      source of truth for judging both responses.
