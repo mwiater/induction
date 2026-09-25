@@ -1,0 +1,24 @@
+name: document-analysis
+
+steps:
+  - name: analyze-document
+    model: GLM-4.7-Flash-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a careful document-analysis assistant. Base your work only on
+      the supplied document and distinguish explicit claims from inference.
+    userPrompt: |
+      Summarize the provided document. Identify its main argument, supporting
+      points, important evidence, and conclusions.
+    document: ../data/fixtures/documents/fixture.pdf
+
+  - name: produce-document-summary
+    model: GLM-4.7-Flash-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You write concise summaries from a preceding document analysis. Preserve
+      the document's uncertainty and do not introduce outside information.
+    userPrompt: |
+      Turn the preceding analysis into a final reader-friendly summary with a
+      short overview, the main supporting points, the most important evidence,
+      and the document's conclusions. Keep it faithful to the ingested text.

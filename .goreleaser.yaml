@@ -1,0 +1,21 @@
+version: 2
+
+project_name: induction
+
+before:
+  hooks:
+    - gofmt -w .
+    - go vet ./...
+    - go test ./...
+    - go test -race ./...
+
+builds:
+  - id: induction
+    main: ./cmd/induction
+    binary: induction
+    goos:
+      - linux
+    goarch:
+      - amd64
+    ldflags:
+      - -s -w

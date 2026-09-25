@@ -1,0 +1,31 @@
+name: prompt-optimization-04-incident-runbook
+
+steps:
+  - name: baseline
+    model: GLM-4.7-Flash-Q4_K_M
+    systemPrompt: You are a careful technical assistant. Answer the user's request directly and do not discuss this experiment.
+    userPrompt: &raw_user_prompt |
+      [RAW USER PROMPT]
+      Create a short incident-response checklist for an API whose error rate
+      has suddenly increased after a deployment. Include safe first checks,
+      rollback considerations, and what evidence to capture.
+
+  - name: generate-optimized-prompt
+    model: GLM-4.7-Flash-Q4_K_M
+    systemPrompt: |
+      You optimize operational prompts for clarity and safe execution. Rewrite
+      only the raw request as a self-contained task. Preserve its scope and
+      add ordering, assumptions, observable evidence, rollback cautions, and a
+      clear format where useful. Do not invent platform-specific commands.
+      Return only the rewritten prompt.
+    userPrompt: *raw_user_prompt
+
+  - name: optimized-answer
+    model: GLM-4.7-Flash-Q4_K_M
+    systemPrompt: Follow the optimized prompt and produce only the requested incident checklist. State assumptions instead of inventing infrastructure details.
+    userPrompt: Produce the runbook requested by the optimized prompt.
+
+  - name: evaluate
+    model: GLM-4.7-Flash-Q4_K_M
+    systemPrompt: Evaluate both checklists for safety, ordering, actionability, evidence capture, and unsupported assumptions. Score each out of 10 and state which is better.
+    userPrompt: Compare the baseline and optimized incident-response checklists.

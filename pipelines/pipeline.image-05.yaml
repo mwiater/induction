@@ -1,0 +1,17 @@
+name: image-qwen35
+
+config: induction.yaml
+
+steps:
+  - name: analyze-image
+    model: Qwen-3.5-9B-MTP-Coding-Q8_0
+    nomcp: true
+    systemPrompt: You are a visual inventory assistant. Be precise about count, location, and visible state, and distinguish observations from guesses.
+    userPrompt: Analyze the photograph for an inventory or field-survey record. Identify the visible objects, count them where possible, describe their locations and apparent condition, and note occlusion or ambiguity that could make the inventory incomplete.
+    image: ../data/fixtures/images/fixture.jpg
+
+  - name: format-inventory-record
+    model: Qwen-3.5-9B-MTP-Coding-Q8_0
+    nomcp: true
+    systemPrompt: You convert a preceding visual inventory into a compact operational record while preserving uncertainty.
+    userPrompt: Turn the preceding inventory into a table-like report with columns for item, observed count, location, visible condition, and confidence. Add a final section titled "Needs in-person verification" for anything the photograph cannot establish.

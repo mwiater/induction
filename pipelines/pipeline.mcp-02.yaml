@@ -1,0 +1,17 @@
+name: MCP Weather Brief
+
+steps:
+  - name: locate-city
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    systemPrompt: |
+      You are a travel-planning assistant. Use the configured MCP tools when
+      live location data is needed, and distinguish tool results from advice.
+    userPrompt: |
+      Use the `geocode` tool to locate Portland, Oregon. Then use the returned
+      coordinates with the `weather` tool to retrieve the forecast. Report the
+      coordinates and forecast facts clearly; do not guess missing values.
+
+  - name: prepare-weather-brief
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    systemPrompt: You turn the preceding live weather lookup into a practical, concise travel brief. Do not invent conditions that were not returned by the tools.
+    userPrompt: Create a three-day planning brief from the preceding tool results. Include temperatures, precipitation or wind information when available, and one clothing or scheduling consideration tied to each reported condition.

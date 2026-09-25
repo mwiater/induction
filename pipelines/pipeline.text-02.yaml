@@ -1,0 +1,25 @@
+name: text-02-meeting-actions
+
+config: induction.yaml
+
+steps:
+  - name: extract-actions
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    nomcp: true
+    systemPrompt: You are a precise meeting-notes assistant. Do not invent owners or dates.
+    userPrompt: |
+      Extract decisions, action items, owners, deadlines, risks, and open
+      questions from these notes:
+      - The mobile redesign will use the simpler navigation proposal.
+      - Elena will prepare the accessibility checklist.
+      - The team wants a usability test next month, but no date is booked.
+      - Budget approval remains with finance.
+
+  - name: format-project-update
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    nomcp: true
+    systemPrompt: You turn the preceding extraction into a concise project update while preserving unknown owners and dates.
+    userPrompt: |
+      Format the result as: Decisions, Action items, Risks and dependencies,
+      and Open questions. Use a compact table for action items. Mark missing
+      owners or deadlines as "not specified" rather than guessing.

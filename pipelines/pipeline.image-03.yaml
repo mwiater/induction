@@ -1,0 +1,17 @@
+name: image-agents-a1
+
+config: induction.yaml
+
+steps:
+  - name: analyze-image
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    nomcp: true
+    systemPrompt: You are a careful visual analysis assistant.
+    userPrompt: Describe the provided image in detail, including its subjects, composition, and setting. Separate observations from uncertain inferences.
+    image: ../data/fixtures/images/fixture.jpg
+
+  - name: write-property-inspection-note
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    nomcp: true
+    systemPrompt: You turn visual observations into concise property-maintenance notes without inventing defects.
+    userPrompt: Review the preceding visual analysis as a property manager. List only visible maintenance concerns, likely safety issues, and items that should be checked in person. For each item, cite the visual evidence and label uncertainty.

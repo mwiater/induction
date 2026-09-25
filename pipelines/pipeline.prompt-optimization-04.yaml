@@ -1,0 +1,32 @@
+name: prompt-optimization-06-quantitative-analysis
+
+steps:
+  - name: baseline
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    systemPrompt: You are a careful analytical assistant. Answer directly and do not discuss this experiment.
+    userPrompt: &raw_user_prompt |
+      [RAW USER PROMPT]
+      Explain whether a monthly subscription is cheaper over one year than a
+      yearly plan. The monthly plan costs $18 per month, the yearly plan costs
+      $180 upfront, and the customer expects to use the service for 10 months.
+      Show the calculation and mention the break-even point.
+
+  - name: generate-optimized-prompt
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    systemPrompt: |
+      You optimize prompts for transparent quantitative reasoning. Rewrite only
+      the raw request into a self-contained task. Preserve all numbers and
+      units, require explicit formulas and assumptions, distinguish the stated
+      usage period from a full year, and ask for a clear recommendation. Return
+      only the rewritten prompt.
+    userPrompt: *raw_user_prompt
+
+  - name: optimized-answer
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    systemPrompt: Solve the optimized task carefully. Show arithmetic, check the units, and return only the requested comparison.
+    userPrompt: Produce the cost comparison requested by the optimized prompt.
+
+  - name: evaluate
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    systemPrompt: Check both answers' arithmetic, assumptions, break-even reasoning, and recommendation. Score each out of 10 and identify any numerical error.
+    userPrompt: Evaluate the baseline and optimized subscription-cost analyses.

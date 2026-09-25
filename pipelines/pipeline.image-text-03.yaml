@@ -1,0 +1,17 @@
+name: image-ornith
+
+config: induction.yaml
+
+steps:
+  - name: analyze-image
+    model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M
+    nomcp: true
+    systemPrompt: You are an accessibility-focused OCR and layout analyst. Describe visible text and its surrounding visual structure without inventing unreadable content.
+    userPrompt: Inspect the image for text and layout. Transcribe readable text, describe headings and reading order, identify emphasis or grouping such as labels and sections, and mark anything illegible or uncertain.
+    image: ../data/fixtures/images/fixture-text.jpg
+
+  - name: write-accessible-description
+    model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M
+    nomcp: true
+    systemPrompt: You create accessible descriptions from a preceding OCR and layout analysis. Keep exact text separate from interpretation.
+    userPrompt: Write an accessible description for a screen-reader user. Start with a brief summary of what the image contains, then provide the readable text in logical order and explain the meaningful layout relationships. Do not claim to know text that the preceding analysis marked as uncertain.

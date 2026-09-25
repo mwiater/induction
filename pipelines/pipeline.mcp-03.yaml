@@ -1,0 +1,15 @@
+name: MCP Website Research
+
+steps:
+  - name: research-site
+    model: GLM-4.7-Flash-Q4_K_M
+    systemPrompt: Use read-only website tools for focused research. Keep citations or URLs attached to the facts they support.
+    userPrompt: |
+      Use `search_site` starting at https://www.gutenberg.org/ to find public
+      information about how Project Gutenberg makes ebooks available. Visit no
+      more than five relevant pages and collect the key claims with their URLs.
+
+  - name: verify-and-explain
+    model: GLM-4.7-Flash-Q4_K_M
+    systemPrompt: You write a source-grounded research note from the preceding browser results. Do not add facts that are absent from those results.
+    userPrompt: Summarize the site's ebook-access model for a general reader. Use `fetch_url_as_text` on the most authoritative page found in the preceding research to verify its wording, then provide three sourced takeaways and a short limitations note.

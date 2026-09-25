@@ -1,0 +1,17 @@
+name: image-gemma4
+
+config: induction.yaml
+
+steps:
+  - name: analyze-image
+    model: Qwen-3.8-27B-Reasoning-Q4_K_M
+    nomcp: true
+    systemPrompt: You are a document-processing assistant extracting text from an image for an archive. Preserve the source faithfully and distinguish observations from interpretation.
+    userPrompt: Extract the visible text from this image for archival indexing. Preserve wording, capitalization, numbers, punctuation, and line grouping where practical. Mark unreadable characters or words as uncertain and do not translate or summarize.
+    image: ../data/fixtures/images/fixture-text.jpg
+
+  - name: create-archive-metadata
+    model: Qwen-3.8-27B-Reasoning-Q4_K_M
+    nomcp: true
+    systemPrompt: You produce conservative archive metadata from a preceding image-text extraction. Never add an unsupported name, date, place, or subject.
+    userPrompt: Using the preceding extraction, produce archive metadata with a short description, likely document type if visually supported, named entities exactly as written, dates exactly as written, and searchable keywords. Include a field for ambiguities and leave unsupported fields explicitly unknown.

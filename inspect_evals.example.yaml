@@ -1,0 +1,58 @@
+version: 1
+
+name: induction-intelligence-v1
+
+description: >
+  General model intelligence evaluation suite for Induction.
+  The suite currently enables nine benchmark evaluations.
+
+provider:
+  name: llamacpp
+
+generation:
+  temperature: 0
+  max_tokens: 4096
+
+execution:
+  fail_fast: true
+
+evals:
+  - task: inspect_evals/arc_easy
+    name: arc_easy
+    limit: 100
+
+  - task: inspect_evals/arc_challenge
+    name: arc_challenge
+    limit: 100
+
+  - task: inspect_evals/mmlu_0_shot
+    name: mmlu_0_shot
+    limit: 100
+    task_args:
+      max_non_cot_tokens: "4096"
+
+  - task: inspect_evals/gsm8k
+    name: gsm8k
+    limit: 100
+
+  - task: inspect_evals/bbh
+    name: bbh
+    limit: 100
+    max_tokens: 8192
+
+  - task: inspect_evals/humaneval
+    name: humaneval
+    limit: 100
+    max_tokens: 8192
+
+  - task: inspect_evals/mgsm
+    name: mgsm
+    limit: 100
+
+  - task: inspect_evals/mathvista
+    name: mathvista
+    limit: 100
+
+  - task: inspect_evals/frontierscience
+    name: frontierscience
+    limit: 100

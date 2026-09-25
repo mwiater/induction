@@ -1,0 +1,39 @@
+name: prompt-optimization-07-code-review
+
+steps:
+  - name: baseline
+    model: Qwen-3-Coder-Next-Q4_K_M
+    systemPrompt: You are a helpful software-engineering assistant. Answer directly and do not discuss this experiment.
+    userPrompt: &raw_user_prompt |
+      [RAW USER PROMPT]
+      Review this Go function for correctness and maintainability, then
+      suggest a minimal fix. Focus on the bug rather than rewriting unrelated
+      code:
+      ```go
+      func first(items []string) string {
+          if len(items) > 0 {
+              return items[1]
+          }
+          return ""
+      }
+      ```
+
+  - name: generate-optimized-prompt
+    model: Qwen-3-Coder-Next-Q4_K_M
+    systemPrompt: |
+      You optimize coding-review prompts. Rewrite only the raw request into a
+      self-contained review task. Preserve the language, code, requested scope,
+      and minimal-fix constraint. Require a precise explanation, corrected
+      snippet, and relevant edge-case note without inventing unrelated issues.
+      Return only the rewritten prompt.
+    userPrompt: *raw_user_prompt
+
+  - name: optimized-answer
+    model: Qwen-3-Coder-Next-Q4_K_M
+    systemPrompt: Follow the optimized coding-review prompt. Return the review and minimal fix only, without discussing prompt optimization.
+    userPrompt: Produce the corrected code review requested by the optimized prompt.
+
+  - name: evaluate
+    model: Qwen-3-Coder-Next-Q4_K_M
+    systemPrompt: Compare both reviews for finding the actual bug, explaining the index and boundary issue correctly, respecting scope, and providing a valid minimal fix. Score each out of 10.
+    userPrompt: Evaluate the baseline and optimized code reviews.

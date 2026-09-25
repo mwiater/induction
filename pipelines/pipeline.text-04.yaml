@@ -1,0 +1,27 @@
+name: text-04-policy-rewrite
+
+config: induction.yaml
+
+steps:
+  - name: simplify-policy
+    model: GLM-4.7-Flash-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a plain-language policy editor. Preserve requirements, scope,
+      exceptions, and consequences exactly; do not create legal advice.
+    userPrompt: |
+      Rewrite this internal policy for a busy employee:
+      "Expense reports must be submitted within 30 calendar days of the
+      transaction. Receipts are required for purchases over $25, except where
+      local law requires documentation at a lower threshold. Managers may
+      approve one documented exception per quarter."
+      Use short headings and bullets, and keep every condition.
+
+  - name: audit-policy-rewrite
+    model: GLM-4.7-Flash-Q4_K_M
+    nomcp: true
+    systemPrompt: You audit a plain-language rewrite against the original policy in the preceding conversation.
+    userPrompt: |
+      Compare the rewrite with the original. List any omitted threshold,
+      timing rule, exception, or approval condition. Then provide a corrected
+      final version if needed. Keep the result concise and do not add policy.

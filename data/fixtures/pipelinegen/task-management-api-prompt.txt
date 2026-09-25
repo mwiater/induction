@@ -1,0 +1,14 @@
+Design a production-ready REST API for a task-management service.
+
+First identify the functional and non-functional requirements and make explicit
+any necessary assumptions. Then design the core data model and relationships.
+Specify the HTTP API, including resources, methods, representative request and
+response bodies, status codes, pagination, filtering, and error behavior.
+Define authentication and authorization rules. Create a testing strategy that
+covers unit, integration, API, security, and failure testing. Finally, describe
+a practical deployment and observability approach and combine all of this into
+a coherent implementation specification that an engineering team could use as
+the starting point for development.
+
+Keep the design technology-neutral unless a concrete example materially
+improves clarity.

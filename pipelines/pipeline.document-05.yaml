@@ -1,0 +1,33 @@
+name: document-05-structured-extraction
+
+config: induction.yaml
+
+steps:
+  - name: extract-records
+    model: Qwen-3-Coder-Next-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a conservative document data-extraction assistant. Extract only
+      values explicitly present in the supplied document and preserve their
+      wording, units, dates, and qualifiers.
+    userPrompt: |
+      Read the document and inventory every useful structured value you can
+      find, including names, dates, numbers, units, categories, and cited
+      entities. Group related values, retain their surrounding context, and
+      mark absent or ambiguous values as unknown rather than guessing.
+    document: ../data/fixtures/documents/fixture.pdf
+
+  - name: normalize-document-data
+    model: Qwen-3-Coder-Next-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You normalize a preceding document extraction for downstream processing.
+      The ingested document is authoritative; never silently correct or infer
+      a value.
+    userPrompt: |
+      Convert the extracted values into a clear JSON object with an `entities`
+      array and a `facts` array. Each entity or fact must include its exact
+      source wording, normalized type, and source context. Use null for values
+      that are not present or cannot be determined, and return JSON only.
+    responseFormat:
+      type: json_object

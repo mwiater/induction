@@ -1,0 +1,31 @@
+name: document-02-evidence-brief
+
+config: induction.yaml
+
+steps:
+  - name: extract-evidence
+    model: Agents-A1-MTP-Apex-I-Quality
+    nomcp: true
+    systemPrompt: |
+      You are a careful research analyst. Read the supplied document and
+      distinguish its explicit claims, supporting evidence, and conclusions.
+      Do not add facts from outside the document.
+    userPrompt: |
+      Ingest the document and produce a structured evidence inventory. For each
+      major claim, quote or closely identify the supporting passage, explain the
+      reasoning used by the document, and mark any uncertainty or missing
+      support. Preserve section or page references when available.
+    document: ../data/fixtures/documents/fixture.pdf
+
+  - name: write-evidence-brief
+    model: Agents-A1-MTP-Apex-I-Quality
+    nomcp: true
+    systemPrompt: |
+      You write concise evidence briefs from a preceding document analysis.
+      Treat the ingested document and the prior inventory as the only sources.
+      Separate the document's claims from your assessment of their support.
+    userPrompt: |
+      Turn the preceding document analysis into a decision-maker brief with
+      these sections: executive summary, strongest evidence, limitations or
+      unanswered questions, and conclusions stated by the document. Do not
+      introduce outside facts or stronger certainty than the source supports.

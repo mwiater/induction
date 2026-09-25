@@ -1,0 +1,22 @@
+name: text-03-technical-explanation
+
+config: induction.yaml
+
+steps:
+  - name: explain-concept
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    nomcp: true
+    systemPrompt: You are a patient technical educator. Explain concepts accurately for a reader with basic programming experience.
+    userPrompt: |
+      Explain database indexes to a developer who understands tables and SQL
+      but has never worked with indexes. Use one concrete example, explain the
+      performance trade-off, and avoid unnecessary database-specific jargon.
+
+  - name: create-learning-check
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    nomcp: true
+    systemPrompt: You create learning materials from the preceding explanation. Correct any ambiguity without adding unrelated material.
+    userPrompt: |
+      Turn the explanation into a short reference card with: a one-sentence
+      definition, how a lookup works, two benefits, two costs, and three
+      comprehension questions with answers.

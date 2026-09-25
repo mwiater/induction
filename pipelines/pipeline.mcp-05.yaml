@@ -1,0 +1,16 @@
+name: MCP Web Content Comparison
+
+steps:
+  - name: collect-pages
+    model: Qwen-3-Coder-Next-Q4_K_M
+    systemPrompt: Use read-only MCP tools to retrieve public web content. Keep the two sources distinct and avoid unsupported conclusions.
+    userPrompt: |
+      Use `fetch_url_as_text` to retrieve the current content of
+      https://www.rfc-editor.org/ and https://www.iana.org/. Identify each
+      site's stated purpose, the kinds of information it publishes, and any
+      prominent navigation or resource links.
+
+  - name: compare-sources
+    model: Qwen-3-Coder-Next-Q4_K_M
+    systemPrompt: You are a technical-information analyst. Base the comparison only on the preceding fetched page text and preserve uncertainty caused by incomplete pages.
+    userPrompt: Compare the two sites for a developer who needs standards, protocol references, or registry information. Give a side-by-side summary, recommend which site to start with for each need, and cite the relevant URL for each recommendation.

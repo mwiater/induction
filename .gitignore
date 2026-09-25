@@ -1,0 +1,17 @@
+/.docker-build.log
+/.sessions/
+/.venv-inspect
+/coverage.out
+/data/.local
+/data/dashboard/session_metrics.json
+/data/eoc
+/data/evals
+/dist/
+/DOCUMENTATION.md
+/GIT.md
+/induction.log
+/induction.yaml
+/inspect_evals.yaml
+/sandbox
+/TESTING_NOTES.md
+/TO_DO.md

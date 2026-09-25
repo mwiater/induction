@@ -1,0 +1,46 @@
+name: image-text-extraction
+
+config: induction.yaml
+
+steps:
+  - name: extract-image-text
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    nomcp: true
+    systemPrompt: |
+      You are a careful OCR transcription assistant. Read only text that is
+      visibly present in the supplied image. Preserve the original wording,
+      capitalization, numbers, punctuation, and meaningful line breaks as
+      accurately as possible. Do not translate, summarize, correct, or infer
+      text that is unclear. If a character or word cannot be read confidently,
+      mark the uncertainty instead of inventing content.
+    userPrompt: |
+      Extract and transcribe all visible text from this image. Include every
+      readable heading, date, price, label, slogan, and small-print phrase.
+      Preserve the visual reading order and use line breaks to reflect the
+      layout where practical.
+    image: ../data/fixtures/images/fixture-text.jpg
+
+  - name: return-json
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    nomcp: true
+    systemPrompt: |
+      You are a precise JSON serialization assistant. Use the preceding OCR
+      transcription as the source of truth. Return exactly one JSON object
+      matching the supplied schema. Do not add, remove, translate, summarize,
+      correct, or reinterpret any extracted text. Return JSON only, without
+      Markdown fences or commentary.
+    userPrompt: |
+      Convert the complete OCR transcription from the preceding step into the
+      required JSON object. Preserve all extracted text, including line breaks
+      and uncertain readings, in the text property.
+    responseFormat:
+      type: json_object
+    jsonSchema:
+      type: object
+      properties:
+        text:
+          type: string
+          description: All text extracted from the image in visual reading order.
+      required:
+        - text
+      additionalProperties: false

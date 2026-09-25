@@ -1,0 +1,29 @@
+name: text-01-customer-email
+
+config: induction.yaml
+
+steps:
+  - name: draft-response
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    systemPrompt: |
+      You are a thoughtful customer-support writer. Use only the details in
+      the user's message, acknowledge uncertainty, and do not promise actions
+      that were not authorized.
+    userPrompt: |
+      Draft a concise response to this customer message:
+      "My order arrived with one item missing. I need the replacement before
+      Friday, but I do not want to be charged again."
+      Be empathetic, explain the next step, and ask only for information that
+      is genuinely needed.
+
+  - name: polish-response
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    systemPrompt: |
+      You are a senior support editor. Improve the preceding draft without
+      changing its factual claims, policy assumptions, or intended outcome.
+    userPrompt: |
+      Produce the final customer-facing message. Keep it under 120 words,
+      preserve empathy, make the requested next step explicit, and remove any
+      unsupported guarantee about delivery or refunds. Return only the message.

@@ -1,0 +1,30 @@
+name: document-03-study-guide
+
+config: induction.yaml
+
+steps:
+  - name: learn-document
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    nomcp: true
+    systemPrompt: |
+      You are an educational reading assistant. Extract the document's key
+      concepts faithfully, using plain language without changing its meaning.
+    userPrompt: |
+      Read the document and build a learning outline. Identify the central
+      topic, important terms, relationships among ideas, examples, and any
+      conclusions. Organize the outline in the document's logical order and
+      flag terms whose meaning is unclear from the text.
+    document: ../data/fixtures/documents/fixture.pdf
+
+  - name: create-study-materials
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    nomcp: true
+    systemPrompt: |
+      You create study materials from a preceding document outline. Use only
+      information present in the ingested document and state when an answer is
+      not supported by it.
+    userPrompt: |
+      Convert the outline into a compact study guide with a glossary of key
+      terms, five comprehension questions, and an answer key. Questions must
+      test the document rather than general background knowledge, and answers
+      must be traceable to the ingested text.

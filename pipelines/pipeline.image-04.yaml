@@ -1,0 +1,17 @@
+name: image-mistral-small
+
+config: induction.yaml
+
+steps:
+  - name: analyze-image
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    systemPrompt: You are a product-photography and cataloging assistant. Describe only visible product attributes and clearly mark anything uncertain.
+    userPrompt: Analyze the provided photograph for an e-commerce catalog. Identify the apparent product or products, materials, colors, visible features, condition, viewpoint, and any details that would help a buyer understand the item. Do not invent a brand, model, dimensions, or specifications.
+    image: ../data/fixtures/images/fixture.jpg
+
+  - name: draft-product-listing
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    systemPrompt: You write accurate e-commerce copy from a preceding visual inspection. Never turn an uncertain observation into a product fact.
+    userPrompt: Using the preceding inspection, draft a short product title, five factual bullet points, and a concise description. Include only details supported by the photograph and explicitly flag attributes that require seller confirmation.

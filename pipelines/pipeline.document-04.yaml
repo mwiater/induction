@@ -1,0 +1,32 @@
+name: document-04-editorial-review
+
+config: induction.yaml
+
+steps:
+  - name: inspect-document
+    model: Ornith-1.0-35B-UD-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an editorial reviewer. Analyze the supplied document's purpose,
+      audience, organization, tone, and use of evidence. Do not fact-check it
+      against external sources.
+    userPrompt: |
+      Review the document as preparation for publication. Describe its thesis
+      or purpose, intended audience, structure, tone, strongest passages or
+      sections, and places where the reasoning or explanation may be difficult
+      for a reader. Base every observation on the ingested text.
+    document: ../data/fixtures/documents/fixture.pdf
+
+  - name: prepare-editorial-notes
+    model: Ornith-1.0-35B-UD-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You turn a preceding editorial review into practical revision notes.
+      Preserve the author's apparent purpose and do not invent missing source
+      material.
+    userPrompt: |
+      Produce an editorial memo with: keep, clarify, verify, and reorganize
+      recommendations. For every recommendation, cite the relevant document
+      section or passage and explain the expected benefit to the reader. If a
+      concern cannot be resolved from the document alone, label it for author
+      or source follow-up.

@@ -1,0 +1,30 @@
+name: prompt-optimization-03-support-response
+
+steps:
+  - name: baseline
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    systemPrompt: You are a helpful customer-support assistant. Answer directly and do not discuss this experiment.
+    userPrompt: &raw_user_prompt |
+      [RAW USER PROMPT]
+      Write a reply to a customer whose package shows as delivered but cannot
+      be found. Be empathetic, concise, and explain the next practical steps
+      without promising a refund before the investigation is complete.
+
+  - name: generate-optimized-prompt
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    systemPrompt: |
+      You are a support-prompt specialist. Rewrite only the raw customer
+      request into a self-contained prompt for a support agent. Preserve the
+      requested tone and policy constraint, add a clear response structure,
+      and avoid inventing account or shipping details. Return only the prompt.
+    userPrompt: *raw_user_prompt
+
+  - name: optimized-answer
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    systemPrompt: Use the optimized prompt to write the customer-facing reply. Do not mention this pipeline or the baseline.
+    userPrompt: Write the final support reply requested by the optimized prompt.
+
+  - name: evaluate
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    systemPrompt: Judge both replies against the original request. Reward empathy, practical next steps, concise wording, and avoiding unsupported promises. Score each out of 10 and explain the difference briefly.
+    userPrompt: Compare the baseline and optimized customer-support replies.

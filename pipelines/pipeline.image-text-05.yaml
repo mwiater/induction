@@ -1,0 +1,29 @@
+name: image-text-05-form-processing
+
+config: induction.yaml
+
+steps:
+  - name: extract-form-content
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    nomcp: true
+    systemPrompt: |
+      You are a careful form-processing assistant. Read only text visibly
+      present in the supplied image and preserve labels, values, punctuation,
+      and uncertainty. Do not infer personal data or fill missing fields.
+    userPrompt: |
+      Extract the visible text as a form record. Preserve the reading order,
+      associate each value with its visible label, and mark blank, obscured, or
+      unreadable fields explicitly. Keep the original wording rather than
+      correcting it.
+    image: ../data/fixtures/images/fixture-text.jpg
+
+  - name: validate-form-record
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    nomcp: true
+    systemPrompt: |
+      You validate a preceding image-text extraction for data entry. Treat the
+      extraction as authoritative and never invent or silently correct values.
+    userPrompt: |
+      Review the extracted form record for consistency. Return a concise report
+      with captured fields, fields needing manual review, and a transcription
+      of any ambiguous text. Explain why each field needs review when possible.
