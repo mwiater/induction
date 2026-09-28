@@ -1,0 +1,13 @@
+.git/
+.github/
+.agents/
+.codex/
+.venv*/
+.sessions/
+.batches/
+dist/
+coverage.out
+*.log
+induction.yaml
+inspect_evals.yaml
+tmp/

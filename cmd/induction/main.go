@@ -8,4 +8,11 @@ import (
 	"github.com/mwiater/induction/internal/cli"
 )
 
-func main() { os.Exit(cli.Execute()) }
+func main() {
+	// Ensure the terminal UI uses its truecolor palette in every environment,
+	// including local launches outside the Docker image.
+	if err := os.Setenv("COLORTERM", "truecolor"); err != nil {
+		panic(err)
+	}
+	os.Exit(cli.Execute())
+}

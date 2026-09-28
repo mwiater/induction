@@ -1,6 +1,6 @@
 # Induction
 
-<img src=".repo/induction-logo.png" alt="Induction Logo" width="100">
+<img src=".repo/induction_logo_animation_transparent.gif" alt="Induction Logo" width="250">
 
 Induction is a Go client for llama.cpp-compatible servers. It provides
 config-driven chat inference, OpenAI-compatible request and response types,
@@ -28,10 +28,14 @@ starting point.
 - Access to the model files and any image, PDF, or pipeline files used by an
   invocation. Relative paths are resolved from the current working directory
   or pipeline file as described below.
-- `Docker` is optional. It can be used for the containerized workflow described
-  in [DOCKER-BUILD-TESTING.md](DOCKER-BUILD-TESTING.md).
+- `Docker` is the preferred quick-start method described in
+  [DOCKER-QUICKSTART.md](DOCKER-QUICKSTART.md).
 
 ## Quick Start
+
+### Use Docker -- Easiest
+
+See: [DOCKER-QUICKSTART.md](DOCKER-QUICKSTART.md)
 
 ### Build
 
@@ -45,10 +49,6 @@ For local development, the CLI can also be run without building a release:
 ```bash
 go run ./cmd/induction --help
 ```
-
-### Use Docker (beta)
-
-See: [DOCKER-BUILD-TESTING.md](DOCKER-BUILD-TESTING.md)
 
 ---
 

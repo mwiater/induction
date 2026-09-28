@@ -3,6 +3,10 @@ timeout: 20m
 poll_interval: 2s
 load_wait_interval: 1s
 sidebarWidth: 64
+log:
+  prefix: "induction: "
+  microseconds: true
+  truncateOnRun: true
 MCPServers:
   - MCPServerAllow: true
     MCPServerName: your-mcp-server-name
