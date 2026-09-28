@@ -22,16 +22,24 @@ type Pipeline struct {
 
 // PipelineStep describes one automatically submitted turn.
 type PipelineStep struct {
-	Name           string              `yaml:"name"`
-	Model          string              `yaml:"model"`
-	UserPrompt     string              `yaml:"userPrompt"`
-	SystemPrompt   string              `yaml:"systemPrompt,omitempty"`
-	Image          string              `yaml:"image,omitempty"`
-	Document       string              `yaml:"document,omitempty"`
-	NoMCP          bool                `yaml:"nomcp,omitempty"`
-	ResponseFormat *ResponseFormat     `yaml:"responseFormat,omitempty"`
-	JSONSchema     any                 `yaml:"jsonSchema,omitempty"`
-	Parameters     *PipelineParameters `yaml:"parameters,omitempty"`
+	Name           string                `yaml:"name"`
+	Model          string                `yaml:"model"`
+	UserPrompt     string                `yaml:"userPrompt"`
+	SystemPrompt   string                `yaml:"systemPrompt,omitempty"`
+	Image          string                `yaml:"image,omitempty"`
+	Document       string                `yaml:"document,omitempty"`
+	NoMCP          bool                  `yaml:"nomcp,omitempty"`
+	ResponseFormat *ResponseFormat       `yaml:"responseFormat,omitempty"`
+	JSONSchema     any                   `yaml:"jsonSchema,omitempty"`
+	Parameters     *PipelineParameters   `yaml:"parameters,omitempty"`
+	Classification *ClassificationConfig `yaml:"classification,omitempty"`
+}
+
+// ClassificationConfig configures bounded next-token classification. Each
+// candidate key must be represented by exactly one model vocabulary token.
+type ClassificationConfig struct {
+	Candidates  map[string]string `yaml:"candidates"`
+	TopLogprobs int               `yaml:"topLogprobs,omitempty"`
 }
 
 // PipelineParameters contains the generation parameter overrides supported by
@@ -105,6 +113,31 @@ func (p *Pipeline) Validate() error {
 		}
 		if step.Image != "" && step.Document != "" {
 			return fmt.Errorf("steps[%d] cannot specify both image and document", i)
+		}
+		if step.Classification != nil {
+			if step.ResponseFormat != nil || step.JSONSchema != nil {
+				return fmt.Errorf("steps[%d]: classification cannot be combined with responseFormat or jsonSchema", i)
+			}
+			if len(step.Classification.Candidates) < 2 {
+				return fmt.Errorf("steps[%d]: classification requires at least two candidates", i)
+			}
+			for candidate, label := range step.Classification.Candidates {
+				if strings.TrimSpace(candidate) == "" {
+					return fmt.Errorf("steps[%d]: classification candidate key cannot be empty", i)
+				}
+				if strings.TrimSpace(label) == "" {
+					return fmt.Errorf("steps[%d]: classification label for candidate %q cannot be empty", i, candidate)
+				}
+			}
+			if step.Classification.TopLogprobs == 0 {
+				step.Classification.TopLogprobs = 20
+			}
+			if step.Classification.TopLogprobs < len(step.Classification.Candidates) {
+				return fmt.Errorf("steps[%d]: classification topLogprobs must be at least the number of candidates", i)
+			}
+			if step.Parameters != nil && step.Parameters.MaxTokens != nil && *step.Parameters.MaxTokens != 1 {
+				return fmt.Errorf("steps[%d]: classification requires maxTokens=1", i)
+			}
 		}
 		if step.ResponseFormat != nil {
 			switch strings.ToLower(strings.TrimSpace(step.ResponseFormat.Type)) {

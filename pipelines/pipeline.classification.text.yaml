@@ -1,0 +1,31 @@
+name: text-classification
+
+config: induction.yaml
+
+steps:
+  - name: classify-text
+    model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      Classify the supplied text using exactly one category.
+      1 = positive
+      2 = negative
+      3 = neutral
+      Classification:
+    userPrompt: |
+      Classify this text:
+
+      The product arrived on time and works exactly as described.
+
+      Classification:
+    classification:
+      candidates:
+        "1": positive
+        "2": negative
+        "3": neutral
+      topLogprobs: 100
+
+  - name: report-text-classification
+    model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M
+    nomcp: true
+    userPrompt: Use the preceding classification JSON to state the selected category.

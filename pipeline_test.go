@@ -27,12 +27,11 @@ func TestLoadAllPipelineExamples(t *testing.T) {
 
 func TestImagePipelineModelCoverage(t *testing.T) {
 	want := map[string]bool{
-		"Qwen-3.5-9B-MTP-Coding-Q8_0":          false,
+		"Muse-Glimmer-30B-Q4_K_XL":             false,
 		"Qwen-3.5-9B-MTP-General-Q8_0":         false,
 		"Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL":  false,
 		"Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL": false,
 		"Qwen-3.8-27B-Non-Reasoning-Q4_K_M":    false,
-		"Qwen-3.8-27B-Reasoning-Q4_K_M":        false,
 	}
 
 	paths, err := filepath.Glob("pipelines/pipeline*.yaml")
@@ -78,6 +77,47 @@ func TestImagePipelinesHaveAtLeastTwoSteps(t *testing.T) {
 		if len(pipeline.Steps) < 2 {
 			t.Errorf("%s has %d step(s), want at least 2", path, len(pipeline.Steps))
 		}
+	}
+}
+
+func TestImageClassificationPipelineStructure(t *testing.T) {
+	pipeline, err := LoadPipeline("pipelines/pipeline.image-classification-01.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pipeline.Steps) != 5 {
+		t.Fatalf("classification pipeline has %d steps, want 5", len(pipeline.Steps))
+	}
+	if pipeline.Steps[0].Image == "" {
+		t.Fatal("first classification step has no image")
+	}
+	for i := 0; i < 4; i++ {
+		step := pipeline.Steps[i]
+		if step.Classification == nil {
+			t.Fatalf("step %d has no classification configuration", i)
+		}
+		if step.Classification.TopLogprobs != 100 {
+			t.Errorf("step %d topLogprobs = %d, want 100", i, step.Classification.TopLogprobs)
+		}
+		if len(step.Classification.Candidates) < 2 {
+			t.Errorf("step %d has %d candidates, want at least 2", i, len(step.Classification.Candidates))
+		}
+		if step.ResponseFormat != nil || step.JSONSchema != nil {
+			t.Errorf("step %d uses model-generated structured output", i)
+		}
+	}
+	if pipeline.Steps[4].Classification != nil {
+		t.Fatal("summary step must use normal inference")
+	}
+}
+
+func TestTextClassificationPipelineStructure(t *testing.T) {
+	pipeline, err := LoadPipeline("pipelines/pipeline.classification.text.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pipeline.Steps) != 2 || pipeline.Steps[0].Classification == nil || pipeline.Steps[1].Classification != nil {
+		t.Fatalf("unexpected text classification pipeline structure: %#v", pipeline.Steps)
 	}
 }
 
@@ -164,12 +204,11 @@ func TestPipelineModelCoverage(t *testing.T) {
 		"LFM-2.5-8B-A1B-UD-Q8_K_XL":            false,
 		"Ornith-1.0-35B-UD-Q4_K_M":             false,
 		"Qwen-3-Coder-Next-Q4_K_M":             false,
-		"Qwen-3.5-9B-MTP-Coding-Q8_0":          false,
+		"Muse-Glimmer-30B-Q4_K_XL":             false,
 		"Qwen-3.5-9B-MTP-General-Q8_0":         false,
 		"Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL":  false,
 		"Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL": false,
 		"Qwen-3.8-27B-Non-Reasoning-Q4_K_M":    false,
-		"Qwen-3.8-27B-Reasoning-Q4_K_M":        false,
 	}
 
 	paths, err := filepath.Glob("pipelines/*.yaml")

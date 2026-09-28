@@ -13,6 +13,7 @@ const (
 	snapshotOutputJSON       = "json"
 	snapshotOutputJSONSchema = "json_schema"
 	snapshotOutputGrammar    = "grammar"
+	snapshotOutputClassify   = "classification"
 )
 
 func snapshotInputType(req *ChatRequest) string {
@@ -42,6 +43,9 @@ func snapshotInputType(req *ChatRequest) string {
 func snapshotOutputType(req *ChatRequest) string {
 	if req == nil {
 		return snapshotOutputText
+	}
+	if req.Classification != nil {
+		return snapshotOutputClassify
 	}
 	if strings.TrimSpace(req.Grammar) != "" {
 		return snapshotOutputGrammar

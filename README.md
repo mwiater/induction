@@ -110,6 +110,30 @@ as a `<think>...</think>` block.
 servers. Read-only tools run automatically; other tools may use an approval
 callback through `InferMCPChatWithApproval`.
 
+## Classification pipelines
+
+Pipeline steps may use bounded next-token classification instead of asking the
+model to generate prose or JSON:
+
+```yaml
+classification:
+  candidates:
+    A: person
+    B: animal
+    C: vehicle
+    D: other
+  topLogprobs: 20
+```
+
+Each candidate must tokenize to exactly one token in the selected model.
+Induction validates candidates through llama.cpp `/tokenize`, requests one
+non-streaming prediction with next-token log probabilities, renormalizes only
+the configured candidates, and creates the result JSON itself. Missing
+candidates are an explicit error rather than an assumed zero probability.
+Image classification requires a vision-capable model and its multimodal
+projector (`--mmproj` when the selected local model requires one). No special
+llama-server logits startup flag is required.
+
 ## Examples
 
 The compiled binary supports text, multimodal, pipeline, MCP, application-tool,

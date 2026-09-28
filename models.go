@@ -57,9 +57,14 @@ type ChatRequest struct {
 	// Messages carries a chat transcript for chat-completion-style requests.
 	Messages []Message `json:"messages,omitempty"`
 	// Prompt accepts a string or an array of token IDs for completion requests.
-	Prompt any    `json:"prompt,omitempty"`
-	Model  string `json:"model,omitempty"`
-	Stream *bool  `json:"stream,omitempty"`
+	Prompt      any    `json:"prompt,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Stream      *bool  `json:"stream,omitempty"`
+	Logprobs    *bool  `json:"logprobs,omitempty"`
+	TopLogprobs *int   `json:"top_logprobs,omitempty"`
+	// ChatTemplateKwargs contains llama.cpp per-request chat-template options.
+	// Classification uses it to disable model thinking when supported.
+	ChatTemplateKwargs map[string]any `json:"chat_template_kwargs,omitempty"`
 
 	MaxTokens           *int `json:"max_tokens,omitempty"`
 	MaxCompletionTokens *int `json:"max_completion_tokens,omitempty"`
@@ -115,6 +120,9 @@ type ChatRequest struct {
 	// sent to the inference server.
 	ImageFilename    string `json:"-"`
 	DocumentFilename string `json:"-"`
+	// Classification is an internal pipeline execution mode and is never sent
+	// as part of the llama.cpp request payload.
+	Classification *ClassificationConfig `json:"-"`
 }
 
 // ResponseFormat configures JSON-object or JSON-schema constrained output.
@@ -159,8 +167,25 @@ type InferenceChoice struct {
 	Index        int                       `json:"index"`
 	Message      *InferenceResponseMessage `json:"message,omitempty"`
 	Text         string                    `json:"text,omitempty"`
-	Logprobs     json.RawMessage           `json:"logprobs,omitempty"`
+	Logprobs     *ChoiceLogprobs           `json:"logprobs,omitempty"`
 	FinishReason *string                   `json:"finish_reason,omitempty"`
+}
+
+type TokenLogprob struct {
+	Token   string  `json:"token"`
+	Logprob float64 `json:"logprob"`
+	Bytes   []int   `json:"bytes,omitempty"`
+}
+
+type TokenLogprobPosition struct {
+	Token       string         `json:"token"`
+	Logprob     float64        `json:"logprob"`
+	Bytes       []int          `json:"bytes,omitempty"`
+	TopLogprobs []TokenLogprob `json:"top_logprobs"`
+}
+
+type ChoiceLogprobs struct {
+	Content []TokenLogprobPosition `json:"content"`
 }
 
 // InferenceResponseMessage is an assistant message returned by the model.
@@ -208,7 +233,7 @@ type InferenceStreamChoice struct {
 	Index        int                  `json:"index"`
 	Delta        InferenceStreamDelta `json:"delta,omitempty"`
 	Text         string               `json:"text,omitempty"`
-	Logprobs     json.RawMessage      `json:"logprobs,omitempty"`
+	Logprobs     *ChoiceLogprobs      `json:"logprobs,omitempty"`
 	FinishReason *string              `json:"finish_reason,omitempty"`
 }
 

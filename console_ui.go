@@ -774,6 +774,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	m.request.TopP = nil
 	m.request.TopK = nil
 	m.request.MaxTokens = nil
+	m.request.Classification = nil
 	m.request.RepeatPenalty = nil
 	m.request.Seed = nil
 	if step.ResponseFormat != nil {
@@ -789,6 +790,9 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		m.request.MaxTokens = step.Parameters.MaxTokens
 		m.request.RepeatPenalty = step.Parameters.RepeatPenalty
 		m.request.Seed = step.Parameters.Seed
+	}
+	if step.Classification != nil {
+		m.request.Classification = step.Classification
 	}
 	m.loading = false
 	m.modelLoading = ""
@@ -1082,6 +1086,13 @@ func (m consoleModel) runTurn(request ChatRequest) tea.Cmd {
 	return func() tea.Msg {
 		turnCtx, cancel := context.WithTimeout(m.ctx, m.timeout)
 		defer cancel()
+		if request.Classification != nil {
+			snapshot, err := m.client.withoutLiveMetricsOverlay(turnCtx).GenerateSnapshot(turnCtx, &request)
+			if err == nil && m.complete != nil {
+				m.complete()
+			}
+			return consoleTurnResult{content: lastInteractionContent(snapshot), snapshot: snapshot, model: request.Model, err: err}
+		}
 		if m.client != nil && m.client.opts != nil && m.client.opts.applicationToolHandler != nil {
 			response, snapshot, err := runApplicationToolLoopWithObserver(turnCtx, &request, m.client.opts.applicationToolHandler, m.client.opts.applicationToolChain, func(inferCtx context.Context, turn *ChatRequest) (*InferenceResponse, *ModelSnapshot, error) {
 				reasoningOpen := false

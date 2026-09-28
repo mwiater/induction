@@ -70,6 +70,7 @@ type Client struct {
 	// pendingModelLoadDurations carries explicit load operations to the next
 	// snapshot client, including clients created by withoutLiveMetricsOverlay.
 	pendingModelLoadDurations *sync.Map
+	classificationTokens      *sync.Map
 	// runtimeMu serializes lifecycle mutations issued by this client.
 	runtimeMu sync.Mutex
 }
@@ -94,6 +95,7 @@ func NewClient(ctx context.Context, endpoint string, options ...ClientOption) *C
 		endpoint:                  endpoint,
 		opts:                      opts,
 		pendingModelLoadDurations: &sync.Map{},
+		classificationTokens:      &sync.Map{},
 	}
 
 	empty := ""
@@ -122,7 +124,12 @@ func (c *Client) GenerateSnapshot(ctx context.Context, req *ChatRequest) (*Model
 
 	monitor := c.startInferenceMonitor(ctx, req.Model, true)
 
-	interaction, err := c.doInference(ctx, req)
+	var interaction *Interaction
+	if req.Classification != nil {
+		interaction, err = c.doClassification(ctx, req)
+	} else {
+		interaction, err = c.doInference(ctx, req)
+	}
 	if err == nil && monitor.overlay != nil {
 		monitor.overlay.Complete()
 	}

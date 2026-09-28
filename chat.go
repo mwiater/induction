@@ -182,6 +182,7 @@ func (c *Client) withoutLiveMetricsOverlay(ctx context.Context) *Client {
 		func(o *ClientOptions) { o.mcpToolNames = append([]string(nil), c.opts.mcpToolNames...) },
 	)
 	client.pendingModelLoadDurations = c.pendingModelLoadDurations
+	client.classificationTokens = c.classificationTokens
 	return client
 }
 

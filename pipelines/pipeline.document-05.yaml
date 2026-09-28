@@ -4,7 +4,7 @@ config: induction.yaml
 
 steps:
   - name: extract-records
-    model: Qwen-3-Coder-Next-Q4_K_M
+    model: Muse-Glimmer-30B-Q4_K_XL
     nomcp: true
     systemPrompt: |
       You are a conservative document data-extraction assistant. Extract only
@@ -18,7 +18,7 @@ steps:
     document: ../data/fixtures/documents/fixture.pdf
 
   - name: normalize-document-data
-    model: Qwen-3-Coder-Next-Q4_K_M
+    model: Muse-Glimmer-30B-Q4_K_XL
     nomcp: true
     systemPrompt: |
       You normalize a preceding document extraction for downstream processing.
