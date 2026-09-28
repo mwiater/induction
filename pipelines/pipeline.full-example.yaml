@@ -12,7 +12,7 @@ steps:
     userPrompt: |
       Analyze the provided image and produce a detailed analysis that can be
       transformed into the final structured response by the next step.
-    image: ../data/fixtures/images/fixture.jpg
+    image: ../data/fixtures/images/fixture-01.jpg
     # Use document instead of image when analyzing a document. Image and
     # document are mutually exclusive, and attachments are only allowed here.
     parameters:

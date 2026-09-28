@@ -64,7 +64,7 @@ docker rmi induction-test:latest
 * **Preview local PDF text:** Confirm PDF extraction without contacting the server.
 
 ```bash
-./induction pdf preview --file data/fixtures/documents/fixture.pdf
+./induction pdf preview --file data/fixtures/documents/fixture-01.pdf
 ```
 
 
@@ -88,13 +88,13 @@ container from `/test`:
 
 ```bash
 dist/induction_linux_amd64_v1/induction --model "GLM-4.7-Flash-Q4_K_M"
-dist/induction_linux_amd64_v1/induction --model "Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL" --image data/fixtures/images/fixture.jpg
-dist/induction_linux_amd64_v1/induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --document data/fixtures/documents/fixture.pdf --userPrompt "Summarize this document." --autosubmit
+dist/induction_linux_amd64_v1/induction --model "Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL" --image data/fixtures/images/fixture-01.jpg
+dist/induction_linux_amd64_v1/induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --document data/fixtures/documents/fixture-01.pdf --userPrompt "Summarize this document." --autosubmit
 dist/induction_linux_amd64_v1/induction --pipeline pipelines/pipeline.prompt-optimization-01.yaml
 dist/induction_linux_amd64_v1/induction --pipeline pipelines/pipeline.image-01.yaml
 dist/induction_linux_amd64_v1/induction --pipeline pipelines/pipeline.document-01.yaml
-induction --model "Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL" --image data/fixtures/images/fixture.jpg
-induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --document data/fixtures/documents/fixture.pdf --userPrompt "Summarize this document." --autosubmit
+induction --model "Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL" --image data/fixtures/images/fixture-01.jpg
+induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --document data/fixtures/documents/fixture-01.pdf --userPrompt "Summarize this document." --autosubmit
 induction --pipeline pipelines/pipeline.prompt-optimization-01.yaml
 
 ```

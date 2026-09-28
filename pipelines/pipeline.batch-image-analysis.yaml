@@ -1,0 +1,16 @@
+name: batch-image-analysis
+# `batch.items` is the batch boundary: each item gets a separate complete
+# pipeline run and a separate result. This is not a combined multi-image run.
+batch:
+  items:
+    - id: image-001
+      images: [../data/fixtures/images/fixture-01.jpg]
+    - id: image-002
+      images: [../data/fixtures/images/fixture-02.jpg]
+steps:
+  - name: describe
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    userPrompt: Describe the provided image and identify its primary subjects.
+  - name: summarize
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    userPrompt: Return a concise structured analysis.

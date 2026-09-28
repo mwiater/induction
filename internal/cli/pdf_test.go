@@ -11,7 +11,7 @@ func TestPDFPreview(t *testing.T) {
 	var output bytes.Buffer
 	command.SetOut(&output)
 	command.SetErr(&output)
-	command.SetArgs([]string{"pdf", "preview", "--file", "../../data/fixtures/documents/fixture.pdf"})
+	command.SetArgs([]string{"pdf", "preview", "--file", "../../data/fixtures/documents/fixture-01.pdf"})
 
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)

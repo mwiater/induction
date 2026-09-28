@@ -15,7 +15,7 @@ steps:
       find, including names, dates, numbers, units, categories, and cited
       entities. Group related values, retain their surrounding context, and
       mark absent or ambiguous values as unknown rather than guessing.
-    document: ../data/fixtures/documents/fixture.pdf
+    document: ../data/fixtures/documents/fixture-01.pdf
 
   - name: normalize-document-data
     model: Muse-Glimmer-30B-Q4_K_XL

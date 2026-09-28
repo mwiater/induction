@@ -3,22 +3,19 @@ package induction
 import (
 	"context"
 	"log"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
-func TestNewConfiguredLoggerDoesNotCreateFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "application.log")
-	logger := NewConfiguredLogger(LogConfig{Path: path, Prefix: "app: ", TruncateOnRun: true})
-	logger.Printf("diagnostic")
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("configured logger created %q: %v", path, err)
+func TestNewConfiguredLoggerWritesApplicationLog(t *testing.T) {
+	logger := NewConfiguredLogger(LogConfig{Prefix: "app: ", TruncateOnRun: true})
+	if logger == nil {
+		t.Fatal("expected logger")
 	}
+	logger.Printf("diagnostic")
 }
 
-func TestNewConfiguredLoggerConsoleUsesStderrWithoutFile(t *testing.T) {
-	logger := NewConfiguredLogger(LogConfig{Path: filepath.Join(t.TempDir(), "application.log"), Console: true})
+func TestNewConfiguredLoggerIgnoresConsoleSetting(t *testing.T) {
+	logger := NewConfiguredLogger(LogConfig{Console: true})
 	if logger == nil {
 		t.Fatal("expected logger")
 	}

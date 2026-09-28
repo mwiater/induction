@@ -338,7 +338,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.client.logf("pipeline: step %d/%d failed: %v", m.pipelineStep+1, len(m.pipeline.Steps), msg.err)
 				m.pipelineRunning = false
 			} else {
-				m.client.logf("ui: inference failed model=%q error=%v", msg.model, msg.err)
+				m.client.logf("inference: failed model=%q error=%v", msg.model, msg.err)
 			}
 			m.err = msg.err
 			if m.inputReady() {
@@ -360,7 +360,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		m.client.logf("ui: inference completed model=%q response_chars=%d response=%q", msg.model, len([]rune(msg.content)), msg.content)
+		m.client.logf("inference: completed model=%q response_chars=%d response=%q", msg.model, len([]rune(msg.content)), msg.content)
 		if m.mode != consoleStreaming && !m.streamedTurn {
 			m.messages = append(m.messages, consoleMessage{role: "assistant", content: msg.content})
 		}
@@ -379,6 +379,9 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.snapshot != nil {
 			m.snapshots = append(m.snapshots, msg.snapshot)
+		}
+		if m.client != nil && m.client.opts != nil && m.client.opts.inferenceCompleted != nil {
+			m.client.opts.inferenceCompleted(msg.snapshot, msg.content)
 		}
 		m.refreshTranscript()
 		cmds := []tea.Cmd{textinput.Blink}
@@ -405,7 +408,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.session = msg.session
-		m.client.logf("session: saved id=%q model=%q messages=%d snapshots=%d", msg.session.ID, msg.session.Model, len(msg.session.Messages), len(msg.session.Snapshots))
+		m.client.logf("session: persisted id=%q path=%q saved=%t model=%q messages=%d snapshots=%d", msg.session.ID, sessionPathForLog(msg.session.ID), msg.session.Saved, msg.session.Model, len(msg.session.Messages), len(msg.session.Snapshots))
 		m.sessionDirty = false
 		if !msg.session.Saved {
 			m.sessionStatus = "Session updated: " + msg.session.ID
@@ -802,7 +805,18 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		m.request.Messages = addPipelineSystemPrompt(m.request.Messages, step.SystemPrompt)
 	}
 	content := any(step.UserPrompt)
-	if step.Image != "" {
+	if index == 0 && m.pipeline.Inputs != nil {
+		inputContent, imageName, documentName, err := inputContent(*m.pipeline.Inputs, step)
+		if err != nil {
+			m.err = fmt.Errorf("pipeline step %q: prepare inputs: %w", step.Name, err)
+			m.pipelineRunning = false
+			m.refreshTranscript()
+			return nil
+		}
+		m.request.ImageFilename = imageName
+		m.request.DocumentFilename = documentName
+		content = inputContent
+	} else if step.Image != "" {
 		m.request.ImageFilename = filepath.Base(step.Image)
 		dataURL, err := ImageDataURL(step.Image, DefaultAttachmentMaxBytes)
 		if err != nil {
@@ -951,12 +965,37 @@ func saveSessionCmd(client *Client, session *ChatSession, exit bool) tea.Cmd {
 	copy := *session
 	copy.Messages = cloneMessages(session.Messages)
 	return func() tea.Msg {
+		if client != nil {
+			client.logf("session: persisting id=%q path=%q saved=%t model=%q messages=%d snapshots=%d", copy.ID, sessionPathForLog(copy.ID), copy.Saved, copy.Model, len(copy.Messages), len(copy.Snapshots))
+		}
 		err := saveChatSession(&copy)
+		if client != nil {
+			if err != nil {
+				client.logf("session: persistence failed id=%q path=%q error=%v", copy.ID, sessionPathForLog(copy.ID), err)
+			} else {
+				client.logf("session: persistence complete id=%q path=%q", copy.ID, sessionPathForLog(copy.ID))
+			}
+		}
 		if err == nil && client != nil && client.opts.sessionSaved != nil {
 			client.opts.sessionSaved(chatSessionPath(copy.ID))
 		}
 		return sessionSavedMsg{session: &copy, err: err, exit: exit}
 	}
+}
+
+func sessionPathForLog(id string) string {
+	path := chatSessionPath(id)
+	if absolute, err := filepath.Abs(path); err == nil {
+		return absolute
+	}
+	return path
+}
+
+func sessionID(session *ChatSession) string {
+	if session == nil {
+		return ""
+	}
+	return session.ID
 }
 
 func listSessionsCmd() tea.Cmd {
@@ -1084,6 +1123,7 @@ func (m consoleModel) closeConsoleInferenceReasoning(reasoningOpen *bool) {
 
 func (m consoleModel) runTurn(request ChatRequest) tea.Cmd {
 	return func() tea.Msg {
+		m.client.logf("inference: started model=%q messages=%d classification=%t streaming=%t", request.Model, len(request.Messages), request.Classification != nil, m.mode == consoleStreaming)
 		turnCtx, cancel := context.WithTimeout(m.ctx, m.timeout)
 		defer cancel()
 		if request.Classification != nil {
@@ -1544,12 +1584,17 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 	model.cancel = cancel
 	model.session, err = newUnsavedChatSession(request)
 	configureSessionMode(model.session, client.opts.pipeline)
+	if model.session != nil {
+		client.logf("session: creating id=%q path=%q saved=%t pipeline=%t", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved, client.opts.pipeline != nil)
+	}
 	if err == nil {
 		err = saveChatSession(model.session)
 	}
 	if err != nil {
+		client.logf("session: initial persistence failed id=%q error=%v", sessionID(model.session), err)
 		return nil, err
 	}
+	client.logf("session: initial persistence complete id=%q path=%q", model.session.ID, sessionPathForLog(model.session.ID))
 	if client.opts.sessionSaved != nil {
 		client.opts.sessionSaved(chatSessionPath(model.session.ID))
 	}
@@ -1629,12 +1674,17 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 	model.cancel = cancel
 	model.session, err = newUnsavedChatSession(request)
 	configureSessionMode(model.session, client.opts.pipeline)
+	if model.session != nil {
+		client.logf("session: creating id=%q path=%q saved=%t pipeline=%t mcp=true", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved, client.opts.pipeline != nil)
+	}
 	if err == nil {
 		err = saveChatSession(model.session)
 	}
 	if err != nil {
+		client.logf("session: initial persistence failed id=%q error=%v", sessionID(model.session), err)
 		return err
 	}
+	client.logf("session: initial persistence complete id=%q path=%q", model.session.ID, sessionPathForLog(model.session.ID))
 	if client.opts.sessionSaved != nil {
 		client.opts.sessionSaved(chatSessionPath(model.session.ID))
 	}

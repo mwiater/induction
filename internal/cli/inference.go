@@ -75,6 +75,34 @@ func runInference(ctx context.Context, f inferenceFlags, in io.Reader, out io.Wr
 		if err != nil {
 			return err
 		}
+		if p.Batch != nil {
+			batch, runErr := induction.RunBatch(ctx, p, ".batches", func(runCtx context.Context, pipeline *induction.Pipeline, input induction.InputSet, item *induction.BatchItem) error {
+				child := *pipeline
+				child.Batch = nil
+				child.Inputs = &input
+				childOptions := []induction.ClientOption{
+					induction.WithConfigPath(configPath),
+					induction.WithPipeline(&child),
+					induction.WithAutoExitAfterInitialChat(true),
+					induction.WithSessionSaved(func(path string) {
+						item.PipelineRunID = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+					}),
+				}
+				pipelineReq := &induction.ChatRequest{Model: child.Steps[0].Model}
+				if pipelineUsesMCP(&child) && len(cfg.MCPServers) > 0 {
+					return runMCP(runCtx, pipelineReq, in, out, childOptions...)
+				}
+				return runConfiguredChat(runCtx, pipelineReq, in, out, childOptions...)
+			}, func(batch *induction.Batch) {
+				summary := batch.Summary()
+				_, _ = fmt.Fprintf(out, "Batch %s: %s (%d/%d completed, %d failed, %d invalid)\n", batch.ID, batch.Status, summary.Completed, summary.Total, summary.Failed, summary.Invalid)
+			})
+			if runErr != nil {
+				return runErr
+			}
+			_, _ = fmt.Fprintf(out, "Batch complete: %s\n", batch.ID)
+			return nil
+		}
 		if pipelineUsesMCP(p) && len(cfg.MCPServers) > 0 {
 			return runMCP(ctx, pipelineReq, in, out, options...)
 		}

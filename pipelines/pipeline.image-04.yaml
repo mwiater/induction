@@ -8,7 +8,7 @@ steps:
     nomcp: true
     systemPrompt: You are a product-photography and cataloging assistant. Describe only visible product attributes and clearly mark anything uncertain.
     userPrompt: Analyze the provided photograph for an e-commerce catalog. Identify the apparent product or products, materials, colors, visible features, condition, viewpoint, and any details that would help a buyer understand the item. Do not invent a brand, model, dimensions, or specifications.
-    image: ../data/fixtures/images/fixture.jpg
+    image: ../data/fixtures/images/fixture-01.jpg
 
   - name: draft-product-listing
     model: Qwen-3.5-9B-MTP-General-Q8_0

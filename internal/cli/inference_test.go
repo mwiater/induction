@@ -12,7 +12,7 @@ import (
 
 func TestPrepareDocuments(t *testing.T) {
 	dir := t.TempDir()
-	fixture, err := os.ReadFile("../../data/fixtures/documents/fixture.pdf")
+	fixture, err := os.ReadFile("../../data/fixtures/documents/fixture-01.pdf")
 	if err != nil {
 		t.Fatal(err)
 	}

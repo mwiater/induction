@@ -8,7 +8,7 @@ steps:
     nomcp: true
     systemPrompt: You are an OCR specialist. Read only text visibly present in the supplied image and preserve uncertainty rather than guessing.
     userPrompt: Transcribe every readable text element in the image in visual reading order. Preserve capitalization, numbers, punctuation, and meaningful line breaks. Identify text that is partially obscured or ambiguous.
-    image: ../data/fixtures/images/fixture-text.jpg
+    image: ../data/fixtures/images/fixture-text-01.jpg
 
   - name: structure-ocr-results
     model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M

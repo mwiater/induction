@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	induction "github.com/mwiater/induction"
 	"github.com/mwiater/induction/internal/pipelinegen"
 	"github.com/spf13/cobra"
 )
@@ -38,13 +39,41 @@ func newPipelineCommand(configPath *string) *cobra.Command {
 				return fmt.Errorf("prompt is empty")
 			}
 			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Analyzing prompt...")
-			client, err := configuredClient(cmd, *configPath)
+			var plannerInteraction *induction.Interaction
+			plannerPipeline := &induction.Pipeline{Name: "pipeline-generator", Steps: []induction.PipelineStep{{
+				Name: "plan", Model: model, SystemPrompt: pipelinegen.PlannerSystemPrompt,
+				UserPrompt:     "[ORIGINAL USER PROMPT]\n<USER_PROMPT>\n" + original + "\n</USER_PROMPT>",
+				ResponseFormat: &induction.ResponseFormat{Type: "json_object"},
+			}}}
+			plannerReq := &induction.ChatRequest{Model: model}
+			if err := runConfiguredChat(cmd.Context(), plannerReq, cmd.InOrStdin(), cmd.OutOrStdout(),
+				induction.WithConfigPath(*configPath),
+				induction.WithPipeline(plannerPipeline),
+				induction.WithAutoExitAfterInitialChat(true),
+				induction.WithInferenceCompleted(func(snapshot *induction.ModelSnapshot, _ string) {
+					if snapshot != nil && len(snapshot.Interaction) > 0 {
+						plannerInteraction = &snapshot.Interaction[0]
+					}
+				}),
+			); err != nil {
+				return err
+			}
+			if plannerInteraction == nil {
+				return fmt.Errorf("planner returned no interaction")
+			}
+			plan, err := pipelinegen.ParsePlanResponse(plannerInteraction)
 			if err != nil {
 				return err
 			}
-			planPipeline, plan, err := pipelinegen.Generate(cmd.Context(), pipelinegen.LLMPlanner{Client: client}, model, original, validate)
-			if err != nil {
+			if err := pipelinegen.ValidatePlan(plan); err != nil {
 				return err
+			}
+			var planPipeline *induction.Pipeline
+			if plan.DecompositionRecommended {
+				planPipeline, err = pipelinegen.Compile(plan, model, original, validate)
+				if err != nil {
+					return err
+				}
 			}
 			if planPipeline == nil {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nPrompt classification: %s\nDecomposition recommended: no\n\nNo pipeline generated.\nUse the existing prompt optimizer for this request.\n", plan.Classification)

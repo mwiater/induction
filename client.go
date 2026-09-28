@@ -41,6 +41,8 @@ type ClientOptions struct {
 	autoExitAfterInitialChat bool
 	// sessionSaved is called after a session has been written successfully.
 	sessionSaved func(string)
+	// inferenceCompleted receives the completed UI turn and visible content.
+	inferenceCompleted func(*ModelSnapshot, string)
 	// pipeline drives sequential turns through the console UI.
 	pipeline *Pipeline
 	// mcpTools marks snapshots produced by the configured MCP tool loop.

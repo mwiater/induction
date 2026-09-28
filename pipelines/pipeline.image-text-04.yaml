@@ -8,7 +8,7 @@ steps:
     nomcp: true
     systemPrompt: You are a document-processing assistant extracting text from an image for an archive. Preserve the source faithfully and distinguish observations from interpretation.
     userPrompt: Extract the visible text from this image for archival indexing. Preserve wording, capitalization, numbers, punctuation, and line grouping where practical. Mark unreadable characters or words as uncertain and do not translate or summarize.
-    image: ../data/fixtures/images/fixture-text.jpg
+    image: ../data/fixtures/images/fixture-text-01.jpg
 
   - name: create-archive-metadata
     model: Muse-Glimmer-30B-Q4_K_XL

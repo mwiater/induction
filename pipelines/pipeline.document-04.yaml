@@ -15,7 +15,7 @@ steps:
       or purpose, intended audience, structure, tone, strongest passages or
       sections, and places where the reasoning or explanation may be difficult
       for a reader. Base every observation on the ingested text.
-    document: ../data/fixtures/documents/fixture.pdf
+    document: ../data/fixtures/documents/fixture-01.pdf
 
   - name: prepare-editorial-notes
     model: Ornith-1.0-35B-UD-Q4_K_M

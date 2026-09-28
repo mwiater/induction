@@ -55,15 +55,15 @@ func TestAttachmentDataURLsValidate(t *testing.T) {
 }
 
 func TestRepositoryJPEGAndPDFFixtures(t *testing.T) {
-	imageURL, err := ImageDataURL("data/fixtures/images/fixture.jpg", DefaultAttachmentMaxBytes)
+	imageURL, err := ImageDataURL("data/fixtures/images/fixture-01.jpg", DefaultAttachmentMaxBytes)
 	if err != nil || !strings.HasPrefix(imageURL, "data:image/jpeg;base64,") {
 		t.Fatalf("JPEG data URL=%q err=%v", imageURL[:min(len(imageURL), 32)], err)
 	}
-	fileURL, filename, err := FileDataURL("data/fixtures/documents/fixture.pdf", DefaultAttachmentMaxBytes)
-	if err != nil || filename != "fixture.pdf" || !strings.HasPrefix(fileURL, "data:application/pdf;base64,") {
+	fileURL, filename, err := FileDataURL("data/fixtures/documents/fixture-01.pdf", DefaultAttachmentMaxBytes)
+	if err != nil || filename != "fixture-01.pdf" || !strings.HasPrefix(fileURL, "data:application/pdf;base64,") {
 		t.Fatalf("PDF data URL=%q filename=%q err=%v", fileURL[:min(len(fileURL), 32)], filename, err)
 	}
-	text, err := ExtractPDFText("data/fixtures/documents/fixture.pdf", DefaultAttachmentMaxBytes)
+	text, err := ExtractPDFText("data/fixtures/documents/fixture-01.pdf", DefaultAttachmentMaxBytes)
 	if err != nil || strings.TrimSpace(text) == "" {
 		t.Fatalf("PDF text=%q err=%v", text, err)
 	}

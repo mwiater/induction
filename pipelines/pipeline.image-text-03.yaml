@@ -8,7 +8,7 @@ steps:
     nomcp: true
     systemPrompt: You are an accessibility-focused OCR and layout analyst. Describe visible text and its surrounding visual structure without inventing unreadable content.
     userPrompt: Inspect the image for text and layout. Transcribe readable text, describe headings and reading order, identify emphasis or grouping such as labels and sections, and mark anything illegible or uncertain.
-    image: ../data/fixtures/images/fixture-text.jpg
+    image: ../data/fixtures/images/fixture-text-01.jpg
 
   - name: write-accessible-description
     model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M

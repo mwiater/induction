@@ -1,0 +1,16 @@
+name: batch-document-analysis
+# `batch.items` is the batch boundary: each document gets a separate complete
+# pipeline run and a separate result.
+batch:
+  items:
+    - id: document-001
+      documents: [../data/fixtures/documents/fixture-01.pdf]
+    - id: document-002
+      documents: [../data/fixtures/documents/fixture-02.pdf]
+steps:
+  - name: extract
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    userPrompt: Identify the subject, purpose, and key facts in the document.
+  - name: summarize
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    userPrompt: Produce a concise structured analysis.

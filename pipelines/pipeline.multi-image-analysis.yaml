@@ -1,0 +1,14 @@
+name: multi-image-analysis
+# `inputs.images` is one input set: both images are analyzed together in one
+# complete pipeline run and produce one combined result.
+inputs:
+  images:
+    - ../data/fixtures/images/fixture-01.jpg
+    - ../data/fixtures/images/fixture-02.jpg
+steps:
+  - name: compare
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    userPrompt: Compare all provided images, noting similarities and differences.
+  - name: summarize
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    userPrompt: Produce one concise combined analysis of the images.

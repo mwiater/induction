@@ -58,9 +58,7 @@ func NewRootCommand() *cobra.Command {
 	root.AddCommand(newPDFCommand())
 	evalCommand := newEvalCommand(&configPath)
 	root.AddCommand(evalCommand)
-	sessions := newSessionsCommand(&configPath)
-	sessions.AddCommand(newCleanSessionsCommand())
-	sessions.AddCommand(newInspectSessionCommand())
+	sessions := newSessionsCommand()
 	root.AddCommand(sessions)
 	models.AddCommand(modelInspect)
 	markBetaCommandTree(evalCommand)
@@ -152,6 +150,13 @@ func newCleanSessionsCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newSessionsCommand() *cobra.Command {
+	sessions := &cobra.Command{Use: "sessions", Short: "manage persisted inference sessions"}
+	sessions.AddCommand(newCleanSessionsCommand())
+	sessions.AddCommand(newInspectSessionCommand())
+	return sessions
 }
 
 func newUICommand() *cobra.Command {

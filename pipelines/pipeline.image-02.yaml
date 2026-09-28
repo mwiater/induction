@@ -10,7 +10,7 @@ steps:
       You are an expert visual classification system. Determine the primary category of the provided photograph (e.g., landscape, portrait, architectural, macro, document, abstract). Be objective and state only what is visually evident.
     userPrompt: |
       Classify the primary category of this photograph and provide a brief justification for this classification based on the framing and subject matter.
-    image: ../data/fixtures/images/fixture.jpg
+    image: ../data/fixtures/images/fixture-01.jpg
 
   - name: assess-technical-quality
     model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M

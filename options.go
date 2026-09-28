@@ -72,6 +72,13 @@ func WithSessionSaved(callback func(string)) ClientOption {
 	return func(o *ClientOptions) { o.sessionSaved = callback }
 }
 
+// WithInferenceCompleted registers a callback invoked after a UI inference
+// turn completes. It is intended for UI-backed application workflows that
+// need to consume the structured result after Bubble Tea has rendered it.
+func WithInferenceCompleted(callback func(*ModelSnapshot, string)) ClientOption {
+	return func(o *ClientOptions) { o.inferenceCompleted = callback }
+}
+
 // WithPipeline enables sequential, automatically submitted chat steps in the
 // console UI. Pipeline mode exits after the final step is saved.
 func WithPipeline(pipeline *Pipeline) ClientOption {

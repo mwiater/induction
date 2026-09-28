@@ -8,7 +8,7 @@ steps:
     nomcp: true
     systemPrompt: You are a visual inventory assistant. Be precise about count, location, and visible state, and distinguish observations from guesses.
     userPrompt: Analyze the photograph for an inventory or field-survey record. Identify the visible objects, count them where possible, describe their locations and apparent condition, and note occlusion or ambiguity that could make the inventory incomplete.
-    image: ../data/fixtures/images/fixture.jpg
+    image: ../data/fixtures/images/fixture-01.jpg
 
   - name: format-inventory-record
     model: Muse-Glimmer-30B-Q4_K_XL

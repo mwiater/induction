@@ -14,7 +14,7 @@ steps:
       topic, important terms, relationships among ideas, examples, and any
       conclusions. Organize the outline in the document's logical order and
       flag terms whose meaning is unclear from the text.
-    document: ../data/fixtures/documents/fixture.pdf
+    document: ../data/fixtures/documents/fixture-01.pdf
 
   - name: create-study-materials
     model: LFM-2.5-8B-A1B-UD-Q8_K_XL

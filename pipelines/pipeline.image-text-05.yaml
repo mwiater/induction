@@ -15,7 +15,7 @@ steps:
       associate each value with its visible label, and mark blank, obscured, or
       unreadable fields explicitly. Keep the original wording rather than
       correcting it.
-    image: ../data/fixtures/images/fixture-text.jpg
+    image: ../data/fixtures/images/fixture-text-01.jpg
 
   - name: validate-form-record
     model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL

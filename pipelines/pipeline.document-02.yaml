@@ -15,7 +15,7 @@ steps:
       major claim, quote or closely identify the supporting passage, explain the
       reasoning used by the document, and mark any uncertainty or missing
       support. Preserve section or page references when available.
-    document: ../data/fixtures/documents/fixture.pdf
+    document: ../data/fixtures/documents/fixture-01.pdf
 
   - name: write-evidence-brief
     model: Agents-A1-MTP-Apex-I-Quality

@@ -38,30 +38,11 @@ type Planner interface {
 	Plan(context.Context, string, string) (*DecompositionPlan, error)
 }
 
-// LLMPlanner uses Induction's existing inference client for one structured call.
-type LLMPlanner struct{ Client *induction.Client }
-
-func (p LLMPlanner) Plan(ctx context.Context, model, prompt string) (*DecompositionPlan, error) {
-	if p.Client == nil {
-		return nil, fmt.Errorf("planner client is nil")
-	}
-	req := &induction.ChatRequest{Model: model, Messages: []induction.Message{
-		{Role: "system", Content: PlannerSystemPrompt},
-		{Role: "user", Content: "[ORIGINAL USER PROMPT]\n<USER_PROMPT>\n" + prompt + "\n</USER_PROMPT>"},
-	}}
-	// Some llama.cpp builds fail while initializing the grammar sampler for
-	// json_schema, even though they support JSON-object mode. The response is
-	// still a constrained structured response at the protocol level; strict
-	// schema and semantic validation remain enforced below in Go.
-	req.ResponseFormat = &induction.ResponseFormat{Type: "json_object"}
-	snapshot, err := p.Client.GenerateSnapshot(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("planning inference: %w", err)
-	}
-	if snapshot == nil || len(snapshot.Interaction) == 0 {
+// ParsePlanResponse decodes the planner's structured inference result.
+func ParsePlanResponse(interaction *induction.Interaction) (*DecompositionPlan, error) {
+	if interaction == nil {
 		return nil, fmt.Errorf("planner returned no interaction")
 	}
-	interaction := snapshot.Interaction[0]
 	for _, candidate := range []string{interaction.Content, interaction.ReasoningContent} {
 		if strings.TrimSpace(candidate) == "" {
 			continue

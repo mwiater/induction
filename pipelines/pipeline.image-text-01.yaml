@@ -18,7 +18,7 @@ steps:
       readable heading, date, price, label, slogan, and small-print phrase.
       Preserve the visual reading order and use line breaks to reflect the
       layout where practical.
-    image: ../data/fixtures/images/fixture-text.jpg
+    image: ../data/fixtures/images/fixture-text-01.jpg
 
   - name: return-json
     model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL

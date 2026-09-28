@@ -8,7 +8,7 @@ steps:
     nomcp: true
     systemPrompt: You are a careful visual analysis assistant.
     userPrompt: Describe the provided image in detail, including its subjects, composition, and setting. Separate observations from uncertain inferences.
-    image: ../data/fixtures/images/fixture.jpg
+    image: ../data/fixtures/images/fixture-01.jpg
 
   - name: write-property-inspection-note
     model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL

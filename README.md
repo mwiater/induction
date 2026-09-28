@@ -81,6 +81,10 @@ for one invocation.
 stored as private JSON under `.sessions/`; each session contains its transcript
 and the telemetry snapshots collected for completed turns.
 
+Application diagnostics are written to `induction.log`. When
+`log.truncateOnRun` is true, the file is truncated once when the application
+starts; subsequent logger instances in that process append to the same file.
+
 ---
 
 ## Chat inference
@@ -134,6 +138,95 @@ Image classification requires a vision-capable model and its multimodal
 projector (`--mmproj` when the selected local model requires one). No special
 llama-server logits startup flag is required.
 
+## Batch pipelines
+
+A pipeline defines one unit of work. An input set is the complete data for one
+execution. A batch is an outer collection of input sets that runs the same complete
+pipeline independently for each item.
+
+The distinction is triggered by the YAML field used:
+
+- `inputs:` means one pipeline run. Every image or document listed there belongs to
+  the same analysis and is available to every pipeline step through one shared
+  conversation.
+- `batch.items:` means batch execution. Induction creates one independent child
+  pipeline run for each item and executes every pipeline step once for that item.
+
+These fields are not interchangeable. Two files under `inputs` produce one combined
+result; two items under `batch.items` produce two separate results. A batch item may
+also contain multiple files, in which case those files are combined into that item’s
+single child run.
+
+### Multi-file pipeline: one run
+
+`pipelines/pipeline.multi-image-analysis.yaml` contains:
+
+```yaml
+name: image-review
+inputs:
+  images:
+    - ./images/one.jpg
+    - ./images/two.jpg
+steps:
+  - name: compare
+    model: vision-model
+    userPrompt: Compare all provided images.
+```
+
+This produces one Bubble Tea pipeline execution and one combined analysis:
+
+```text
+image-1 ─┐
+image-2 ─┼──> complete pipeline ──> one combined result
+         ┘
+Pipeline runs: 1
+```
+
+### Batch pipeline: one run per item
+
+`pipelines/pipeline.batch-image-analysis.yaml` contains:
+
+```yaml
+name: image-review
+batch:
+  items:
+    - id: image-001
+      images: [./images/one.jpg]
+    - id: image-002
+      images: [./images/two.jpg]
+steps:
+  - name: review
+    model: vision-model
+    userPrompt: Review the provided image.
+```
+
+This produces two independent Bubble Tea pipeline executions and two results:
+
+```text
+image-1 ──> complete pipeline ──> result 1
+image-2 ──> complete pipeline ──> result 2
+Pipeline runs: 2
+```
+
+The same rule applies to documents. `inputs.documents` creates one combined
+document analysis, while `batch.items[].documents` creates one analysis per item.
+For example, a batch item containing `front.jpg` and `rear.jpg` creates one run for
+that subject; two such items create two runs, not four.
+
+Batch state is persisted under `.batches/`, with child sessions under `.sessions/`;
+completed items are skipped when the same batch is resumed. Invalid items are
+recorded while valid items continue by default. The pipeline itself is not changed
+between items: the complete sequence of steps runs independently for each item.
+
+| Example | Inputs | Pipeline runs |
+|---|---:|---:|
+| `pipelines/pipeline.multi-image-analysis.yaml` | 2 related images | 1 |
+| `pipelines/pipeline.batch-image-analysis.yaml` | 2 independent images | 2 |
+| `pipelines/pipeline.multi-document-analysis.yaml` | 2 related documents | 1 |
+| `pipelines/pipeline.batch-document-analysis.yaml` | 2 independent documents | 2 |
+
+Run a batch with `induction --pipeline pipelines/pipeline.batch-image-analysis.yaml`.
+
 ## Examples
 
 The compiled binary supports text, multimodal, pipeline, MCP, application-tool,
@@ -146,12 +239,12 @@ dist/induction_linux_amd64_v1/induction --model "GLM-4.7-Flash-Q4_K_M"
 
 # Runs interactive image analysis. --model selects the model and --image adds
 # the local image as input; the default image-analysis prompt is used.
-dist/induction_linux_amd64_v1/induction --model "Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL" --image data/fixtures/images/fixture.jpg
+dist/induction_linux_amd64_v1/induction --model "Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL" --image data/fixtures/images/fixture-01.jpg
 
 # Runs document question-answering. --document supplies a local PDF and
 # --userPrompt asks what to do with it; --autosubmit sends that prompt
 # immediately instead of waiting for interactive input.
-dist/induction_linux_amd64_v1/induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --document data/fixtures/documents/fixture.pdf --userPrompt "Summarize this document." --autosubmit
+dist/induction_linux_amd64_v1/induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --document data/fixtures/documents/fixture-01.pdf --userPrompt "Summarize this document." --autosubmit
 
 # Runs document question-answering across every PDF directly inside a directory.
 dist/induction_linux_amd64_v1/induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --documents data/fixtures/documents --userPrompt "Summarize these documents." --autosubmit
@@ -192,12 +285,12 @@ dist/induction_linux_amd64_v1/induction --config induction.example.yaml --model 
 
 # Runs image inference with an explicit prompt. --image attaches the local
 # image, --userPrompt describes the analysis, and --autosubmit submits it.
-dist/induction_linux_amd64_v1/induction --model "Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL" --image data/fixtures/images/fixture.jpg --userPrompt "Describe the image's composition." --autosubmit
+dist/induction_linux_amd64_v1/induction --model "Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL" --image data/fixtures/images/fixture-01.jpg --userPrompt "Describe the image's composition." --autosubmit
 
 # Runs document inference with an explicit system instruction. --document
 # attaches the PDF, --systemPrompt sets assistant behavior, and --userPrompt
 # supplies the document task; --autosubmit submits it immediately.
-dist/induction_linux_amd64_v1/induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --document data/fixtures/documents/fixture.pdf --systemPrompt "Be concise and cite the document's sections." --userPrompt "List the main claims." --autosubmit
+dist/induction_linux_amd64_v1/induction --model "Qwen-3.5-9B-MTP-General-Q8_0" --document data/fixtures/documents/fixture-01.pdf --systemPrompt "Be concise and cite the document's sections." --userPrompt "List the main claims." --autosubmit
 
 # Requests a JSON-schema response. --responseFormat selects json_schema and
 # --jsonSchema supplies the inline object schema; --autosubmit and --autoexit
@@ -220,11 +313,6 @@ dist/induction_linux_amd64_v1/induction --pipeline pipelines/pipeline.document-0
 # Generates a pipeline from a complex prompt. --prompt and --prompt-file are
 # mutually exclusive; --validate adds a read-only final validation step.
 dist/induction_linux_amd64_v1/induction pipeline generate --model "Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL" --prompt "Compare the two proposed rollout plans and recommend one with risks and mitigations." --output pipelines/generated/rollout-comparison.yaml --validate
-
-# Hydrates telemetry sessions for every model reported by /v1/models and then
-# regenerates the dashboard. Image workloads run only for models reporting
-# image input; MCP workloads run only when MCP is configured.
-dist/induction_linux_amd64_v1/induction sessions hydrate
 
 # Runs unattended text inference with all sampling overrides and MCP disabled.
 # --nomcp leaves local application tools available while preventing configured
@@ -277,7 +365,7 @@ change local model state.
 Preview text extraction from a local PDF without contacting the server:
 
 ```bash
-induction pdf preview --file data/fixtures/documents/fixture.pdf
+induction pdf preview --file data/fixtures/documents/fixture-01.pdf
 ```
 
 ## Command-line reference
@@ -321,10 +409,6 @@ induction models inspect "author/model-GGUF" --json --beta
 # Replay a persisted chat session as an instantaneous transcript.
 induction sessions inspect --session .sessions/<session-id>.json
 
-# Run representative workloads for every model reported by the server, then
-# regenerate dashboard artifacts.
-induction sessions hydrate
-
 # Inspect or change the runtime model state.
 induction runtime
 induction runtime status
@@ -346,11 +430,6 @@ accept that flag.
 `sessions inspect` prints each completed user/assistant interaction from the
 session, including saved reasoning content when available, without contacting
 the inference server.
-
-`sessions hydrate` runs representative text, document, application-tool, MCP,
-and supported image workloads for each model reported by `/v1/models`, then
-regenerates the dashboard. Failed workloads are reported and do not prevent
-other models from running.
 
 The `models` command and all of its subcommands are beta features. Include
 `--beta` on the `models` command you invoke to acknowledge that the feature is

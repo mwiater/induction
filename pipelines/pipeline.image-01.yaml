@@ -17,7 +17,7 @@ steps:
       Analyze the provided image and describe its primary subjects in detail.
       Organize the analysis by subject and include the visual evidence for each
       description. State uncertainty when a detail is ambiguous.
-    image: ../data/fixtures/images/fixture.jpg
+    image: ../data/fixtures/images/fixture-01.jpg
 
   - name: analyze-image-composition
     model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL

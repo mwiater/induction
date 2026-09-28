@@ -10,7 +10,7 @@ steps:
     userPrompt: |
       Summarize the provided document. Identify its main argument, supporting
       points, important evidence, and conclusions.
-    document: ../data/fixtures/documents/fixture.pdf
+    document: ../data/fixtures/documents/fixture-01.pdf
 
   - name: produce-document-summary
     model: GLM-4.7-Flash-Q4_K_M

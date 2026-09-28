@@ -32,7 +32,7 @@ steps:
       8 = no clear primary subject
 
       Output the single category token now.
-    image: ../data/fixtures/images/fixture.jpg
+    image: ../data/fixtures/images/fixture-01.jpg
     classification:
       candidates:
         "1": person or people

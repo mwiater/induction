@@ -1,0 +1,14 @@
+name: multi-document-analysis
+# `inputs.documents` is one input set: both documents are analyzed together in
+# one complete pipeline run and produce one combined report.
+inputs:
+  documents:
+    - ../data/fixtures/documents/fixture-01.pdf
+    - ../data/fixtures/documents/fixture-02.pdf
+steps:
+  - name: compare
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    userPrompt: Compare the provided documents and identify their key themes.
+  - name: report
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    userPrompt: Produce one concise combined report.
