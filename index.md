@@ -41,6 +41,9 @@ Package induction provides clients and helpers for local LLM inference, streamin
 - [type ChatSession](<#ChatSession>)
   - [func LoadChatSession\(path string\) \(\*ChatSession, error\)](<#LoadChatSession>)
 - [type ChatSessionSummary](<#ChatSessionSummary>)
+- [type ChoiceLogprobs](<#ChoiceLogprobs>)
+- [type ClassificationConfig](<#ClassificationConfig>)
+- [type ClassificationResult](<#ClassificationResult>)
 - [type Client](<#Client>)
   - [func NewClient\(ctx context.Context, endpoint string, options ...ClientOption\) \*Client](<#NewClient>)
   - [func NewClientFromConfig\(ctx context.Context, options ...ClientOption\) \(\*Client, error\)](<#NewClientFromConfig>)
@@ -171,6 +174,8 @@ Package induction provides clients and helpers for local LLM inference, streamin
   - [func WithUnloadOthers\(enabled bool\) SwitchOption](<#WithUnloadOthers>)
 - [type SwitchOptions](<#SwitchOptions>)
 - [type SwitchResult](<#SwitchResult>)
+- [type TokenLogprob](<#TokenLogprob>)
+- [type TokenLogprobPosition](<#TokenLogprobPosition>)
 - [type Tool](<#Tool>)
 - [type ToolFunction](<#ToolFunction>)
 - [type UploadedFile](<#UploadedFile>)
@@ -546,9 +551,14 @@ type ChatRequest struct {
     // Messages carries a chat transcript for chat-completion-style requests.
     Messages []Message `json:"messages,omitempty"`
     // Prompt accepts a string or an array of token IDs for completion requests.
-    Prompt any    `json:"prompt,omitempty"`
-    Model  string `json:"model,omitempty"`
-    Stream *bool  `json:"stream,omitempty"`
+    Prompt      any    `json:"prompt,omitempty"`
+    Model       string `json:"model,omitempty"`
+    Stream      *bool  `json:"stream,omitempty"`
+    Logprobs    *bool  `json:"logprobs,omitempty"`
+    TopLogprobs *int   `json:"top_logprobs,omitempty"`
+    // ChatTemplateKwargs contains llama.cpp per-request chat-template options.
+    // Classification uses it to disable model thinking when supported.
+    ChatTemplateKwargs map[string]any `json:"chat_template_kwargs,omitempty"`
 
     MaxTokens           *int `json:"max_tokens,omitempty"`
     MaxCompletionTokens *int `json:"max_completion_tokens,omitempty"`
@@ -604,6 +614,9 @@ type ChatRequest struct {
     // sent to the inference server.
     ImageFilename    string `json:"-"`
     DocumentFilename string `json:"-"`
+    // Classification is an internal pipeline execution mode and is never sent
+    // as part of the llama.cpp request payload.
+    Classification *ClassificationConfig `json:"-"`
 }
 ```
 
@@ -652,6 +665,43 @@ type ChatSessionSummary struct {
     UpdatedAt    time.Time
     MessageCount int
     Path         string
+}
+```
+
+<a name="ChoiceLogprobs"></a>
+## type ChoiceLogprobs
+
+
+
+```go
+type ChoiceLogprobs struct {
+    Content []TokenLogprobPosition `json:"content"`
+}
+```
+
+<a name="ClassificationConfig"></a>
+## type ClassificationConfig
+
+ClassificationConfig configures bounded next\-token classification. Each candidate key must be represented by exactly one model vocabulary token.
+
+```go
+type ClassificationConfig struct {
+    Candidates  map[string]string `yaml:"candidates"`
+    TopLogprobs int               `yaml:"topLogprobs,omitempty"`
+}
+```
+
+<a name="ClassificationResult"></a>
+## type ClassificationResult
+
+ClassificationResult is the application\-generated result of a bounded next\-token classification request. Confidence is conditional on the configured candidates and returned candidate log probabilities; it is not a calibrated real\-world probability.
+
+```go
+type ClassificationResult struct {
+    Class         string             `json:"class"`
+    Label         string             `json:"label"`
+    Confidence    float64            `json:"confidence"`
+    Probabilities map[string]float64 `json:"probabilities"`
 }
 ```
 
@@ -1475,7 +1525,7 @@ type InferenceChoice struct {
     Index        int                       `json:"index"`
     Message      *InferenceResponseMessage `json:"message,omitempty"`
     Text         string                    `json:"text,omitempty"`
-    Logprobs     json.RawMessage           `json:"logprobs,omitempty"`
+    Logprobs     *ChoiceLogprobs           `json:"logprobs,omitempty"`
     FinishReason *string                   `json:"finish_reason,omitempty"`
 }
 ```
@@ -1561,7 +1611,7 @@ type InferenceStreamChoice struct {
     Index        int                  `json:"index"`
     Delta        InferenceStreamDelta `json:"delta,omitempty"`
     Text         string               `json:"text,omitempty"`
-    Logprobs     json.RawMessage      `json:"logprobs,omitempty"`
+    Logprobs     *ChoiceLogprobs      `json:"logprobs,omitempty"`
     FinishReason *string              `json:"finish_reason,omitempty"`
 }
 ```
@@ -2087,16 +2137,17 @@ PipelineStep describes one automatically submitted turn.
 
 ```go
 type PipelineStep struct {
-    Name           string              `yaml:"name"`
-    Model          string              `yaml:"model"`
-    UserPrompt     string              `yaml:"userPrompt"`
-    SystemPrompt   string              `yaml:"systemPrompt,omitempty"`
-    Image          string              `yaml:"image,omitempty"`
-    Document       string              `yaml:"document,omitempty"`
-    NoMCP          bool                `yaml:"nomcp,omitempty"`
-    ResponseFormat *ResponseFormat     `yaml:"responseFormat,omitempty"`
-    JSONSchema     any                 `yaml:"jsonSchema,omitempty"`
-    Parameters     *PipelineParameters `yaml:"parameters,omitempty"`
+    Name           string                `yaml:"name"`
+    Model          string                `yaml:"model"`
+    UserPrompt     string                `yaml:"userPrompt"`
+    SystemPrompt   string                `yaml:"systemPrompt,omitempty"`
+    Image          string                `yaml:"image,omitempty"`
+    Document       string                `yaml:"document,omitempty"`
+    NoMCP          bool                  `yaml:"nomcp,omitempty"`
+    ResponseFormat *ResponseFormat       `yaml:"responseFormat,omitempty"`
+    JSONSchema     any                   `yaml:"jsonSchema,omitempty"`
+    Parameters     *PipelineParameters   `yaml:"parameters,omitempty"`
+    Classification *ClassificationConfig `yaml:"classification,omitempty"`
 }
 ```
 
@@ -2315,6 +2366,33 @@ type SwitchResult struct {
     Unloaded []RuntimeOperation `json:"unloaded,omitempty"`
     Load     *RuntimeOperation  `json:"load,omitempty"`
     Duration time.Duration      `json:"duration"`
+}
+```
+
+<a name="TokenLogprob"></a>
+## type TokenLogprob
+
+
+
+```go
+type TokenLogprob struct {
+    Token   string  `json:"token"`
+    Logprob float64 `json:"logprob"`
+    Bytes   []int   `json:"bytes,omitempty"`
+}
+```
+
+<a name="TokenLogprobPosition"></a>
+## type TokenLogprobPosition
+
+
+
+```go
+type TokenLogprobPosition struct {
+    Token       string         `json:"token"`
+    Logprob     float64        `json:"logprob"`
+    Bytes       []int          `json:"bytes,omitempty"`
+    TopLogprobs []TokenLogprob `json:"top_logprobs"`
 }
 ```
 
