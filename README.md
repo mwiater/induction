@@ -1,6 +1,6 @@
 # Induction
 
-<img src=".repo/induction_logo_animation_transparent.gif" alt="Induction Logo" width="250">
+<img src=".repo/induction-logo.png" alt="Induction Logo" width="100">
 
 Induction is a Go client for llama.cpp-compatible servers. It provides
 config-driven chat inference, OpenAI-compatible request and response types,
