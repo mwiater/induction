@@ -54,7 +54,22 @@ type PipelineStep struct {
 	ResponseFormat *ResponseFormat       `yaml:"responseFormat,omitempty"`
 	JSONSchema     any                   `yaml:"jsonSchema,omitempty"`
 	Parameters     *PipelineParameters   `yaml:"parameters,omitempty"`
+	Temperature    *float64              `yaml:"temperature,omitempty"`
 	Classification *ClassificationConfig `yaml:"classification,omitempty"`
+	Output         *StepOutputConfig     `yaml:"output,omitempty"`
+	Transform      string                `yaml:"transform,omitempty"`
+	Input          map[string]any        `yaml:"input,omitempty"`
+	ForEach        string                `yaml:"forEach,omitempty"`
+	As             string                `yaml:"as,omitempty"`
+}
+
+// StepOutputConfig describes a persisted structured result. The legacy
+// responseFormat/jsonSchema fields remain supported for existing pipelines.
+type StepOutputConfig struct {
+	Type       string         `yaml:"type,omitempty" json:"type,omitempty"`
+	Artifact   string         `yaml:"artifact,omitempty" json:"artifact,omitempty"`
+	Grammar    string         `yaml:"grammar,omitempty" json:"grammar,omitempty"`
+	JSONSchema map[string]any `yaml:"jsonSchema,omitempty" json:"jsonSchema,omitempty"`
 }
 
 // ClassificationConfig configures bounded next-token classification. Each
@@ -149,6 +164,10 @@ func (p *Pipeline) Validate() error {
 		}
 	}
 	seen := make(map[string]bool, len(p.Steps))
+	positions := make(map[string]int, len(p.Steps))
+	for i := range p.Steps {
+		positions[p.Steps[i].Name] = i
+	}
 	for i, step := range p.Steps {
 		if strings.TrimSpace(step.Name) == "" {
 			return fmt.Errorf("steps[%d].name is required", i)
@@ -156,12 +175,55 @@ func (p *Pipeline) Validate() error {
 		if seen[step.Name] {
 			return fmt.Errorf("steps[%d] duplicates step name %q", i, step.Name)
 		}
-		seen[step.Name] = true
-		if strings.TrimSpace(step.Model) == "" {
-			return fmt.Errorf("steps[%d].model is required", i)
+		isTransform := strings.TrimSpace(step.Transform) != ""
+		if isTransform {
+			switch step.Transform {
+			case "knowledgeGraph.entityCandidates", "knowledgeGraph.canonicalizeEntities", "knowledgeGraph.predicateCandidates", "knowledgeGraph.buildGraph", "knowledgeGraph.finalize":
+			default:
+				return fmt.Errorf("steps[%d]: unknown transform %q", i, step.Transform)
+			}
+			if strings.TrimSpace(step.Model) != "" || strings.TrimSpace(step.UserPrompt) != "" || step.SystemPrompt != "" || step.Parameters != nil || step.Temperature != nil || step.Classification != nil || step.ResponseFormat != nil || step.JSONSchema != nil {
+				return fmt.Errorf("steps[%d]: transform steps cannot specify inference configuration", i)
+			}
+			if step.Image != "" || step.Document != "" {
+				return fmt.Errorf("steps[%d]: transform steps cannot specify attachments", i)
+			}
+		} else {
+			if strings.TrimSpace(step.Model) == "" {
+				return fmt.Errorf("steps[%d].model is required", i)
+			}
+			if strings.TrimSpace(step.UserPrompt) == "" {
+				return fmt.Errorf("steps[%d].userPrompt is required", i)
+			}
 		}
-		if strings.TrimSpace(step.UserPrompt) == "" {
-			return fmt.Errorf("steps[%d].userPrompt is required", i)
+		if step.Transform != "" && step.ForEach != "" {
+			return fmt.Errorf("steps[%d]: transform steps cannot use forEach", i)
+		}
+		if step.As == "" && step.ForEach != "" {
+			step.As = "item"
+			p.Steps[i].As = step.As
+		}
+		if step.Output != nil {
+			typeName := strings.ToLower(strings.TrimSpace(step.Output.Type))
+			if typeName == "" {
+				typeName = "text"
+				step.Output.Type = typeName
+			}
+			if typeName != "text" && typeName != "json" {
+				return fmt.Errorf("steps[%d].output.type %q is unsupported", i, step.Output.Type)
+			}
+			if step.Output.Grammar != "" && step.Output.JSONSchema != nil {
+				return fmt.Errorf("steps[%d].output.grammar and output.jsonSchema are mutually exclusive", i)
+			}
+			if typeName == "json" && step.Output.Artifact == "" {
+				return fmt.Errorf("steps[%d].output.artifact is required for JSON output", i)
+			}
+			if step.Output.Artifact != "" {
+				clean := filepath.Clean(step.Output.Artifact)
+				if filepath.IsAbs(step.Output.Artifact) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+					return fmt.Errorf("steps[%d].output.artifact must remain within the run artifact directory", i)
+				}
+			}
 		}
 		if step.Image != "" && step.Document != "" {
 			return fmt.Errorf("steps[%d] cannot specify both image and document", i)
@@ -228,6 +290,10 @@ func (p *Pipeline) Validate() error {
 				}
 			}
 		}
+		if err := validatePipelineReferences(step, i, seen, positions); err != nil {
+			return err
+		}
+		seen[step.Name] = true
 	}
 	return nil
 }
@@ -244,6 +310,55 @@ func resolveInputSetPaths(input *InputSet, base string) {
 			}
 		}
 	}
+}
+
+// validatePipelineReferences deliberately accepts only the small reference
+// language used by pipeline artifacts. It catches future-step references
+// before Bubble Tea starts model loading.
+func validatePipelineReferences(step PipelineStep, index int, prior map[string]bool, positions map[string]int) error {
+	values := []string{step.UserPrompt, step.SystemPrompt, step.ForEach}
+	for _, value := range values {
+		for pos := 0; pos < len(value); {
+			start := strings.Index(value[pos:], "{{")
+			if start < 0 {
+				break
+			}
+			start += pos
+			end := strings.Index(value[start+2:], "}}")
+			if end < 0 {
+				return fmt.Errorf("steps[%d]: unterminated reference", index)
+			}
+			end += start + 2
+			expr := strings.TrimSpace(value[start+2 : end])
+			if expr == "item" || expr == step.As || strings.HasPrefix(expr, step.As+".") || strings.HasPrefix(expr, "inputs.documents.chunks") {
+				pos = end + 2
+				continue
+			}
+			if !strings.HasPrefix(expr, "steps.") {
+				return fmt.Errorf("steps[%d]: unsupported reference %q", index, expr)
+			}
+			parts := strings.Split(expr, ".")
+			if len(parts) < 3 || parts[2] != "output" && parts[2] != "items" {
+				return fmt.Errorf("steps[%d]: unsupported reference %q", index, expr)
+			}
+			name := parts[1]
+			if !prior[name] {
+				if position, exists := positions[name]; exists && position >= index {
+					return fmt.Errorf("steps[%d]: reference to future step %q", index, name)
+				}
+				return fmt.Errorf("steps[%d]: unknown step reference %q", index, name)
+			}
+			pos = end + 2
+		}
+	}
+	for key, value := range step.Input {
+		if text, ok := value.(string); ok {
+			if err := validatePipelineReferences(PipelineStep{UserPrompt: text}, index, prior, positions); err != nil {
+				return fmt.Errorf("steps[%d].input[%q]: %w", index, key, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (s InputSet) Validate(label string) error {

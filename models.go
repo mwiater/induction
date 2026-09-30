@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -328,6 +330,10 @@ type ModelSnapshot struct {
 // listModelsTimeout bounds the HTTP request duration used by ListModels.
 const listModelsTimeout = 30 * time.Second
 
+// DefaultModelListCachePath is the local source-of-truth snapshot populated
+// from the configured llama.cpp /v1/models endpoint at inference startup.
+const DefaultModelListCachePath = "data/.local/v1_models.json"
+
 // modelListResponse models the common {"data": [...]} response envelope.
 type modelListResponse struct {
 	// Data stores the raw model entries from the server.
@@ -404,6 +410,54 @@ func (c *Client) ListModels() error {
 	var table strings.Builder
 	renderModelTable(&table, models)
 	c.logTable(table.String())
+	return nil
+}
+
+// RefreshModelListCache fetches the raw /v1/models response and stores it for
+// local tooling and tests. The response is intentionally kept unnormalized so
+// server-provided capability fields remain available to later consumers.
+func (c *Client) RefreshModelListCache(ctx context.Context, path string) error {
+	if c == nil {
+		return fmt.Errorf("client is nil")
+	}
+	if strings.TrimSpace(path) == "" {
+		path = DefaultModelListCachePath
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, listModelsTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, c.endpoint+"/v1/models", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.clientHTTP().Do(req)
+	if err != nil {
+		return fmt.Errorf("models request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read models body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	if !json.Valid(body) {
+		return fmt.Errorf("models response is not valid JSON")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create model cache directory: %w", err)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, body, 0o644); err != nil {
+		return fmt.Errorf("write model cache: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("replace model cache: %w", err)
+	}
 	return nil
 }
 

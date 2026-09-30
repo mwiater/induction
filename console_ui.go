@@ -141,6 +141,13 @@ type consoleModel struct {
 	props                    *PropsData
 	sessionStatus            string
 	sessionLoading           bool
+	pipelineOutputs          map[string]json.RawMessage
+	pipelineInputs           map[string]any
+	pipelineRunID            string
+	pipelineFanoutItems      []any
+	pipelineFanoutOutputs    []json.RawMessage
+	pipelineFanoutIndex      int
+	pipelineFanoutStep       int
 	exitSaving               bool
 	send                     func(tea.Msg)
 	complete                 func()
@@ -208,12 +215,15 @@ func newConsoleModel(ctx context.Context, client *Client, request ChatRequest, t
 		mainErrorStyle:              defaultConsoleUITheme.mainError,
 		mcpActivityStyle:            defaultConsoleUITheme.mcpActivity,
 	}
+	m.pipelineFanoutStep = -1
 	if client != nil && client.opts != nil {
 		m.initialPrompt = client.opts.initialChatPrompt
 		m.autoSubmitInitialPrompt = client.opts.initialChatPromptAutoSubmit
 		m.autoExitAfterInitialChat = client.opts.autoExitAfterInitialChat
 		m.pipeline = client.opts.pipeline
 		m.pipelineRunning = m.pipeline != nil
+		m.pipelineOutputs = make(map[string]json.RawMessage)
+		m.pipelineInputs = make(map[string]any)
 	}
 	return m
 }
@@ -349,6 +359,62 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.pipeline != nil && m.pipelineStep >= 0 && m.pipelineStep < len(m.pipeline.Steps) {
 			step := m.pipeline.Steps[m.pipelineStep]
+			msg.content = recoverStructuredPipelineContent(step, msg.content, msg.snapshot)
+			if step.Name == "extract-observations" && step.ForEach != "" && m.pipelineFanoutIndex < len(m.pipelineFanoutItems) {
+				normalized, err := normalizeExtractionOutput([]byte(msg.content), m.pipelineFanoutItems[m.pipelineFanoutIndex])
+				if err != nil {
+					// Keep the UI error concise, but preserve the complete diagnostic
+					// in the log so long evidence mismatches can be inspected.
+					chunk := ""
+					if m.pipelineFanoutIndex < len(m.pipelineFanoutItems) {
+						if item, marshalErr := json.Marshal(m.pipelineFanoutItems[m.pipelineFanoutIndex]); marshalErr == nil {
+							chunk = string(item)
+						}
+					}
+					m.client.logf("pipeline: step %q validation error: %v\nsource chunk:\n%s\nraw response:\n%s", step.Name, err, chunk, msg.content)
+					m.pipelineRunning = false
+					m.err = fmt.Errorf("pipeline step %q: %w", step.Name, err)
+					m.refreshTranscript()
+					return m, nil
+				}
+				msg.content = string(normalized)
+			}
+			if step.Output != nil && strings.EqualFold(step.Output.Type, "json") {
+				if !json.Valid([]byte(msg.content)) {
+					m.pipelineRunning = false
+					m.err = fmt.Errorf("pipeline step %q returned invalid JSON: %q", step.Name, previewPipelineOutput(msg.content))
+					m.refreshTranscript()
+					return m, nil
+				}
+				var parsed json.RawMessage
+				if err := json.Unmarshal([]byte(msg.content), &parsed); err != nil {
+					m.pipelineRunning = false
+					m.err = fmt.Errorf("pipeline step %q returned invalid JSON: %w", step.Name, err)
+					m.refreshTranscript()
+					return m, nil
+				}
+				if step.ForEach != "" && m.pipelineFanoutStep == m.pipelineStep {
+					m.pipelineFanoutOutputs = append(m.pipelineFanoutOutputs, append(json.RawMessage(nil), parsed...))
+					if m.pipelineFanoutIndex+1 == len(m.pipelineFanoutItems) {
+						joined, _ := json.Marshal(m.pipelineFanoutOutputs)
+						m.pipelineOutputs[step.Name] = joined
+					}
+				} else {
+					m.pipelineOutputs[step.Name] = append(json.RawMessage(nil), parsed...)
+				}
+				if step.Output.Artifact != "" && m.pipelineRunID != "" && (step.ForEach == "" || m.pipelineFanoutIndex+1 == len(m.pipelineFanoutItems)) {
+					artifactData := []byte(msg.content)
+					if step.ForEach != "" {
+						artifactData = []byte(m.pipelineOutputs[step.Name])
+					}
+					if _, err := persistPipelineArtifact(m.pipelineRunID, step.Name, step.Output.Artifact, "application/json", artifactData); err != nil {
+						m.pipelineRunning = false
+						m.err = fmt.Errorf("pipeline step %q: persist artifact: %w", step.Name, err)
+						m.refreshTranscript()
+						return m, nil
+					}
+				}
+			}
 			if step.ResponseFormat != nil {
 				typeName := strings.ToLower(strings.TrimSpace(step.ResponseFormat.Type))
 				if (typeName == "json" || typeName == "json_object" || typeName == "json_schema") && !isJSONObject(msg.content) {
@@ -420,7 +486,14 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.pipelineRunning = false
 				return m, tea.Quit
 			}
+			if m.pipelineFanoutStep == m.pipelineStep && m.pipelineFanoutIndex+1 < len(m.pipelineFanoutItems) {
+				m.pipelineFanoutIndex++
+				return m, m.startPipelineStep(m.pipelineStep)
+			}
 			m.pipelineStep++
+			m.pipelineFanoutItems = nil
+			m.pipelineFanoutOutputs = nil
+			m.pipelineFanoutStep = -1
 			return m, m.startPipelineStep(m.pipelineStep)
 		}
 		if msg.exit || m.exitSaving {
@@ -742,6 +815,35 @@ func (m *consoleModel) startPipelineStep(index int) tea.Cmd {
 		return nil
 	}
 	step := m.pipeline.Steps[index]
+	if m.mcpFooter != "" {
+		m.mcpFooter = formatPipelineMCPFooter(len(m.mcpTools), step.NoMCP)
+	}
+	if step.ForEach != "" && step.As == "" {
+		step.As = "item"
+	}
+	if step.Transform != "" {
+		return func() tea.Msg {
+			data, err := executePipelineTransform(step, m.pipelineOutputs)
+			return consoleTurnResult{content: string(data), model: "", err: err}
+		}
+	}
+	if step.ForEach != "" && m.pipelineFanoutStep != index {
+		items, err := resolvePipelineForEach(step.ForEach, m.pipelineOutputs, m.pipelineInputs)
+		if err != nil {
+			return func() tea.Msg { return consoleTurnResult{err: err} }
+		}
+		m.pipelineFanoutItems = items
+		m.pipelineFanoutOutputs = nil
+		m.pipelineFanoutIndex = 0
+		m.pipelineFanoutStep = index
+		if len(items) == 0 {
+			m.pipelineOutputs[step.Name] = json.RawMessage("[]")
+			if step.Output != nil && step.Output.Artifact != "" && m.pipelineRunID != "" {
+				_, _ = persistPipelineArtifact(m.pipelineRunID, step.Name, step.Output.Artifact, "application/json", []byte("[]"))
+			}
+			return func() tea.Msg { return consoleTurnResult{content: "[]", model: ""} }
+		}
+	}
 	m.client.logf("pipeline: starting step %d/%d name=%q model=%q", index+1, len(m.pipeline.Steps), step.Name, step.Model)
 	m.pipelineStep = index
 	if m.modelMonitor != nil && m.request.Model != step.Model {
@@ -761,11 +863,39 @@ func (m *consoleModel) startPipelineStep(index int) tea.Cmd {
 	return loadModelCmd(m.client, m.ctx, m.timeout, step.Model, m.request.Model, m.modelOverlay)
 }
 
+func formatPipelineMCPFooter(toolCount int, disabled bool) string {
+	status := ""
+	if disabled {
+		status = " (disabled for current step)"
+	}
+	return fmt.Sprintf("  [Induction: MCP] %d tools available%s ", toolCount, status)
+}
+
 func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	if m.pipeline == nil || index < 0 || index >= len(m.pipeline.Steps) || m.waiting || m.sessionLoading {
 		return nil
 	}
 	step := m.pipeline.Steps[index]
+	var currentItem any
+	if step.ForEach != "" && m.pipelineFanoutIndex < len(m.pipelineFanoutItems) {
+		currentItem = m.pipelineFanoutItems[m.pipelineFanoutIndex]
+	}
+	renderedPrompt, err := renderPipelineReferencesFor(step.UserPrompt, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
+	if err != nil {
+		m.err = fmt.Errorf("pipeline step %q: %w", step.Name, err)
+		m.pipelineRunning = false
+		m.refreshTranscript()
+		return nil
+	}
+	renderedSystem, err := renderPipelineReferencesFor(step.SystemPrompt, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
+	if err != nil {
+		m.err = fmt.Errorf("pipeline step %q: %w", step.Name, err)
+		m.pipelineRunning = false
+		m.refreshTranscript()
+		return nil
+	}
+	step.UserPrompt = renderedPrompt
+	step.SystemPrompt = renderedSystem
 	m.client.logf("pipeline: submitting step %d/%d name=%q model=%q system_prompt=%q user_prompt=%q image=%q document=%q response_format=%#v json_schema=%#v", index+1, len(m.pipeline.Steps), step.Name, step.Model, step.SystemPrompt, step.UserPrompt, step.Image, step.Document, step.ResponseFormat, step.JSONSchema)
 	m.err = nil
 	m.request.Model = step.Model
@@ -773,6 +903,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	// structured-output step cannot accidentally constrain a later step.
 	m.request.ResponseFormat = nil
 	m.request.JSONSchema = nil
+	m.request.Grammar = ""
 	m.request.Temperature = nil
 	m.request.TopP = nil
 	m.request.TopK = nil
@@ -782,6 +913,15 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	m.request.Seed = nil
 	if step.ResponseFormat != nil {
 		m.request.ResponseFormat = step.ResponseFormat
+	}
+	if step.Output != nil {
+		if strings.EqualFold(step.Output.Type, "json") {
+			m.request.ResponseFormat = &ResponseFormat{Type: "json_object"}
+			if step.Output.JSONSchema != nil {
+				m.request.JSONSchema = step.Output.JSONSchema
+			}
+			m.request.Grammar = step.Output.Grammar
+		}
 	}
 	if step.JSONSchema != nil {
 		m.request.JSONSchema = step.JSONSchema
@@ -793,6 +933,9 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		m.request.MaxTokens = step.Parameters.MaxTokens
 		m.request.RepeatPenalty = step.Parameters.RepeatPenalty
 		m.request.Seed = step.Parameters.Seed
+	}
+	if step.Temperature != nil {
+		m.request.Temperature = step.Temperature
 	}
 	if step.Classification != nil {
 		m.request.Classification = step.Classification
@@ -1201,6 +1344,91 @@ func lastInteractionContent(snapshot *ModelSnapshot) string {
 	return snapshot.Interaction[len(snapshot.Interaction)-1].Content
 }
 
+// Some llama.cpp model templates place a structured answer in the separately
+// returned reasoning channel and leave message content empty. For a declared
+// JSON pipeline step, use that channel only when it is itself valid JSON (or a
+// valid JSON payload wrapped by think markers). Normal chat output is never
+// changed by this fallback.
+func recoverStructuredPipelineContent(step PipelineStep, content string, snapshot *ModelSnapshot) string {
+	if step.Output == nil || !strings.EqualFold(step.Output.Type, "json") || json.Valid([]byte(content)) {
+		return content
+	}
+	candidates := []string{content}
+	if snapshot != nil && len(snapshot.Interaction) > 0 {
+		candidates = append(candidates, snapshot.Interaction[len(snapshot.Interaction)-1].ReasoningContent)
+	}
+	for _, candidate := range candidates {
+		if recovered := extractStructuredJSON(candidate); recovered != "" {
+			return recovered
+		}
+	}
+	return content
+}
+
+// extractStructuredJSON tolerates the common markdown/prose wrappers produced
+// by models even when JSON output was requested. It only returns a complete,
+// syntactically valid JSON value, so ordinary chat output is unaffected.
+func extractStructuredJSON(content string) string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	if strings.HasPrefix(content, "```") {
+		if newline := strings.IndexByte(content, '\n'); newline >= 0 {
+			content = strings.TrimSpace(content[newline+1:])
+		}
+		content = strings.TrimSpace(strings.TrimSuffix(content, "```"))
+		if json.Valid([]byte(content)) {
+			return content
+		}
+	}
+	for start := 0; start < len(content); start++ {
+		if content[start] != '{' && content[start] != '[' {
+			continue
+		}
+		depth := 0
+		inString := false
+		escaped := false
+		for end := start; end < len(content); end++ {
+			ch := content[end]
+			if inString {
+				if escaped {
+					escaped = false
+				} else if ch == '\\' {
+					escaped = true
+				} else if ch == '"' {
+					inString = false
+				}
+				continue
+			}
+			switch ch {
+			case '"':
+				inString = true
+			case '{', '[':
+				depth++
+			case '}', ']':
+				depth--
+				if depth == 0 {
+					candidate := content[start : end+1]
+					if json.Valid([]byte(candidate)) {
+						return candidate
+					}
+					break
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func previewPipelineOutput(content string) string {
+	content = strings.TrimSpace(content)
+	if len(content) > 240 {
+		return content[:240] + "..."
+	}
+	return content
+}
+
 func (m *consoleModel) resize() {
 	contentHeight := max(1, m.height-m.footerHeight())
 	showSidebar := m.sidebarOpen && m.width >= consoleMinMainWidth+consoleMinSidebar
@@ -1582,8 +1810,17 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 	defer cancel()
 	model := newConsoleModel(runCtx, client, request, time.Duration(cfg.Timeout), cfg.SidebarWidth, mode)
 	model.cancel = cancel
+	if client.opts.pipeline != nil {
+		model.pipelineInputs, err = preparePipelineRuntimeInputs(client.opts.pipeline.Inputs)
+		if err != nil {
+			return nil, err
+		}
+	}
 	model.session, err = newUnsavedChatSession(request)
 	configureSessionMode(model.session, client.opts.pipeline)
+	if model.session != nil {
+		model.pipelineRunID = model.session.ID
+	}
 	if model.session != nil {
 		client.logf("session: creating id=%q path=%q saved=%t pipeline=%t", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved, client.opts.pipeline != nil)
 	}
@@ -1672,8 +1909,17 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 	defer cancel()
 	model := newConsoleModel(runCtx, client, request, timeout, cfg.SidebarWidth, consoleNonStreaming)
 	model.cancel = cancel
+	if client.opts.pipeline != nil {
+		model.pipelineInputs, err = preparePipelineRuntimeInputs(client.opts.pipeline.Inputs)
+		if err != nil {
+			return err
+		}
+	}
 	model.session, err = newUnsavedChatSession(request)
 	configureSessionMode(model.session, client.opts.pipeline)
+	if model.session != nil {
+		model.pipelineRunID = model.session.ID
+	}
 	if model.session != nil {
 		client.logf("session: creating id=%q path=%q saved=%t pipeline=%t mcp=true", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved, client.opts.pipeline != nil)
 	}
@@ -1691,6 +1937,9 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 	model.mcpFooter = fmt.Sprintf("  [Induction: MCP] %d tools available ", len(tools))
 	model.mcpTools = tools
 	client.opts.mcpToolNames = mcpToolNames(tools)
+	if model.pipeline != nil && len(model.pipeline.Steps) > 0 && model.pipeline.Steps[0].NoMCP {
+		model.mcpFooter = formatPipelineMCPFooter(len(tools), true)
+	}
 
 	var program *tea.Program
 	var monitor *inferenceMonitor
@@ -1704,15 +1953,10 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 		}
 	}
 	model.inferSnapshotTurn = func(turnCtx context.Context, turn *ChatRequest) (*InferenceResponse, *ModelSnapshot, error) {
-		pipelineStep := 0
-		if model.pipeline != nil {
-			for _, message := range turn.Messages {
-				if message.Role == "user" {
-					pipelineStep++
-				}
-			}
-			pipelineStep--
-		}
+		// pipelineStep is maintained by the pipeline scheduler. Inferring it
+		// from message history is incorrect for fan-out steps and for turns
+		// containing system/profile messages.
+		pipelineStep := model.pipelineStep
 		if model.pipeline != nil && pipelineStep >= 0 && pipelineStep < len(model.pipeline.Steps) && model.pipeline.Steps[pipelineStep].NoMCP {
 			reasoningOpen := false
 			snapshot, err := client.withoutLiveMetricsOverlay(turnCtx).GenerateStreamingSnapshot(turnCtx, turn, func(chunk InferenceStreamChunk) error {

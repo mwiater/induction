@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -75,6 +76,7 @@ func runInference(ctx context.Context, f inferenceFlags, in io.Reader, out io.Wr
 		if err != nil {
 			return err
 		}
+		refreshModelListCache(ctx, cfg)
 		if p.Batch != nil {
 			batch, runErr := induction.RunBatch(ctx, p, ".batches", func(runCtx context.Context, pipeline *induction.Pipeline, input induction.InputSet, item *induction.BatchItem) error {
 				child := *pipeline
@@ -180,10 +182,25 @@ func runInference(ctx context.Context, f inferenceFlags, in io.Reader, out io.Wr
 	if e != nil {
 		return e
 	}
+	refreshModelListCache(ctx, cfg)
 	if !f.nomcp && len(cfg.MCPServers) > 0 {
 		return runMCP(ctx, req, in, out, options...)
 	}
 	return runApplicationTools(ctx, req, in, out, options...)
+}
+
+func refreshModelListCache(ctx context.Context, cfg *induction.Config) {
+	if cfg == nil {
+		return
+	}
+	client := induction.NewClient(ctx, cfg.Server,
+		induction.WithHTTPClient(&http.Client{Timeout: time.Duration(cfg.Timeout)}),
+		induction.WithLogger(induction.NewConfiguredLogger(cfg.Log)))
+	if err := client.RefreshModelListCache(ctx, induction.DefaultModelListCachePath); err != nil {
+		// The cache is convenience metadata; never turn an unavailable models
+		// endpoint into an inference failure.
+		induction.NewConfiguredLogger(cfg.Log).Printf("models cache refresh skipped: %v", err)
+	}
 }
 
 func prepareDocument(path string) (filename, text string, err error) {

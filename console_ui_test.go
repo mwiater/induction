@@ -38,6 +38,15 @@ func TestConsoleCapabilityAndThemePreview(t *testing.T) {
 	}
 }
 
+func TestFormatPipelineMCPFooter(t *testing.T) {
+	if got := formatPipelineMCPFooter(8, false); got != "  [Induction: MCP] 8 tools available " {
+		t.Fatalf("enabled footer = %q", got)
+	}
+	if got := formatPipelineMCPFooter(8, true); got != "  [Induction: MCP] 8 tools available (disabled for current step) " {
+		t.Fatalf("disabled footer = %q", got)
+	}
+}
+
 func TestConsoleEntrypointRejectsMissingModel(t *testing.T) {
 	if _, err := runConsoleChat(context.Background(), &ChatRequest{}, strings.NewReader(""), io.Discard, consoleStreaming, WithConfigPath("ignored-after-config-load")); err == nil {
 		t.Fatal("console chat should require a model")
