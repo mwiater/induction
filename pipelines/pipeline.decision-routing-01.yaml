@@ -1,0 +1,80 @@
+name: decision-routing-01
+config: induction.yaml
+
+steps:
+  - name: route-report
+    model: JEV5K-v0.3-4B-Q8_0
+    nomcp: true
+    userPrompt: |
+      Choose the single most important review focus for this software
+      engineering report. Return only the option token.
+
+      A = security
+      B = performance
+      C = correctness
+      D = other
+
+      Report: A service accepts user supplied filenames and reads each
+      referenced file before validating the path against an allowed root.
+    decision:
+      candidates:
+        A: security
+        B: performance
+        C: correctness
+        D: other
+      topLogprobs: 20
+
+  - name: security-review
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    when:
+      decision: route-report
+      equals: security
+      minConfidence: 0.55
+    systemPrompt: You are a careful software security reviewer.
+    userPrompt: |
+      Review the report for security risks. Give concise findings and
+      concrete mitigations. Report:
+      A service accepts user supplied filenames and reads each referenced
+      file before validating the path against an allowed root.
+
+  - name: performance-review
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    when:
+      decision: route-report
+      equals: performance
+      minConfidence: 0.55
+    systemPrompt: You are a careful software performance reviewer.
+    userPrompt: |
+      Review the report for performance risks. Give concise findings and
+      concrete mitigations. Report:
+      A service accepts user supplied filenames and reads each referenced
+      file before validating the path against an allowed root.
+
+  - name: correctness-review
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    when:
+      decision: route-report
+      equals: correctness
+      minConfidence: 0.55
+    systemPrompt: You are a careful software correctness reviewer.
+    userPrompt: |
+      Review the report for correctness risks. Give concise findings and
+      concrete mitigations. Report:
+      A service accepts user supplied filenames and reads each referenced
+      file before validating the path against an allowed root.
+
+  - name: general-review
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    when:
+      decision: route-report
+      equals: other
+    systemPrompt: You are a careful software engineering reviewer.
+    userPrompt: |
+      Review the report for its most important engineering risks. Give
+      concise findings and concrete mitigations. Report:
+      A service accepts user supplied filenames and reads each referenced
+      file before validating the path against an allowed root.

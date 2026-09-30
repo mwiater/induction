@@ -16,7 +16,7 @@ under `.pipeline-artifacts/<run-id>/`.
 
 ## Authoring
 
-Pipeline files live under [`pipelines/`](pipelines/). A minimal pipeline has a
+Pipeline files live under [`pipelines/`](../pipelines/). A minimal pipeline has a
 name and one or more model steps:
 
 ```yaml
@@ -30,6 +30,108 @@ steps:
 Structured output uses `output.type: json` and requires an artifact path. Model
 steps may use `responseFormat`, `jsonSchema`, or a grammar. Transform steps use
 registered deterministic operations and receive values through `input`.
+
+## Decision steps and conditional routing
+
+Use `decision:` when the answer is one of a small, known set of values and
+downstream steps need to route on that choice. Decision inference is
+Jev-style: Induction asks the selected model for one next token with log
+probabilities, then constructs the structured result itself. The model is not
+asked to generate JSON or an explanation. Ordinary steps without `decision:`
+remain normal generative steps.
+
+Use a Jev decision model for decision steps. The example below names the
+server preset `JEV5K-v0.3-4B-Q8_0`; it corresponds to the JevK5 v0.3 4B Q8_0
+GGUF listed in [the model card](https://huggingface.co/alibiserikbay/JevK5-GGUF).
+Configure the llama.cpp server to expose the selected preset under the model ID
+in the pipeline. Generative analysis steps can use another general-purpose
+model.
+
+Candidate keys are the model-facing token strings; each must tokenize to
+exactly one token for the selected model. Candidate values are semantic
+labels, which may contain multiple tokens and are what conditions compare.
+`topLogprobs` defaults to `20` and must be at least the number of candidates.
+Every configured candidate must have a score in the returned next-token
+log-probability data; a missing candidate fails the step rather than receiving
+an invented score.
+
+```yaml
+- name: classify-issue
+  model: JEV5K-v0.3-4B-Q8_0
+  userPrompt: |
+    Classify the primary concern. Return only A, B, C, or D.
+    A = security
+    B = performance
+    C = correctness
+    D = other
+  decision:
+    candidates:
+      A: security
+      B: performance
+      C: correctness
+      D: other
+    topLogprobs: 20
+
+- name: security-review
+  model: Qwen-3.5-9B-MTP-General-Q8_0
+  when:
+    decision: classify-issue
+    equals: security
+    minConfidence: 0.5
+    minMargin: 0.2
+  systemPrompt: You are a careful software security reviewer.
+  userPrompt: Review the supplied report for security risks and mitigations.
+```
+
+`when.decision` must name an earlier step configured with `decision:` or
+legacy `classification:`. `when.equals` must exactly match one of that step's
+semantic values. Optional `minConfidence` and `minMargin` must be in `[0,1]`;
+they pass when the decision's confidence and margin are greater than or equal
+to the thresholds. All checks are combined with AND. Conditions cannot refer
+to generative steps, future steps, or candidate token keys unless a token key
+is also a semantic value.
+
+A condition that fails records a skipped step in the pipeline session and
+continues sequentially without loading the step's model or sending an
+inference request. This supports escalation by mapping a candidate to a value
+such as `uncertain` and gating an ordinary generative review on
+`equals: uncertain`. There is no less-than confidence operator or general
+expression language; use an explicit uncertainty candidate when the pipeline
+needs a review path.
+
+Decision results are constructed by Induction and retained in the normal
+session snapshot. Probabilities are normalized only over the configured
+candidates, not the model's full vocabulary. `confidence` is the largest
+normalized candidate probability; `margin` is the difference between the
+largest and second-largest. Candidate rows are sorted lexicographically by
+candidate key, with ties selecting the first row. Representative result:
+
+```json
+{
+  "type": "decision",
+  "selectedCandidate": "A",
+  "selectedValue": "security",
+  "confidence": 0.91,
+  "margin": 0.82,
+  "candidates": [
+    {"candidate": "A", "value": "security", "logprob": -0.10, "probability": 0.91},
+    {"candidate": "B", "value": "other", "logprob": -2.41, "probability": 0.09}
+  ]
+}
+```
+
+The values above are illustrative, not guaranteed output. `classification:`
+remains supported as a legacy alias for `decision:`; both keys on one step
+are invalid. Decision steps cannot use `responseFormat` or `jsonSchema`, and
+`parameters.maxTokens`, if supplied, must equal `1`.
+
+Text, image, and document-derived context use the same decision mode. The
+server must support OpenAI-compatible chat-completion log probabilities;
+Induction requests one output token and the configured top alternatives. No
+additional llama.cpp logits startup flag is required for this supported path.
+Image decisions require a vision-capable model and its required multimodal
+projector. See [`pipeline.decision-routing-01.yaml`](../pipelines/pipeline.decision-routing-01.yaml)
+for a complete sequential routing example.
 
 Generated pipelines can be created and validated with:
 

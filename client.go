@@ -127,8 +127,8 @@ func (c *Client) GenerateSnapshot(ctx context.Context, req *ChatRequest) (*Model
 	monitor := c.startInferenceMonitor(ctx, req.Model, true)
 
 	var interaction *Interaction
-	if req.Classification != nil {
-		interaction, err = c.doClassification(ctx, req)
+	if req.Decision != nil || req.Classification != nil {
+		interaction, err = c.doDecision(ctx, req)
 	} else {
 		interaction, err = c.doInference(ctx, req)
 	}
@@ -190,6 +190,9 @@ func (c *Client) GenerateSnapshot(ctx context.Context, req *ChatRequest) (*Model
 func (c *Client) GenerateStreamingSnapshot(ctx context.Context, req *ChatRequest, yield func(InferenceStreamChunk) error) (*ModelSnapshot, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is nil")
+	}
+	if req.Decision != nil || req.Classification != nil {
+		return nil, fmt.Errorf("decision inference is non-streaming; use GenerateSnapshot")
 	}
 	if yield == nil {
 		return nil, fmt.Errorf("stream callback is nil")

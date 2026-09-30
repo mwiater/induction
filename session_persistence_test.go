@@ -1,6 +1,7 @@
 package induction
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +45,40 @@ func TestChatSessionRoundTripAndRename(t *testing.T) {
 	loaded, err = loadChatSessionFromPath(path)
 	if err != nil || loaded.Title != "Understanding Go Interfaces" {
 		t.Fatalf("renamed session not persisted: %v %#v", err, loaded)
+	}
+}
+
+func TestDecisionResultAndSkippedStepSurviveSessionPersistence(t *testing.T) {
+	directory := t.TempDir()
+	result := DecisionResult{Type: "decision", SelectedCandidate: "A", SelectedValue: "security", Confidence: 0.91, Margin: 0.84, Candidates: []DecisionCandidateResult{
+		{Candidate: "A", Value: "security", Logprob: -0.12, Probability: 0.91},
+		{Candidate: "B", Value: "other", Logprob: -2.69, Probability: 0.09},
+	}}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := newChatSession("decision run", ChatRequest{Model: "model", Messages: []Message{{Role: "assistant", Content: "Skipped step \"analysis\": condition did not match."}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session.Snapshots = []*ModelSnapshot{{ModelID: "model", Interaction: []Interaction{{Content: string(encoded), Response: `{"choices":[]}`}}}}
+	if err := saveChatSessionToDir(directory, session); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadChatSessionFromPath(filepath.Join(directory, session.ID+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got DecisionResult
+	if err := json.Unmarshal([]byte(loaded.Snapshots[0].Interaction[0].Content), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.SelectedValue != result.SelectedValue || got.Margin != result.Margin || len(got.Candidates) != 2 || got.Candidates[1].Logprob != result.Candidates[1].Logprob {
+		t.Fatalf("decision data changed after session reload: %#v", got)
+	}
+	if len(loaded.Messages) != 1 || !strings.Contains(loaded.Messages[0].Content.(string), "Skipped step") {
+		t.Fatalf("skipped state was not persisted: %#v", loaded.Messages)
 	}
 }
 

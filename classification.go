@@ -24,6 +24,22 @@ type ClassificationResult struct {
 	Probabilities map[string]float64 `json:"probabilities"`
 }
 
+type DecisionCandidateResult struct {
+	Candidate   string  `json:"candidate"`
+	Value       string  `json:"value"`
+	Logprob     float64 `json:"logprob"`
+	Probability float64 `json:"probability"`
+}
+
+type DecisionResult struct {
+	Type              string                    `json:"type"`
+	SelectedCandidate string                    `json:"selectedCandidate"`
+	SelectedValue     string                    `json:"selectedValue"`
+	Confidence        float64                   `json:"confidence"`
+	Margin            float64                   `json:"margin"`
+	Candidates        []DecisionCandidateResult `json:"candidates"`
+}
+
 type classificationToken struct {
 	ID    int
 	Piece string
@@ -34,19 +50,23 @@ type tokenizeResponse struct {
 }
 
 func (c *Client) doClassification(ctx context.Context, req *ChatRequest) (*Interaction, error) {
-	if req == nil || req.Classification == nil {
-		return nil, fmt.Errorf("classification configuration is required")
+	return c.doDecision(ctx, req)
+}
+
+func (c *Client) doDecision(ctx context.Context, req *ChatRequest) (*Interaction, error) {
+	if req == nil || (req.Decision == nil && req.Classification == nil) {
+		return nil, fmt.Errorf("decision configuration is required")
 	}
-	cfg := req.Classification
+	cfg := effectiveDecision(PipelineStep{Decision: req.Decision, Classification: req.Classification})
 	if cfg.TopLogprobs == 0 {
 		copy := *cfg
 		copy.TopLogprobs = 20
 		cfg = &copy
 	}
-	if err := validateClassificationConfig(cfg); err != nil {
+	if err := validateDecisionConfig(cfg); err != nil {
 		return nil, err
 	}
-	validated, err := c.validateClassificationCandidates(ctx, req.Model, cfg)
+	validated, err := c.validateDecisionCandidates(ctx, req.Model, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +79,10 @@ func (c *Client) doClassification(ctx context.Context, req *ChatRequest) (*Inter
 	request.TopLogprobs = &topLogprobs
 	request.ChatTemplateKwargs = map[string]any{"enable_thinking": false}
 	request.Classification = nil
+	request.Decision = nil
 	payload, err := json.Marshal(&request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal classification request: %w", err)
+		return nil, fmt.Errorf("failed to marshal decision request: %w", err)
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/v1/chat/completions", bytes.NewReader(payload))
 	if err != nil {
@@ -70,33 +91,52 @@ func (c *Client) doClassification(ctx context.Context, req *ChatRequest) (*Inter
 	httpReq.Header.Set("Content-Type", "application/json")
 	resp, err := c.clientHTTP().Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("classification request failed: %w", err)
+		return nil, fmt.Errorf("decision request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read classification response: %w", err)
+		return nil, fmt.Errorf("failed to read decision response: %w", err)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("classification request returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf("decision request returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	var decoded InferenceResponse
 	if err := json.Unmarshal(body, &decoded); err != nil {
-		return nil, fmt.Errorf("failed to decode classification response: %w", err)
+		return nil, fmt.Errorf("failed to decode decision response: %w", err)
 	}
 	if len(decoded.Choices) == 0 {
-		return nil, fmt.Errorf("classification failed: llama.cpp response contained no choices")
+		return nil, fmt.Errorf("decision failed: llama.cpp response contained no choices")
 	}
 	choice := decoded.Choices[0]
 	if choice.Logprobs == nil {
-		return nil, fmt.Errorf("classification failed: llama.cpp response did not contain logprobs")
+		return nil, fmt.Errorf("decision failed: llama.cpp response did not contain logprobs")
 	}
 	if len(choice.Logprobs.Content) == 0 {
-		return nil, fmt.Errorf("classification failed: llama.cpp returned no next-token probability data")
+		return nil, fmt.Errorf("decision failed: llama.cpp returned no next-token probability data")
 	}
 
-	logprobByCandidate := make(map[string]float64, len(validated))
 	position := choice.Logprobs.Content[0]
+	logprobByCandidate, err := extractDecisionScores(validated, position)
+	if err != nil {
+		return nil, err
+	}
+	result, err := buildDecisionResult(cfg, logprobByCandidate)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("serialize decision result: %w", err)
+	}
+	c.logf("decision: model=%s candidate_count=%d top_logprobs=%d selected_candidate=%s selected_value=%s confidence=%f margin=%f", req.Model, len(cfg.Candidates), cfg.TopLogprobs, result.SelectedCandidate, result.SelectedValue, result.Confidence, result.Margin)
+	return &Interaction{Response: string(body), Content: string(encoded)}, nil
+}
+
+// extractDecisionScores is the server-response adapter for the current
+// OpenAI-compatible logprob response. Decision math does not depend on it.
+func extractDecisionScores(validated map[string]classificationToken, position TokenLogprobPosition) (map[string]float64, error) {
+	logprobByCandidate := make(map[string]float64, len(validated))
 	// llama.cpp versions generally include the sampled token in
 	// top_logprobs, but some responses expose it only on the position itself.
 	// It is still exact returned probability evidence, so accept it before
@@ -104,7 +144,7 @@ func (c *Client) doClassification(ctx context.Context, req *ChatRequest) (*Inter
 	for candidate, token := range validated {
 		if position.Token == token.Piece {
 			if !validProbability(position.Logprob) {
-				return nil, fmt.Errorf("classification failed: candidate %q returned an invalid log probability", candidate)
+				return nil, fmt.Errorf("decision failed: candidate %q returned an invalid log probability", candidate)
 			}
 			logprobByCandidate[candidate] = position.Logprob
 		}
@@ -113,95 +153,109 @@ func (c *Client) doClassification(ctx context.Context, req *ChatRequest) (*Inter
 		for candidate, token := range validated {
 			if top.Token == token.Piece {
 				if !validProbability(top.Logprob) {
-					return nil, fmt.Errorf("classification failed: candidate %q returned an invalid log probability", candidate)
+					return nil, fmt.Errorf("decision failed: candidate %q returned an invalid log probability", candidate)
 				}
 				logprobByCandidate[candidate] = top.Logprob
 			}
 		}
 	}
-	for candidate := range validated {
-		if _, ok := logprobByCandidate[candidate]; !ok {
-			return nil, fmt.Errorf("classification failed: candidate %q was not present in top_logprobs=%d; increase classification.topLogprobs or choose candidate tokens that the model reliably associates with the prompt", candidate, cfg.TopLogprobs)
-		}
-	}
+	return logprobByCandidate, nil
+}
 
-	candidates := make([]string, 0, len(logprobByCandidate))
-	for candidate := range logprobByCandidate {
-		candidates = append(candidates, candidate)
+// buildDecisionResult is independent of the server response format so a future
+// score-only endpoint can feed the same deterministic normalization path.
+func buildDecisionResult(cfg *DecisionConfig, logprobByCandidate map[string]float64) (*DecisionResult, error) {
+	if err := validateDecisionConfig(cfg); err != nil {
+		return nil, err
 	}
-	sort.Strings(candidates)
+	keys := sortedCandidateKeys(cfg.Candidates)
 	maxLogprob := math.Inf(-1)
-	for _, candidate := range candidates {
-		if logprobByCandidate[candidate] > maxLogprob {
-			maxLogprob = logprobByCandidate[candidate]
+	for _, candidate := range keys {
+		logprob, ok := logprobByCandidate[candidate]
+		if !ok {
+			return nil, fmt.Errorf("decision response did not include candidate %q; increase decision.topLogprobs", candidate)
+		}
+		if !validProbability(logprob) {
+			return nil, fmt.Errorf("decision candidate %q returned an invalid log probability", candidate)
+		}
+		if logprob > maxLogprob {
+			maxLogprob = logprob
 		}
 	}
-	probabilities := make(map[string]float64, len(candidates))
+	weights := make(map[string]float64, len(keys))
 	denominator := 0.0
-	for _, candidate := range candidates {
-		value := math.Exp(logprobByCandidate[candidate] - maxLogprob)
-		if !validProbability(value) {
-			return nil, fmt.Errorf("classification failed: candidate %q produced an invalid normalized probability", candidate)
+	for _, candidate := range keys {
+		weight := math.Exp(logprobByCandidate[candidate] - maxLogprob)
+		if !validProbability(weight) {
+			return nil, fmt.Errorf("decision candidate %q produced an invalid normalized probability", candidate)
 		}
-		probabilities[candidate] = value
-		denominator += value
+		weights[candidate] = weight
+		denominator += weight
 	}
 	if !validProbability(denominator) || denominator <= 0 {
-		return nil, fmt.Errorf("classification failed: candidate probability denominator was invalid")
+		return nil, fmt.Errorf("decision candidate probability denominator was invalid")
 	}
-
-	winner := candidates[0]
-	sum := 0.0
-	for _, candidate := range candidates {
-		probabilities[candidate] /= denominator
-		sum += probabilities[candidate]
+	probabilities := make(map[string]float64, len(keys))
+	winner := keys[0]
+	for _, candidate := range keys {
+		probabilities[candidate] = weights[candidate] / denominator
 		if probabilities[candidate] > probabilities[winner] {
 			winner = candidate
 		}
 	}
+	second := 0.0
+	rows := make([]DecisionCandidateResult, 0, len(keys))
+	sum := 0.0
+	for _, candidate := range keys {
+		probability := probabilities[candidate]
+		if candidate != winner && probability > second {
+			second = probability
+		}
+		sum += probability
+		rows = append(rows, DecisionCandidateResult{Candidate: candidate, Value: cfg.Candidates[candidate], Logprob: logprobByCandidate[candidate], Probability: probability})
+	}
 	if !validProbability(sum) || math.Abs(sum-1) > 1e-9 {
-		return nil, fmt.Errorf("classification failed: normalized probabilities did not sum to 1")
+		return nil, fmt.Errorf("decision normalized probabilities did not sum to 1")
 	}
-	result := ClassificationResult{Class: winner, Label: cfg.Candidates[winner], Confidence: probabilities[winner], Probabilities: probabilities}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		return nil, fmt.Errorf("serialize classification result: %w", err)
-	}
-	c.logf("classification: model=%s candidate_count=%d top_logprobs=%d selected_class=%s selected_label=%s confidence=%f", req.Model, len(candidates), cfg.TopLogprobs, result.Class, result.Label, result.Confidence)
-	return &Interaction{Response: string(body), Content: string(encoded)}, nil
+	return &DecisionResult{Type: "decision", SelectedCandidate: winner, SelectedValue: cfg.Candidates[winner], Confidence: probabilities[winner], Margin: probabilities[winner] - second, Candidates: rows}, nil
 }
 
-func validateClassificationConfig(cfg *ClassificationConfig) error {
+func validateDecisionConfig(cfg *DecisionConfig) error {
 	if cfg == nil || len(cfg.Candidates) < 2 {
-		return fmt.Errorf("classification requires at least two candidates")
+		return fmt.Errorf("decision requires at least two candidates")
 	}
 	if cfg.TopLogprobs <= 0 {
-		return fmt.Errorf("classification topLogprobs must be positive")
+		return fmt.Errorf("decision topLogprobs must be positive")
 	}
 	if cfg.TopLogprobs < len(cfg.Candidates) {
-		return fmt.Errorf("classification topLogprobs must be at least the number of candidates")
+		return fmt.Errorf("decision topLogprobs must be at least the number of candidates")
 	}
 	for candidate, label := range cfg.Candidates {
 		if strings.TrimSpace(candidate) == "" {
-			return fmt.Errorf("classification candidate key cannot be empty")
+			return fmt.Errorf("decision candidate key cannot be empty")
 		}
 		if strings.TrimSpace(label) == "" {
-			return fmt.Errorf("classification label for candidate %q cannot be empty", candidate)
+			return fmt.Errorf("decision value for candidate %q cannot be empty", candidate)
 		}
 	}
 	return nil
 }
 
-func (c *Client) validateClassificationCandidates(ctx context.Context, model string, cfg *ClassificationConfig) (map[string]classificationToken, error) {
+func sortedCandidateKeys(candidates map[string]string) []string {
+	keys := make([]string, 0, len(candidates))
+	for key := range candidates {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func (c *Client) validateDecisionCandidates(ctx context.Context, model string, cfg *DecisionConfig) (map[string]classificationToken, error) {
 	if c.classificationTokens == nil {
 		c.classificationTokens = &sync.Map{}
 	}
 	result := make(map[string]classificationToken, len(cfg.Candidates))
-	candidates := make([]string, 0, len(cfg.Candidates))
-	for candidate := range cfg.Candidates {
-		candidates = append(candidates, candidate)
-	}
-	sort.Strings(candidates)
+	candidates := sortedCandidateKeys(cfg.Candidates)
 	for _, candidate := range candidates {
 		cacheKey := model + "\x00" + candidate
 		if cached, ok := c.classificationTokens.Load(cacheKey); ok {
@@ -230,7 +284,7 @@ func (c *Client) tokenizeClassificationCandidate(ctx context.Context, model, can
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.clientHTTP().Do(req)
 	if err != nil {
-		return classificationToken{}, fmt.Errorf("classification candidate %q tokenization failed: %w", candidate, err)
+		return classificationToken{}, fmt.Errorf("decision candidate %q tokenization failed: %w", candidate, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
@@ -238,14 +292,14 @@ func (c *Client) tokenizeClassificationCandidate(ctx context.Context, model, can
 		return classificationToken{}, fmt.Errorf("read tokenization response: %w", err)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return classificationToken{}, fmt.Errorf("classification candidate %q tokenization returned %d: %s", candidate, resp.StatusCode, strings.TrimSpace(string(body)))
+		return classificationToken{}, fmt.Errorf("decision candidate %q tokenization returned %d: %s", candidate, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	var decoded tokenizeResponse
 	if err := json.Unmarshal(body, &decoded); err != nil {
 		return classificationToken{}, fmt.Errorf("decode tokenization response: %w", err)
 	}
 	if len(decoded.Tokens) != 1 {
-		return classificationToken{}, fmt.Errorf("classification candidate %q tokenizes to %d tokens; candidates must be exactly one token", candidate, len(decoded.Tokens))
+		return classificationToken{}, fmt.Errorf("decision candidate %q tokenizes to %d tokens; candidates must be exactly one token", candidate, len(decoded.Tokens))
 	}
 	var object struct {
 		ID    int    `json:"id"`
@@ -256,7 +310,7 @@ func (c *Client) tokenizeClassificationCandidate(ctx context.Context, model, can
 	}
 	var id int
 	if err := json.Unmarshal(decoded.Tokens[0], &id); err != nil {
-		return classificationToken{}, fmt.Errorf("classification candidate %q tokenization did not return a token piece", candidate)
+		return classificationToken{}, fmt.Errorf("decision candidate %q tokenization did not return a token piece", candidate)
 	}
 	return classificationToken{ID: id, Piece: candidate}, nil
 }

@@ -1,7 +1,5 @@
 # Induction
 
-<img src=".repo/induction-logo.png" alt="Induction Logo" width="100">
-
 Induction is a Go client for llama.cpp-compatible servers. It provides
 config-driven chat inference, multimodal requests, structured output,
 pipelines, telemetry, model inspection, health checks, and MCP tool support.
@@ -52,7 +50,7 @@ Focused guides:
 
 - [Inference](docs/INFERENCE.md)
 - [MCP and application tools](docs/MCP.md)
-- [Pipelines](PIPELINES.md)
+- [Pipelines](docs/PIPELINES.md)
 - [Model manager and inspection](docs/MODELS/MODEL-MANAGER.md)
 - [Evaluations](docs/EVALUATIONS.md)
 - [CLI reference](docs/CLI-REFERENCE.md)
@@ -195,3 +193,103 @@ docker run -it --rm \
 Container output and logs are ephemeral unless you mount a host directory. See
 [DOCKER-QUICKSTART.md](DOCKER-QUICKSTART.md) for persistent log and asset
 mounts.
+
+## Decision pipelines
+
+Jev-style decision inference scores the next token over a bounded set of
+model-facing candidates. Induction validates each candidate as exactly one
+token for the selected model, normalizes scores only across the configured
+candidate set, and constructs the `DecisionResult`. A candidate's mapped
+value is its semantic meaning for pipeline conditions.
+
+```text
+prompt / image / document
+          ↓
+      model prefill
+          ↓
+ next-token log probabilities
+          ↓
+ configured candidate mask
+          ↓
+ candidate-only softmax
+          ↓
+ DecisionResult
+          ↓
+ optional pipeline condition
+```
+
+These probabilities are conditioned on the configured candidates, not the
+full vocabulary. `confidence` is the winning probability; `margin` is the
+difference between the highest and second-highest probabilities. Candidate
+rows are sorted by token, and exact ties select the first token in that order.
+Text, image, and extracted document context use the same decision mechanism.
+
+Use `decision:` in new pipelines. Existing `classification:` blocks remain
+supported as a legacy alias. A `when:` condition can gate a later step on the
+semantic value from an earlier decision step and optionally set
+`minConfidence` and `minMargin` in `[0,1]`; all checks must pass. A failed
+condition records a skipped transcript entry and makes no inference request
+for that step. For an uncertainty review path, map a candidate to `uncertain`
+and gate a generative review on `equals: uncertain`.
+
+Decision steps should use a Jev decision model. The routing example uses the
+server model ID `JEV5K-v0.3-4B-Q8_0`, backed by the JevK5 v0.3 4B Q8_0 GGUF
+from [the model card](https://huggingface.co/alibiserikbay/JevK5-GGUF). Your
+llama.cpp configuration must expose that model ID; later generative review
+steps can use a separate general-purpose model.
+
+```yaml
+- name: relevance-gate
+  model: JEV5K-v0.3-4B-Q8_0
+  userPrompt: |
+    Classify the supplied material. Return only A or B.
+    A = relevant
+    B = irrelevant
+  decision:
+    candidates:
+      A: relevant
+      B: irrelevant
+    topLogprobs: 20
+- name: analyze-relevant
+  model: Qwen-3.5-9B-MTP-General-Q8_0
+  when:
+    decision: relevance-gate
+    equals: relevant
+    minConfidence: 0.8
+  userPrompt: Analyze the supplied material.
+```
+
+`topLogprobs` defaults to `20` and must be at least the candidate count. A
+missing configured candidate score fails the step. Candidate probabilities
+are renormalized over that configured set only. The application-authored
+result retains candidate identity, value, raw log probability, and normalized
+probability:
+
+```json
+{
+  "type": "decision",
+  "selectedCandidate": "A",
+  "selectedValue": "relevant",
+  "confidence": 0.91,
+  "margin": 0.82,
+  "candidates": [
+    {"candidate": "A", "value": "relevant", "logprob": -0.10, "probability": 0.91},
+    {"candidate": "B", "value": "irrelevant", "logprob": -2.41, "probability": 0.09}
+  ]
+}
+```
+
+These numbers illustrate the shape and are not guaranteed model output. See
+the [pipeline authoring guide](docs/PIPELINES.md#decision-steps-and-conditional-routing)
+for validation rules, the complete result contract, and server requirements.
+
+The compatible llama.cpp server must support OpenAI-style chat completion
+log probabilities. Induction requests one output token with log probabilities;
+no additional logits startup flag is required for this path. Image decisions
+need a vision-capable model and its multimodal projector.
+
+Run the checked-in example with:
+
+```bash
+induction --pipeline pipelines/pipeline.decision-routing-01.yaml
+```

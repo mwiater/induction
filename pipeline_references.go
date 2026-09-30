@@ -1,17 +1,10 @@
 package induction
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
 )
-
-// renderPipelineReferences supports the intentionally small artifact syntax.
-// Values are inserted as compact JSON; plain strings are inserted unchanged.
-func renderPipelineReferences(prompt string, outputs map[string]json.RawMessage, item any) (string, error) {
-	return renderPipelineReferencesFor(prompt, outputs, nil, item, "item")
-}
 
 func renderPipelineReferencesFor(prompt string, outputs map[string]json.RawMessage, inputs map[string]any, item any, itemName string) (string, error) {
 	for {
@@ -126,12 +119,4 @@ func resolvePipelineReferenceFor(expr string, outputs map[string]json.RawMessage
 		}
 	}
 	return value, nil
-}
-
-func compactJSON(data []byte) string {
-	var b bytes.Buffer
-	if json.Compact(&b, data) == nil {
-		return b.String()
-	}
-	return string(data)
 }

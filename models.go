@@ -125,6 +125,7 @@ type ChatRequest struct {
 	// Classification is an internal pipeline execution mode and is never sent
 	// as part of the llama.cpp request payload.
 	Classification *ClassificationConfig `json:"-"`
+	Decision       *DecisionConfig       `json:"-"`
 }
 
 // ResponseFormat configures JSON-object or JSON-schema constrained output.

@@ -117,7 +117,7 @@ func WritePipeline(path string, pipeline *induction.Pipeline, force bool) error 
 	}
 	tmpName := tmp.Name()
 	defer func() { _ = os.Remove(tmpName) }()
-	if err := tmp.Chmod(0644); err == nil {
+	if err = tmp.Chmod(0644); err == nil {
 		_, err = tmp.Write(data)
 	}
 	if err == nil {

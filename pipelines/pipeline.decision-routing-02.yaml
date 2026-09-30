@@ -1,0 +1,145 @@
+name: decision-routing-02-food-safety-after-power-outage
+config: induction.yaml
+
+steps:
+  - name: outage-duration
+    model: JEV5K-v0.3-4B-Q8_0
+    nomcp: true
+    systemPrompt: |
+      You are a Jev-style decision model. Apply only the stated criterion to
+      the supplied facts. Choose the best matching option. Do not explain.
+    userPrompt: |
+      Problem: A family lost power during a storm. The outage lasted six
+      hours. The refrigerator door stayed closed. An appliance thermometer
+      read 46°F (8°C) when power returned. The refrigerator contains raw
+      chicken, milk, and leftovers. No thermometer history shows when its
+      temperature first rose above 40°F (4°C).
+
+      Criterion: Did the power outage last more than four hours?
+      Return only the option token:
+      A = over_four_hours
+      B = four_hours_or_less
+      C = unknown
+    decision:
+      candidates:
+        A: over_four_hours
+        B: four_hours_or_less
+        C: unknown
+      topLogprobs: 20
+
+  - name: refrigerator-temperature
+    model: JEV5K-v0.3-4B-Q8_0
+    nomcp: true
+    systemPrompt: |
+      You are a Jev-style decision model. Apply only the stated criterion to
+      the supplied facts. Choose the best matching option. Do not explain.
+    userPrompt: |
+      Problem facts: The power outage lasted six hours. The refrigerator
+      door stayed closed. When power returned, an appliance thermometer
+      read 46°F (8°C). No thermometer history shows when its temperature
+      first rose above 40°F (4°C).
+
+      Criterion: Was the measured refrigerator temperature above 40°F
+      (4°C) when power returned?
+      Return only the option token:
+      A = above_40F
+      B = at_or_below_40F
+      C = unknown
+    decision:
+      candidates:
+        A: above_40F
+        B: at_or_below_40F
+        C: unknown
+      topLogprobs: 20
+
+  - name: perishable-foods
+    model: JEV5K-v0.3-4B-Q8_0
+    nomcp: true
+    systemPrompt: |
+      You are a Jev-style decision model. Apply only the stated criterion to
+      the supplied facts. Choose the best matching option. Do not explain.
+    userPrompt: |
+      Problem facts: The refrigerator contains raw chicken, milk, and
+      leftovers.
+
+      Criterion: Does the refrigerator contain perishable food covered by
+      power-outage food-safety guidance?
+      Return only the option token:
+      A = perishable_food_present
+      B = no_perishable_food
+      C = unknown
+    decision:
+      candidates:
+        A: perishable_food_present
+        B: no_perishable_food
+        C: unknown
+      topLogprobs: 20
+
+  - name: unsafe-temperature-duration
+    model: JEV5K-v0.3-4B-Q8_0
+    nomcp: true
+    systemPrompt: |
+      You are a Jev-style decision model. Do not infer a temperature history
+      from a single thermometer reading. Choose unknown when the stated facts
+      do not establish the duration.
+    userPrompt: |
+      Problem facts: The outage lasted six hours. The refrigerator door
+      stayed closed. The thermometer read 46°F (8°C) when power returned.
+      There is no thermometer history showing when the temperature first
+      rose above 40°F (4°C).
+
+      Criterion: Do the facts establish that the food was above 40°F (4°C)
+      for four hours or more?
+      Return only the option token:
+      A = four_hours_or_more_established
+      B = less_than_four_hours_established
+      C = duration_unknown
+    decision:
+      candidates:
+        A: four_hours_or_more_established
+        B: less_than_four_hours_established
+        C: duration_unknown
+      topLogprobs: 20
+
+  - name: food-safety-decision-tree
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    systemPrompt: |
+      You are a clear, cautious food-safety explainer. Use the supplied
+      decision results and FDA guidance. Do not invent facts or treat model
+      probabilities as medical certainty. Clearly distinguish the measured
+      facts from unknowns.
+    userPrompt: |
+      Print a readable four-level decision tree for this household food-safety
+      problem. At every level, show every candidate's semantic value and
+      normalized probability from that level's result, then identify the
+      selected value. Do not omit alternatives or report only the winning
+      probability. Format each level as a tree node with all candidate branches;
+      mark the selected branch with `→` and the other branches with `├` or `└`.
+      After the four levels, print the path followed as an ordered sequence of
+      selected values.
+
+      Use these complete decision results:
+      Level 1, outage duration:
+      {{steps.outage-duration.output}}
+
+      Level 2, refrigerator temperature:
+      {{steps.refrigerator-temperature.output}}
+
+      Level 3, perishable foods present:
+      {{steps.perishable-foods.output}}
+
+      Level 4, duration above 40°F:
+      {{steps.unsafe-temperature-duration.output}}
+
+      Then give a concise practical recommendation for the raw chicken, milk,
+      and leftovers. FDA guidance says the refrigerator keeps food cold for
+      about four hours if unopened; refrigerated perishable food that has
+      been above 40°F for four hours or more should be discarded. If it is
+      unknown how long food has been at or above 40°F, do not take a chance
+      with it. Do not use smell or appearance to decide whether food is safe.
+      Explain how the unknown temperature history affects this case. Do not
+      imply that the probabilities are calibrated medical certainty.
+
+      Guidance source:
+      https://www.fda.gov/food/buy-store-serve-safe-food/food-and-water-safety-during-power-outages-and-floods

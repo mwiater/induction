@@ -45,13 +45,13 @@ func persistPipelineArtifact(runID, stepName, name, mediaType string, data []byt
 		return nil, err
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() { _ = os.Remove(tmpName) }()
 	if _, err = tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return nil, err
 	}
 	if err = tmp.Sync(); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return nil, err
 	}
 	if err = tmp.Close(); err != nil {
@@ -71,9 +71,6 @@ func persistPipelineArtifact(runID, stepName, name, mediaType string, data []byt
 	return a, nil
 }
 
-func loadPipelineArtifact(runID, name string) ([]byte, error) {
-	return os.ReadFile(filepath.Join(".pipeline-artifacts", runID, filepath.Clean(name)))
-}
 func artifactID(runID, step, name string) string {
 	h := sha256.Sum256([]byte(runID + "\n" + step + "\n" + name))
 	return "artifact_" + hex.EncodeToString(h[:])[:20]

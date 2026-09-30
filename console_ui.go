@@ -346,6 +346,9 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			if m.pipeline != nil {
 				m.client.logf("pipeline: step %d/%d failed: %v", m.pipelineStep+1, len(m.pipeline.Steps), msg.err)
+				if m.pipelineStep >= 0 && m.pipelineStep < len(m.pipeline.Steps) {
+					msg.err = fmt.Errorf("pipeline step %q: %w", m.pipeline.Steps[m.pipelineStep].Name, msg.err)
+				}
 				m.pipelineRunning = false
 			} else {
 				m.client.logf("inference: failed model=%q error=%v", msg.model, msg.err)
@@ -357,9 +360,23 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshTranscript()
 			return m, nil
 		}
+		displayContent := msg.content
+		showDecision := false
 		if m.pipeline != nil && m.pipelineStep >= 0 && m.pipelineStep < len(m.pipeline.Steps) {
 			step := m.pipeline.Steps[m.pipelineStep]
 			msg.content = recoverStructuredPipelineContent(step, msg.content, msg.snapshot)
+			if effectiveDecision(step) != nil {
+				var result DecisionResult
+				if err := json.Unmarshal([]byte(msg.content), &result); err != nil || result.Type != "decision" {
+					m.pipelineRunning = false
+					m.err = fmt.Errorf("pipeline step %q returned an invalid decision result", step.Name)
+					m.refreshTranscript()
+					return m, nil
+				}
+				m.pipelineOutputs[step.Name] = append(json.RawMessage(nil), []byte(msg.content)...)
+				displayContent = fmt.Sprintf("Decision: %s\nConfidence: %.2f%%\nMargin: %.2f%%", result.SelectedValue, result.Confidence*100, result.Margin*100)
+				showDecision = true
+			}
 			if step.Name == "extract-observations" && step.ForEach != "" && m.pipelineFanoutIndex < len(m.pipelineFanoutItems) {
 				normalized, err := normalizeExtractionOutput([]byte(msg.content), m.pipelineFanoutItems[m.pipelineFanoutIndex])
 				if err != nil {
@@ -427,8 +444,8 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.client.logf("inference: completed model=%q response_chars=%d response=%q", msg.model, len([]rune(msg.content)), msg.content)
-		if m.mode != consoleStreaming && !m.streamedTurn {
-			m.messages = append(m.messages, consoleMessage{role: "assistant", content: msg.content})
+		if (m.mode != consoleStreaming || showDecision) && !m.streamedTurn {
+			m.messages = append(m.messages, consoleMessage{role: "assistant", content: displayContent})
 		}
 		m.streamedTurn = false
 		m.request.Messages = append(m.request.Messages, Message{Role: "assistant", Content: msg.content})
@@ -815,6 +832,31 @@ func (m *consoleModel) startPipelineStep(index int) tea.Cmd {
 		return nil
 	}
 	step := m.pipeline.Steps[index]
+	m.pipelineStep = index
+	if step.When != nil {
+		passed, err := evaluatePipelineCondition(step.When, m.pipelineOutputs)
+		if err != nil {
+			return func() tea.Msg { return consoleTurnResult{err: fmt.Errorf("pipeline step %q: %w", step.Name, err)} }
+		}
+		if !passed {
+			note := fmt.Sprintf("Skipped step %q: decision %q did not match %q or its thresholds.", step.Name, step.When.Decision, step.When.Equals)
+			m.messages = append(m.messages, consoleMessage{role: "assistant", content: note})
+			m.request.Messages = append(m.request.Messages, Message{Role: "assistant", Content: note})
+			m.pipelineOutputs[step.Name], _ = json.Marshal(map[string]any{"type": "skipped", "reason": note})
+			m.sessionDirty = true
+			m.refreshTranscript()
+			if m.session != nil {
+				m.syncSessionFromRequest()
+				m.sessionLoading = true
+				return saveSessionCmd(m.client, m.session, false)
+			}
+			if index+1 >= len(m.pipeline.Steps) {
+				m.pipelineRunning = false
+				return tea.Quit
+			}
+			return m.startPipelineStep(index + 1)
+		}
+	}
 	if m.mcpFooter != "" {
 		m.mcpFooter = formatPipelineMCPFooter(len(m.mcpTools), step.NoMCP)
 	}
@@ -845,7 +887,6 @@ func (m *consoleModel) startPipelineStep(index int) tea.Cmd {
 		}
 	}
 	m.client.logf("pipeline: starting step %d/%d name=%q model=%q", index+1, len(m.pipeline.Steps), step.Name, step.Model)
-	m.pipelineStep = index
 	if m.modelMonitor != nil && m.request.Model != step.Model {
 		m.modelMonitor.Stop()
 		m.modelMonitor = nil
@@ -909,6 +950,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	m.request.TopK = nil
 	m.request.MaxTokens = nil
 	m.request.Classification = nil
+	m.request.Decision = nil
 	m.request.RepeatPenalty = nil
 	m.request.Seed = nil
 	if step.ResponseFormat != nil {
@@ -937,8 +979,12 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	if step.Temperature != nil {
 		m.request.Temperature = step.Temperature
 	}
-	if step.Classification != nil {
-		m.request.Classification = step.Classification
+	if decision := effectiveDecision(step); decision != nil {
+		m.request.Decision = decision
+		if step.Parameters == nil || step.Parameters.MaxTokens == nil {
+			one := 1
+			m.request.MaxTokens = &one
+		}
 	}
 	m.loading = false
 	m.modelLoading = ""
@@ -1269,7 +1315,7 @@ func (m consoleModel) runTurn(request ChatRequest) tea.Cmd {
 		m.client.logf("inference: started model=%q messages=%d classification=%t streaming=%t", request.Model, len(request.Messages), request.Classification != nil, m.mode == consoleStreaming)
 		turnCtx, cancel := context.WithTimeout(m.ctx, m.timeout)
 		defer cancel()
-		if request.Classification != nil {
+		if request.Decision != nil || request.Classification != nil {
 			snapshot, err := m.client.withoutLiveMetricsOverlay(turnCtx).GenerateSnapshot(turnCtx, &request)
 			if err == nil && m.complete != nil {
 				m.complete()
@@ -1389,6 +1435,7 @@ func extractStructuredJSON(content string) string {
 		depth := 0
 		inString := false
 		escaped := false
+	candidateLoop:
 		for end := start; end < len(content); end++ {
 			ch := content[end]
 			if inString {
@@ -1413,7 +1460,7 @@ func extractStructuredJSON(content string) string {
 					if json.Valid([]byte(candidate)) {
 						return candidate
 					}
-					break
+					break candidateLoop
 				}
 			}
 		}

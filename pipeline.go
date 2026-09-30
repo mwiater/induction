@@ -3,6 +3,7 @@ package induction
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,6 +57,8 @@ type PipelineStep struct {
 	Parameters     *PipelineParameters   `yaml:"parameters,omitempty"`
 	Temperature    *float64              `yaml:"temperature,omitempty"`
 	Classification *ClassificationConfig `yaml:"classification,omitempty"`
+	Decision       *DecisionConfig       `yaml:"decision,omitempty"`
+	When           *WhenCondition        `yaml:"when,omitempty"`
 	Output         *StepOutputConfig     `yaml:"output,omitempty"`
 	Transform      string                `yaml:"transform,omitempty"`
 	Input          map[string]any        `yaml:"input,omitempty"`
@@ -77,6 +80,57 @@ type StepOutputConfig struct {
 type ClassificationConfig struct {
 	Candidates  map[string]string `yaml:"candidates"`
 	TopLogprobs int               `yaml:"topLogprobs,omitempty"`
+}
+
+// DecisionConfig configures a bounded next-token decision.
+type DecisionConfig struct {
+	Candidates  map[string]string `yaml:"candidates"`
+	TopLogprobs int               `yaml:"topLogprobs,omitempty"`
+}
+
+// WhenCondition gates a pipeline step on an earlier decision result.
+type WhenCondition struct {
+	Decision      string   `yaml:"decision"`
+	Equals        string   `yaml:"equals"`
+	MinConfidence *float64 `yaml:"minConfidence,omitempty"`
+	MinMargin     *float64 `yaml:"minMargin,omitempty"`
+}
+
+func effectiveDecision(step PipelineStep) *DecisionConfig {
+	if step.Decision != nil {
+		return step.Decision
+	}
+	if step.Classification != nil {
+		return &DecisionConfig{Candidates: step.Classification.Candidates, TopLogprobs: step.Classification.TopLogprobs}
+	}
+	return nil
+}
+
+func evaluatePipelineCondition(condition *WhenCondition, outputs map[string]json.RawMessage) (bool, error) {
+	if condition == nil {
+		return true, nil
+	}
+	raw, ok := outputs[condition.Decision]
+	if !ok {
+		return false, fmt.Errorf("when references decision %q with no result", condition.Decision)
+	}
+	var result DecisionResult
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return false, fmt.Errorf("decode decision %q result: %w", condition.Decision, err)
+	}
+	if result.Type != "decision" {
+		return false, fmt.Errorf("step %q did not produce a decision result", condition.Decision)
+	}
+	if result.SelectedValue != condition.Equals {
+		return false, nil
+	}
+	if condition.MinConfidence != nil && result.Confidence < *condition.MinConfidence {
+		return false, nil
+	}
+	if condition.MinMargin != nil && result.Margin < *condition.MinMargin {
+		return false, nil
+	}
+	return true, nil
 }
 
 // PipelineParameters contains the generation parameter overrides supported by
@@ -152,7 +206,7 @@ func (p *Pipeline) Validate() error {
 		for i := range p.Batch.Items {
 			item := &p.Batch.Items[i]
 			if strings.TrimSpace(item.ID) == "" {
-				item.ID = item.InputSet.DerivedID(i)
+				item.ID = item.DerivedID(i)
 			}
 			if seenIDs[item.ID] {
 				return fmt.Errorf("batch.items[%d] duplicates id %q", i, item.ID)
@@ -182,7 +236,7 @@ func (p *Pipeline) Validate() error {
 			default:
 				return fmt.Errorf("steps[%d]: unknown transform %q", i, step.Transform)
 			}
-			if strings.TrimSpace(step.Model) != "" || strings.TrimSpace(step.UserPrompt) != "" || step.SystemPrompt != "" || step.Parameters != nil || step.Temperature != nil || step.Classification != nil || step.ResponseFormat != nil || step.JSONSchema != nil {
+			if strings.TrimSpace(step.Model) != "" || strings.TrimSpace(step.UserPrompt) != "" || step.SystemPrompt != "" || step.Parameters != nil || step.Temperature != nil || step.Classification != nil || step.Decision != nil || step.When != nil || step.ResponseFormat != nil || step.JSONSchema != nil {
 				return fmt.Errorf("steps[%d]: transform steps cannot specify inference configuration", i)
 			}
 			if step.Image != "" || step.Document != "" {
@@ -228,29 +282,71 @@ func (p *Pipeline) Validate() error {
 		if step.Image != "" && step.Document != "" {
 			return fmt.Errorf("steps[%d] cannot specify both image and document", i)
 		}
-		if step.Classification != nil {
+		if step.Decision != nil && step.Classification != nil {
+			return fmt.Errorf("steps[%d]: decision and classification cannot both be specified", i)
+		}
+		if step.Decision != nil && step.Decision.TopLogprobs == 0 {
+			step.Decision.TopLogprobs = 20
+			p.Steps[i].Decision = step.Decision
+		}
+		if step.Classification != nil && step.Classification.TopLogprobs == 0 {
+			step.Classification.TopLogprobs = 20
+			p.Steps[i].Classification = step.Classification
+		}
+		decision := effectiveDecision(step)
+		if decision != nil {
 			if step.ResponseFormat != nil || step.JSONSchema != nil {
-				return fmt.Errorf("steps[%d]: classification cannot be combined with responseFormat or jsonSchema", i)
+				return fmt.Errorf("steps[%d]: decision cannot be combined with responseFormat or jsonSchema", i)
 			}
-			if len(step.Classification.Candidates) < 2 {
-				return fmt.Errorf("steps[%d]: classification requires at least two candidates", i)
+			if len(decision.Candidates) < 2 {
+				return fmt.Errorf("steps[%d]: decision requires at least two candidates", i)
 			}
-			for candidate, label := range step.Classification.Candidates {
+			for candidate, label := range decision.Candidates {
 				if strings.TrimSpace(candidate) == "" {
-					return fmt.Errorf("steps[%d]: classification candidate key cannot be empty", i)
+					return fmt.Errorf("steps[%d]: decision candidate key cannot be empty", i)
 				}
 				if strings.TrimSpace(label) == "" {
-					return fmt.Errorf("steps[%d]: classification label for candidate %q cannot be empty", i, candidate)
+					return fmt.Errorf("steps[%d]: decision value for candidate %q cannot be empty", i, candidate)
 				}
 			}
-			if step.Classification.TopLogprobs == 0 {
-				step.Classification.TopLogprobs = 20
-			}
-			if step.Classification.TopLogprobs < len(step.Classification.Candidates) {
-				return fmt.Errorf("steps[%d]: classification topLogprobs must be at least the number of candidates", i)
+			if decision.TopLogprobs < len(decision.Candidates) {
+				return fmt.Errorf("steps[%d]: decision topLogprobs must be at least the number of candidates", i)
 			}
 			if step.Parameters != nil && step.Parameters.MaxTokens != nil && *step.Parameters.MaxTokens != 1 {
-				return fmt.Errorf("steps[%d]: classification requires maxTokens=1", i)
+				return fmt.Errorf("steps[%d]: decision requires maxTokens=1", i)
+			}
+		}
+		if step.When != nil {
+			condition := step.When
+			if strings.TrimSpace(condition.Decision) == "" || strings.TrimSpace(condition.Equals) == "" {
+				return fmt.Errorf("steps[%d]: when.decision and when.equals are required", i)
+			}
+			for name, threshold := range map[string]*float64{"minConfidence": condition.MinConfidence, "minMargin": condition.MinMargin} {
+				if threshold != nil && (math.IsNaN(*threshold) || math.IsInf(*threshold, 0) || *threshold < 0 || *threshold > 1) {
+					return fmt.Errorf("steps[%d]: when.%s must be in [0,1]", i, name)
+				}
+			}
+			position, exists := positions[condition.Decision]
+			if !exists {
+				return fmt.Errorf("steps[%d]: when references unknown decision step %q", i, condition.Decision)
+			}
+			if position >= i {
+				return fmt.Errorf("steps[%d]: when must reference an earlier decision step", i)
+			}
+			ref := p.Steps[position]
+			refDecision := effectiveDecision(ref)
+			if refDecision == nil {
+				return fmt.Errorf("steps[%d]: when reference %q is not a decision step", i, condition.Decision)
+			}
+			known := false
+			for _, value := range refDecision.Candidates {
+				if value == condition.Equals {
+					known = true
+					break
+				}
+			}
+			if !known {
+				return fmt.Errorf("steps[%d]: when.equals %q is not a value of decision %q", i, condition.Equals, condition.Decision)
 			}
 		}
 		if step.ResponseFormat != nil {

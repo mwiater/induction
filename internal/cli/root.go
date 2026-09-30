@@ -321,7 +321,9 @@ func newRuntimeCommand(configPath *string) *cobra.Command {
 		writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
 		_, _ = fmt.Fprintln(writer, "MODEL\tSTATE\tFAILED")
 		for _, model := range result.Models {
-			fmt.Fprintf(writer, "%s\t%s\t%t\n", model.ID, model.State, model.Failed)
+			if _, err := fmt.Fprintf(writer, "%s\t%s\t%t\n", model.ID, model.State, model.Failed); err != nil {
+				return err
+			}
 		}
 		return writer.Flush()
 	}}
@@ -344,10 +346,14 @@ func newRuntimeCommand(configPath *string) *cobra.Command {
 				return err
 			}
 			if !op.Changed {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s is already %s.\n", op.Model, op.To)
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s is already %s.\n", op.Model, op.To); err != nil {
+					return err
+				}
 				return nil
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%s %s in %s.\n", strings.Title(name), op.Model, op.Duration.Round(time.Millisecond))
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s %s in %s.\n", strings.ToUpper(name[:1])+name[1:], op.Model, op.Duration.Round(time.Millisecond)); err != nil {
+				return err
+			}
 			return nil
 		}}
 		cmd.Flags().BoolVar(&outputJSON, "json", false, "write JSON output")
@@ -375,8 +381,8 @@ func newRuntimeCommand(configPath *string) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Switched runtime to %s in %s.\n", result.Target, result.Duration.Round(time.Millisecond))
-		return nil
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Switched runtime to %s in %s.\n", result.Target, result.Duration.Round(time.Millisecond))
+		return err
 	}}
 	switchCmd.Flags().BoolVar(&switchJSON, "json", false, "write JSON output")
 	root.AddCommand(switchCmd)
@@ -478,9 +484,13 @@ func newMMProjCommand(configPath *string, inherited func() (string, int, []strin
 					missing = append(missing, file)
 				}
 				if !yes && len(missing) > 1 {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Missing mmproj files for %s:\n", repository)
+					if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Missing mmproj files for %s:\n", repository); err != nil {
+						return err
+					}
 					for i, file := range missing {
-						fmt.Fprintf(cmd.ErrOrStderr(), "  %d) %s\n", i+1, file.Path)
+						if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "  %d) %s\n", i+1, file.Path); err != nil {
+							return err
+						}
 					}
 					_, _ = fmt.Fprint(cmd.ErrOrStderr(), "Choose an mmproj file to download [1-", len(missing), ", Enter to skip]: ")
 					answer, readErr := input.ReadString('\n')
@@ -496,14 +506,18 @@ func newMMProjCommand(configPath *string, inherited func() (string, int, []strin
 					}
 				} else if !yes && len(missing) == 1 {
 					file := missing[0]
-					fmt.Fprintf(cmd.ErrOrStderr(), "Download mmproj %s for %s? [y/N] ", file.Path, repository)
+					if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Download mmproj %s for %s? [y/N] ", file.Path, repository); err != nil {
+						return err
+					}
 					answer, readErr := input.ReadString('\n')
 					if (readErr != nil && len(answer) == 0) || (strings.ToLower(strings.TrimSpace(answer)) != "y" && strings.ToLower(strings.TrimSpace(answer)) != "yes") {
 						missing = nil
 					}
 				}
 				for _, file := range missing {
-					fmt.Fprintf(cmd.ErrOrStderr(), "[mmproj] downloading %s/%s\n", repository, file.Path)
+					if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "[mmproj] downloading %s/%s\n", repository, file.Path); err != nil {
+						return err
+					}
 					// The artifact was confirmed missing above. Overwrite also permits
 					// replacing the stale manifest left behind by a manual cleanup.
 					_, downloadErr := modelmanager.Download(cmd.Context(), client.Path, modelmanager.DownloadRequest{Repository: repository, File: file.Path, Revision: revision, ModelsPath: cfg.ModelsPath, Size: file.Size, ETag: file.ETag, LFSOID: file.LFSOID, Overwrite: true, Token: cfg.HuggingFaceToken})
@@ -527,7 +541,9 @@ func newMMProjCommand(configPath *string, inherited func() (string, int, []strin
 				if item.Error != "" {
 					status = "ERROR: " + item.Error
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s  %s\n", item.Repository, status)
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s  %s\n", item.Repository, status); err != nil {
+					return err
+				}
 			}
 			if failed > 0 {
 				return fmt.Errorf("mmproj check failed for %d operation(s)", failed)
@@ -693,8 +709,8 @@ func newInstalledCommands(configPath *string, inherited func() (string, int, []s
 		if detailsJSON {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\nrevision: %s\nartifact: %s\nmanifest: %s\n", args[0], item.Manifest.Revision, item.ArtifactPath, item.ManifestPath)
-		return nil
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "%s\nrevision: %s\nartifact: %s\nmanifest: %s\n", args[0], item.Manifest.Revision, item.ArtifactPath, item.ManifestPath)
+		return err
 	}}
 	detailsCmd.Flags().BoolVar(&detailsJSON, "json", false, "write JSON output")
 	var verifyJSON bool
@@ -835,9 +851,13 @@ func newFilesCommand(configPath *string, inherited func() (string, int, []string
 		if outputJSON {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Revision: %s\n", revision)
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Revision: %s\n", revision); err != nil {
+			return err
+		}
 		for _, file := range files {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s\t%d\n", file.Path, file.Size)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s\t%d\n", file.Path, file.Size); err != nil {
+				return err
+			}
 		}
 		return nil
 	}}
