@@ -65,46 +65,62 @@ directory:
 ```yaml
 server: your-llamacpp-inference-endpoint
 timeout: 20m
-poll_interval: 2s
-load_wait_interval: 1s
+pollInterval: 2s
+loadWaitInterval: 1s
 sidebarWidth: 64
 log:
   prefix: "induction: "
   microseconds: true
   truncateOnRun: true
-MCPServers:
-  - MCPServerAllow: true
-    MCPServerName: your-mcp-server-name
-    MCPServerURL: your-mcp-server-endpoint
-ModelManager:
-  SearchResults: 20
-  PreferredProviders:
-    - unsloth
-  ModelsPath: /path/to/saved/models
-  HuggingFaceToken: {optional-hugging-face-token}
+mcpServers:
+  - mcpServerAllow: true
+    mcpServerName: your-mcp-server-name
+    mcpServerURL: your-mcp-server-endpoint
+# Optional: required only for model-manager commands.
+# modelManager:
+#   searchResults: 20
+#   preferredProviders:
+#     - unsloth
+#   modelsPath: /path/to/saved/models
+#   huggingFaceToken: {optional-hugging-face-token}
+resourceBudget:
+  reasoning:
+    cutoff:
+      enabled: true
+      maxTokens: 4096
+      maxSeconds: 30
+      maxContextPercent: 75
 ```
 
-The checked-in [`induction.example.yaml`](induction.example.yaml) contains this
-complete field set. Copy it to `induction.yaml` and replace the placeholder
-values before use:
+The checked-in [`induction.example.yaml`](induction.example.yaml) contains the
+available configuration fields. Copy it to `induction.yaml`, uncomment the
+optional sections you need, and replace placeholder values before use:
 
 | Field | Meaning |
 | --- | --- |
 | `server` | llama.cpp-compatible inference endpoint. |
 | `timeout` | Maximum duration for a request or operation. |
-| `poll_interval` | Interval used while polling server state. |
-| `load_wait_interval` | Delay between model-load readiness checks. |
+| `pollInterval` | Interval used while polling server state. |
+| `loadWaitInterval` | Delay between model-load readiness checks. |
 | `sidebarWidth` | Width of the terminal sidebar. |
 | `log.prefix` | Prefix written before each log message. |
 | `log.microseconds` | Include microseconds in log timestamps. |
 | `log.truncateOnRun` | Truncate `induction.log` once when the application starts. |
-| `MCPServers[].MCPServerAllow` | Enable that MCP server for inference. |
-| `MCPServers[].MCPServerName` | Display name used to identify the MCP server. |
-| `MCPServers[].MCPServerURL` | MCP server endpoint. |
-| `ModelManager.SearchResults` | Number of model search results to return. |
-| `ModelManager.PreferredProviders` | Provider order used by model searches and downloads. |
-| `ModelManager.ModelsPath` | Local directory containing downloaded models. |
-| `ModelManager.HuggingFaceToken` | Optional Hugging Face access token for model operations. |
+| `mcpServers[].mcpServerAllow` | Enable that MCP server for inference. |
+| `mcpServers[].mcpServerName` | Display name used to identify the MCP server. |
+| `mcpServers[].mcpServerURL` | MCP server endpoint. |
+| `modelManager.searchResults` | Number of model search results to return. |
+| `modelManager.preferredProviders` | Provider order used by model searches and downloads. |
+| `modelManager.modelsPath` | Local directory containing downloaded models. |
+| `modelManager.huggingFaceToken` | Optional Hugging Face access token for model operations. |
+| `resourceBudget.reasoning.cutoff.enabled` | Enable global reasoning cutoff. |
+| `resourceBudget.reasoning.cutoff.maxTokens` | Maximum reasoning tokens observed through live slot metrics. |
+| `resourceBudget.reasoning.cutoff.maxSeconds` | Maximum elapsed time after reasoning begins. |
+| `resourceBudget.reasoning.cutoff.maxContextPercent` | Maximum active context-window utilization. |
+
+At least one threshold is required when `enabled` is `true`; the other
+thresholds are optional and may be omitted or left blank. The first configured
+threshold reached ends reasoning.
 
 `--nomcp` disables all configured MCP servers for one invocation. Chat sessions
 are stored as private JSON under `.sessions/`, and application diagnostics are

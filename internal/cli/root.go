@@ -917,15 +917,18 @@ func loadModelManagerConfig(path string, cmd *cobra.Command, modelsPath string, 
 	v.SetEnvPrefix("INDUCTION")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
-	v.SetDefault("ModelManager.SearchResults", 10)
+	v.SetDefault("modelManager.searchResults", 10)
 	if err := v.ReadInConfig(); err != nil {
 		return induction.ModelManagerConfig{}, fmt.Errorf("load config %q: %w", path, err)
 	}
-	manager := v.Sub("ModelManager")
+	if strings.TrimSpace(modelsPath) == "" && strings.TrimSpace(v.GetString("modelManager.modelsPath")) == "" {
+		return induction.ModelManagerConfig{}, fmt.Errorf("You must configure modelManager settings in your induction configuration file, e.g.:\n\nmodelManager:\n  searchResults: 20\n  preferredProviders:\n    - unsloth\n  modelsPath: /path/to/saved/models\n  huggingFaceToken: {optional-hugging-face-token}")
+	}
+	manager := v.Sub("modelManager")
 	if manager == nil {
 		manager = viper.New()
-		manager.SetDefault("SearchResults", v.GetInt("ModelManager.SearchResults"))
-		manager.SetDefault("ModelsPath", v.GetString("ModelManager.ModelsPath"))
+		manager.SetDefault("searchResults", v.GetInt("modelManager.searchResults"))
+		manager.SetDefault("modelsPath", v.GetString("modelManager.modelsPath"))
 	}
 	var cfg induction.ModelManagerConfig
 	if err := manager.UnmarshalExact(&cfg); err != nil {
@@ -933,13 +936,13 @@ func loadModelManagerConfig(path string, cmd *cobra.Command, modelsPath string, 
 	}
 	// Read environment overrides explicitly so they retain precedence when a
 	// subsection is decoded independently of the root Viper instance.
-	if value := v.GetString("ModelManager.ModelsPath"); value != "" {
+	if value := v.GetString("modelManager.modelsPath"); value != "" {
 		cfg.ModelsPath = value
 	}
-	if value := v.GetInt("ModelManager.SearchResults"); value != 0 {
+	if value := v.GetInt("modelManager.searchResults"); value != 0 {
 		cfg.SearchResults = value
 	}
-	if value := v.GetStringSlice("ModelManager.PreferredProviders"); len(value) > 0 {
+	if value := v.GetStringSlice("modelManager.preferredProviders"); len(value) > 0 {
 		cfg.PreferredProviders = value
 	}
 	if cmd.Flags().Changed("models-path") {

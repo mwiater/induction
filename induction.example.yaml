@@ -1,19 +1,34 @@
 server: your-llamacpp-inference-endpoint
 timeout: 20m
-poll_interval: 2s
-load_wait_interval: 1s
+pollInterval: 2s
+loadWaitInterval: 1s
 sidebarWidth: 64
 log:
   prefix: "induction: "
   microseconds: true
   truncateOnRun: true
-MCPServers:
-  - MCPServerAllow: true
-    MCPServerName: your-mcp-server-name
-    MCPServerURL: your-mcp-server-endpoint
-ModelManager:
-  SearchResults: 20
-  PreferredProviders:
-    - unsloth
-  ModelsPath: /path/to/saved/models
-  HuggingFaceToken: {optional-hugging-face-token}
+
+# Optional MCP server configuration:
+# mcpServers:
+#   - mcpServerAllow: true
+#     mcpServerName: your-mcp-server-name
+#     mcpServerURL: your-mcp-server-endpoint
+
+# Optional model manager configuration. Required only for `models` commands:
+# modelManager:
+#   searchResults: 20
+#   preferredProviders:
+#     - unsloth
+#   modelsPath: /path/to/saved/models
+#   huggingFaceToken: {optional-hugging-face-token}
+
+# Optional resource budget configuration:
+# Enable the cutoff and configure at least one threshold. Each threshold is
+# optional; omit or leave unused thresholds blank.
+# resourceBudget:
+#   reasoning:
+#     cutoff:
+#       enabled: true
+#       maxTokens: 4096
+#       maxSeconds: 30
+#       maxContextPercent: 75

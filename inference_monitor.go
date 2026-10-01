@@ -9,6 +9,7 @@ import (
 // inferenceMonitor owns the optional live overlay and slot sampling performed
 // during one inference request.
 type inferenceMonitor struct {
+	mu          sync.RWMutex
 	cancel      context.CancelFunc
 	wg          sync.WaitGroup
 	overlay     *liveMetricsOverlay
@@ -16,6 +17,17 @@ type inferenceMonitor struct {
 	ownsOverlay bool
 	slotsReady  chan struct{}
 	readyOnce   sync.Once
+}
+
+func (m *inferenceMonitor) latestMetrics() (generated, used, capacity int, ok bool) {
+	if m == nil {
+		return 0, 0, 0, false
+	}
+	m.mu.RLock()
+	slots := m.slots
+	m.mu.RUnlock()
+	_, generatedValue, usedValue, capacityValue, ok := activeSlotMetrics(slots)
+	return int(generatedValue), int(usedValue), int(capacityValue), ok
 }
 
 // startInferenceMonitor begins monitoring before inference so model-loading
@@ -38,6 +50,12 @@ func (c *Client) startInferenceMonitorWithOverlay(ctx context.Context, model str
 		monitor.overlay = startLiveMetricsOverlay(model)
 		monitor.ownsOverlay = monitor.overlay != nil
 	}
+	// Streaming snapshot clients are intentionally created without their own
+	// overlay, but still need to update the overlay owned by this monitor when
+	// the stream enters or leaves a reasoning block.
+	if monitor.overlay != nil && c.opts.progressOverlay == nil {
+		c.opts.progressOverlay = monitor.overlay
+	}
 
 	if collectSamples || monitor.overlay != nil {
 		monitor.wg.Add(1)
@@ -50,7 +68,11 @@ func (c *Client) startInferenceMonitorWithOverlay(ctx context.Context, model str
 					return
 				}
 			}
-			monitor.slots = c.pollSlots(monitorCtx, model, monitor.overlay)
+			monitor.slots = c.pollSlots(monitorCtx, model, monitor.overlay, func(slots SlotsData) {
+				monitor.mu.Lock()
+				monitor.slots = slots
+				monitor.mu.Unlock()
+			})
 		}()
 	}
 
@@ -104,8 +126,11 @@ func (m *inferenceMonitor) stop(removeOverlay bool) SlotsData {
 	}
 	m.cancel()
 	m.wg.Wait()
+	m.mu.RLock()
+	slots := m.slots
+	m.mu.RUnlock()
 	if removeOverlay && m.overlay != nil && m.ownsOverlay {
 		m.overlay.Stop()
 	}
-	return m.slots
+	return slots
 }

@@ -2,12 +2,27 @@ package cli
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/mwiater/induction/internal/eval"
 	"github.com/spf13/cobra"
 )
+
+func TestModelCommandExplainsMissingConfiguration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "induction.yaml")
+	if err := os.WriteFile(path, []byte("server: http://localhost:9998\ntimeout: 1m\npollInterval: 1s\nloadWaitInterval: 1s\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCommand()
+	root.SetArgs([]string{"--config", path, "models", "--beta"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "You must configure modelManager settings") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
 
 func TestEvalCommandRequiresFlags(t *testing.T) {
 	root := NewRootCommand()

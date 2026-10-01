@@ -2,6 +2,7 @@ package induction
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -47,7 +48,7 @@ func TestFormatLiveMetrics(t *testing.T) {
 	if strings.Contains(rendered, "\n") {
 		t.Fatalf("expected a single-line footer: %q", rendered)
 	}
-	for _, expected := range []string{"[Induction: Live Metrics] model-id | Stage: Decode", "Prefill (tok/s): 12.3", "Decode (tok/s): 56.8", "Tokens Generated: 1234", "Context Used: 25.0%"} {
+	for _, expected := range []string{"[Induction: Live Metrics] model-id | Stage: Decode", "Prefill (tok/s): 12.3", "Decode (tok/s): 56.8", "Reasoning Tokens: 0", "Response Tokens: 1234", "Ctx Used: 25.0%"} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("expected rendered overlay to contain %q: %q", expected, rendered)
 		}
@@ -55,6 +56,50 @@ func TestFormatLiveMetrics(t *testing.T) {
 	prefill := formatLiveMetrics("model-id", "Prefill", 12.34, nil, 0, 25)
 	if !strings.Contains(prefill, "Decode (tok/s): n/a") {
 		t.Fatalf("expected prefill decode rate to be unavailable: %q", prefill)
+	}
+}
+
+func TestFormatLiveMetricsBreakdown(t *testing.T) {
+	rendered := formatLiveMetricsBreakdownPlain("model-id", "Decode", 12.34, nil, 3, 5, 25)
+	for _, expected := range []string{
+		"Reasoning Tokens: 3",
+		"Response Tokens: 5",
+		"Ctx Used: 25.0%",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("expected breakdown to contain %q: %q", expected, rendered)
+		}
+	}
+}
+
+func TestStreamingSnapshotClientSharesMonitorOverlay(t *testing.T) {
+	overlay := &liveMetricsOverlay{}
+	client := NewClient(context.Background(), "http://llama", withProgressOverlay(overlay))
+	clone := client.withoutLiveMetricsOverlay(context.Background())
+	if clone.progressOverlay() != overlay {
+		t.Fatal("streaming snapshot client did not retain the monitor overlay")
+	}
+}
+
+func TestLiveMetricsSplitsReasoningAndResponseTokens(t *testing.T) {
+	var updates []overlayUpdate
+	overlay := &liveMetricsOverlay{
+		startedAt: time.Now().Add(-time.Second),
+		model:     "model-id",
+		notify:    func(update overlayUpdate) { updates = append(updates, update) },
+	}
+
+	overlay.SetReasoningPhase(true)
+	overlay.Update(SlotsData{{"n_ctx": 100, "n_prompt_tokens_processed": 10, "n_decoded": 3}})
+	overlay.SetReasoningPhase(false)
+	overlay.lastAt = time.Now().Add(-time.Second)
+	overlay.Update(SlotsData{{"n_ctx": 100, "n_prompt_tokens_processed": 10, "n_decoded": 8}})
+
+	if overlay.reasoningTokens != 3 || overlay.responseTokens != 5 {
+		t.Fatalf("expected reasoning/response split 3/5, got %v/%v", overlay.reasoningTokens, overlay.responseTokens)
+	}
+	if len(updates) == 0 || !strings.Contains(updates[len(updates)-1].footer, "Reasoning Tokens: 3") || !strings.Contains(updates[len(updates)-1].footer, "Response Tokens: 5") {
+		t.Fatalf("expected split token counts in live metrics: %+v", updates)
 	}
 }
 
@@ -102,7 +147,7 @@ func TestPrefillRatePersistsThroughDecodeAndCompletion(t *testing.T) {
 	for _, expected := range []string{
 		"Stage: Complete",
 		fmt.Sprintf("Prefill (tok/s): %.1f", retained),
-		"Tokens Generated: 25",
+		"Response Tokens: 25",
 	} {
 		if !strings.Contains(footer, expected) {
 			t.Fatalf("completed footer does not contain %q: %q", expected, footer)

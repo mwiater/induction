@@ -109,3 +109,11 @@ func withLiveMetricsOverlay(overlay *liveMetricsOverlay) ClientOption {
 		o.liveMetricsOverlay = overlay
 	}
 }
+
+func withResourceBudget(budget *ResourceBudgetConfig) ClientOption {
+	return func(o *ClientOptions) { o.resourceBudget = budget }
+}
+
+func withProgressOverlay(overlay *liveMetricsOverlay) ClientOption {
+	return func(o *ClientOptions) { o.progressOverlay = overlay }
+}

@@ -43,15 +43,15 @@ type LogConfig struct {
 
 // ModelManagerConfig controls model discovery and local model storage.
 type ModelManagerConfig struct {
-	SearchResults          int      `yaml:"SearchResults" mapstructure:"SearchResults" json:"searchResults"`
-	PreferredProviders     []string `yaml:"PreferredProviders" mapstructure:"PreferredProviders" json:"preferredProviders"`
-	ModelsPath             string   `yaml:"ModelsPath" mapstructure:"ModelsPath" json:"modelsPath"`
-	PreferredQuantizations []string `yaml:"PreferredQuantizations" mapstructure:"PreferredQuantizations" json:"preferredQuantizations,omitempty"`
-	IncludePatterns        []string `yaml:"IncludePatterns" mapstructure:"IncludePatterns" json:"includePatterns,omitempty"`
-	ExcludePatterns        []string `yaml:"ExcludePatterns" mapstructure:"ExcludePatterns" json:"excludePatterns,omitempty"`
-	AvailableRAM           string   `yaml:"AvailableRAM" mapstructure:"AvailableRAM" json:"availableRAM,omitempty"`
-	AvailableVRAM          string   `yaml:"AvailableVRAM" mapstructure:"AvailableVRAM" json:"availableVRAM,omitempty"`
-	HuggingFaceToken       string   `yaml:"HuggingFaceToken" mapstructure:"HuggingFaceToken" json:"-"`
+	SearchResults          int      `yaml:"searchResults" mapstructure:"searchResults" json:"searchResults"`
+	PreferredProviders     []string `yaml:"preferredProviders" mapstructure:"preferredProviders" json:"preferredProviders"`
+	ModelsPath             string   `yaml:"modelsPath" mapstructure:"modelsPath" json:"modelsPath"`
+	PreferredQuantizations []string `yaml:"preferredQuantizations" mapstructure:"preferredQuantizations" json:"preferredQuantizations,omitempty"`
+	IncludePatterns        []string `yaml:"includePatterns" mapstructure:"includePatterns" json:"includePatterns,omitempty"`
+	ExcludePatterns        []string `yaml:"excludePatterns" mapstructure:"excludePatterns" json:"excludePatterns,omitempty"`
+	AvailableRAM           string   `yaml:"availableRAM" mapstructure:"availableRAM" json:"availableRAM,omitempty"`
+	AvailableVRAM          string   `yaml:"availableVRAM" mapstructure:"availableVRAM" json:"availableVRAM,omitempty"`
+	HuggingFaceToken       string   `yaml:"huggingFaceToken" mapstructure:"huggingFaceToken" json:"-"`
 }
 
 // MCPServerConfig describes a remote Model Context Protocol server. Allow is
@@ -59,21 +59,27 @@ type ModelManagerConfig struct {
 // contacted or exposed to a model.
 // MCPServerConfig describes one configured Model Context Protocol server.
 type MCPServerConfig struct {
-	Allow bool   `yaml:"MCPServerAllow"`
-	Name  string `yaml:"MCPServerName"`
-	URL   string `yaml:"MCPServerURL"`
+	Allow bool   `yaml:"mcpServerAllow"`
+	Name  string `yaml:"mcpServerName"`
+	URL   string `yaml:"mcpServerURL"`
+}
+
+// ResourceBudgetConfig contains global inference resource policies.
+type ResourceBudgetConfig struct {
+	Reasoning *ReasoningConfig `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
 }
 
 // Config contains runtime settings loaded from induction.yaml.
 type Config struct {
-	Server           string             `yaml:"server"`
-	Timeout          Duration           `yaml:"timeout"`
-	PollInterval     Duration           `yaml:"poll_interval"`
-	LoadWaitInterval Duration           `yaml:"load_wait_interval"`
-	SidebarWidth     int                `yaml:"sidebarWidth"`
-	MCPServers       []MCPServerConfig  `yaml:"MCPServers"`
-	Log              LogConfig          `yaml:"log"`
-	ModelManager     ModelManagerConfig `yaml:"ModelManager" mapstructure:"ModelManager"`
+	Server           string                `yaml:"server"`
+	Timeout          Duration              `yaml:"timeout"`
+	PollInterval     Duration              `yaml:"pollInterval"`
+	LoadWaitInterval Duration              `yaml:"loadWaitInterval"`
+	SidebarWidth     int                   `yaml:"sidebarWidth"`
+	MCPServers       []MCPServerConfig     `yaml:"mcpServers"`
+	Log              LogConfig             `yaml:"log"`
+	ModelManager     ModelManagerConfig    `yaml:"modelManager" mapstructure:"modelManager"`
+	ResourceBudget   *ResourceBudgetConfig `yaml:"resourceBudget,omitempty" json:"resourceBudget,omitempty"`
 }
 
 var (
@@ -150,6 +156,7 @@ func newClientFromConfig(ctx context.Context, cfg *Config, options ...ClientOpti
 		WithPollInterval(time.Duration(cfg.PollInterval)),
 		WithLoadWaitInterval(time.Duration(cfg.LoadWaitInterval)),
 		WithLogger(configuredLogger(cfg.Log)),
+		withResourceBudget(cfg.ResourceBudget),
 	}
 	configured = append(configured, options...)
 	return NewClient(ctx, cfg.Server, configured...)
@@ -163,15 +170,20 @@ func (c *Config) validate() error {
 		return fmt.Errorf("timeout must be greater than zero")
 	}
 	if c.PollInterval <= 0 {
-		return fmt.Errorf("poll_interval must be greater than zero")
+		return fmt.Errorf("pollInterval must be greater than zero")
 	}
 	if c.LoadWaitInterval <= 0 {
-		return fmt.Errorf("load_wait_interval must be greater than zero")
+		return fmt.Errorf("loadWaitInterval must be greater than zero")
+	}
+	if c.ResourceBudget != nil && c.ResourceBudget.Reasoning != nil && c.ResourceBudget.Reasoning.Cutoff != nil {
+		if err := c.ResourceBudget.Reasoning.Cutoff.validate("resourceBudget.reasoning.cutoff"); err != nil {
+			return err
+		}
 	}
 	names := make(map[string]bool, len(c.MCPServers))
 	for i, server := range c.MCPServers {
 		if strings.TrimSpace(server.Name) == "" {
-			return fmt.Errorf("MCPServers[%d].MCPServerName is required", i)
+			return fmt.Errorf("mcpServers[%d].mcpServerName is required", i)
 		}
 		if names[server.Name] {
 			return fmt.Errorf("MCP server name %q is duplicated", server.Name)
@@ -184,7 +196,7 @@ func (c *Config) validate() error {
 	}
 	if c.ModelManager.SearchResults != 0 || c.ModelManager.ModelsPath != "" || len(c.ModelManager.PreferredProviders) > 0 || len(c.ModelManager.PreferredQuantizations) > 0 || len(c.ModelManager.IncludePatterns) > 0 || len(c.ModelManager.ExcludePatterns) > 0 || c.ModelManager.AvailableRAM != "" || c.ModelManager.AvailableVRAM != "" {
 		if err := c.ModelManager.NormalizeAndValidate(); err != nil {
-			return fmt.Errorf("ModelManager: %w", err)
+			return fmt.Errorf("modelManager: %w", err)
 		}
 	}
 	return nil
@@ -196,17 +208,17 @@ func (c *ModelManagerConfig) NormalizeAndValidate() error {
 		c.SearchResults = 10
 	}
 	if c.SearchResults < 1 || c.SearchResults > 100 {
-		return fmt.Errorf("SearchResults must be between 1 and 100")
+		return fmt.Errorf("searchResults must be between 1 and 100")
 	}
 	if strings.TrimSpace(c.ModelsPath) == "" {
-		return fmt.Errorf("ModelsPath is required")
+		return fmt.Errorf("modelsPath is required")
 	}
 	abs, err := filepath.Abs(c.ModelsPath)
 	if err != nil {
-		return fmt.Errorf("resolve ModelsPath: %w", err)
+		return fmt.Errorf("resolve modelsPath: %w", err)
 	}
 	if err := os.MkdirAll(abs, 0o755); err != nil {
-		return fmt.Errorf("create ModelsPath: %w", err)
+		return fmt.Errorf("create modelsPath: %w", err)
 	}
 	c.ModelsPath = abs
 	seen := make(map[string]struct{}, len(c.PreferredProviders))

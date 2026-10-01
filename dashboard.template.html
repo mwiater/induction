@@ -662,6 +662,25 @@
     .x03-thermal-score,
     .x03-envelope-value { color: var(--pastel-gold) !important; }
     .dataset-health-value { color: var(--pastel-gold) !important; }
+
+    .ex1-stage { overflow-x: auto; border: 1px solid var(--border); border-radius: 18px; background: radial-gradient(circle at 18% 10%, rgba(89,79,150,.16), transparent 38%), linear-gradient(145deg, #101823, #0a1018); }
+    html[data-theme="light"] .ex1-stage { background: radial-gradient(circle at 18% 10%, rgba(125,111,220,.14), transparent 38%), linear-gradient(145deg, #f8faff, #ecf2f7); }
+    .ex1-stage svg { display: block; width: 100%; min-width: 850px; height: auto; }
+    .ex1-stage [data-ex1-model] { cursor: pointer; outline: none; }
+    .ex1-stage [data-ex1-model]:focus-visible { filter: drop-shadow(0 0 8px #f5cf81); }
+    .ex1-readout { min-height: 3.1rem; padding: .8rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); color: var(--text); font-size: .83rem; line-height: 1.5; }
+    .ex1-key { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; color: var(--muted); font-size: .74rem; }
+    .ex1-key span { display: inline-flex; align-items: center; gap: .35rem; }
+    .ex1-key i { width: 11px; height: 11px; display: inline-block; border-radius: 3px; }
+    .ex1-controls { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:.8rem 0 1rem; }
+    .ex1-controls button { border:1px solid var(--border); border-radius:999px; background:var(--panel-2); color:var(--muted); padding:.4rem .8rem; font-size:.75rem; font-weight:700; cursor:pointer; }
+    .ex1-controls button:hover, .ex1-controls button.active { background:#775dcc; border-color:#a98eff; color:#fff; }
+    .ex1-controls button .ex1-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:.4rem; box-shadow:0 0 8px currentColor; }
+    .ex1-controls .ex1-control-label { color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin-right:.35rem; }
+    .ex1-stage svg [data-ex1-model] { transition: opacity .2s ease, filter .2s ease; }
+    .ex1-stage svg:hover [data-ex1-model] { opacity:.45; }
+    .ex1-stage svg [data-ex1-model]:hover { opacity:1; filter:drop-shadow(0 0 11px rgba(190,158,255,.55)); }
+    .ex1-insight { color:var(--pastel-gold); font-weight:750; }
   </style>
 </head>
 <body>
@@ -690,6 +709,7 @@
           <a class="nav-link" href="#performance" data-view="performance"><i class="fa-solid fa-gauge-high"></i> Performance</a>
           <a class="nav-link" href="#behavior" data-view="behavior"><i class="fa-solid fa-brain"></i> Response behavior</a>
           <a class="nav-link" href="#models" data-view="models"><i class="fa-solid fa-table-list"></i> Models</a>
+          <a class="nav-link" href="#experimental-01" data-view="experimental-01"><i class="fa-solid fa-wand-magic-sparkles"></i> Experimental 01</a>
           <a class="nav-link" href="#variables" data-view="variables"><i class="fa-solid fa-list"></i> Variables</a>
         </div>
       </div>
@@ -1026,6 +1046,28 @@
           <div id="experimental01Selection" class="small-note mt-2" aria-live="polite"></div>
         </div>
         <div class="panel experimental01-creative-card p-3 p-lg-4"><div class="section-title mb-1">The Capability Genome</div><div class="experiment-caption mb-2">A double helix turns context configuration, reasoning, modality, tools, and multi-turn behavior into a readable operating genome.</div><canvas id="experimental01Genome" class="experimental01-creative-canvas" tabindex="0"></canvas></div>
+      </section>
+
+      <section id="experimental-01" class="dashboard-view mb-4">
+        <div class="panel view-header p-3 p-lg-4 mb-3">
+          <div class="eyebrow mb-2">Experimental 01</div>
+          <h1 class="hero-title mb-2">The model observatory</h1>
+          <p class="text-muted-custom mb-0">Twelve models, two ways to see their strengths. Change the lens, choose a workload, and select any model to inspect the evidence behind its shape and position.</p>
+        </div>
+        <div class="panel p-3 p-lg-4 mb-3">
+          <div class="section-title mb-1">The Signal Conservatory</div>
+          <p class="experiment-caption mb-2">Each model is a living glass specimen. Six petals encode generation speed, prompt speed, reasoning share, answer volume, turn depth, and speed consistency. The core is prompt workload; fine sparks show observation evidence. Choose a lens to reorder the specimens and illuminate one signal across the fleet.</p>
+          <div id="ex1LensControls" class="ex1-controls" role="group" aria-label="Choose comparison lens"></div>
+          <div id="ex1Score" class="ex1-stage" role="group" aria-label="Interactive model signal conservatory"></div>
+          <div id="ex1ScoreReadout" class="ex1-readout mt-3" aria-live="polite"></div>
+        </div>
+        <div class="panel p-3 p-lg-4">
+          <div class="section-title mb-1">The Workload Gravity Well</div>
+          <p class="experiment-caption mb-2">Choose a workload to reshape the field. Models orbit the center by weighted fit: nearer means stronger. Each model is a six-facet signal crystal; the dimmest facet identifies its limiting signal. Click two models to compare their actual values.</p>
+          <div id="ex1ScenarioControls" class="ex1-controls" role="group" aria-label="Choose workload scenario"></div>
+          <div id="ex1Reactors" class="ex1-stage" role="group" aria-label="Interactive workload gravity well comparing every model"></div>
+          <div id="ex1ReactorReadout" class="ex1-readout mt-3" aria-live="polite"></div>
+        </div>
       </section>
 
       <section id="variables" class="dashboard-view mb-4">
@@ -2752,6 +2794,126 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
     return path.replace(/\[\d+\]/g, "[0]");
   }
 
+  // Experimental 01: six comparable, varied signals from observed snapshots.
+  const ex1Raw = DASHBOARD_DATA.models || [];
+  const ex1Metric = (o, path) => { const n = Number(path.reduce((v, key) => v?.[key], o)); return path.reduce((v, key) => v?.[key], o) == null || !Number.isFinite(n) ? null : n; };
+  const ex1Average = values => { const good = values.filter(v => v != null && Number.isFinite(v)); return good.length ? good.reduce((a, b) => a + b, 0) / good.length : null; };
+  const ex1Max = values => Math.max(1, ...values.filter(v => v != null && Number.isFinite(v)));
+  const ex1Clamp = n => Math.max(0, Math.min(1, n || 0));
+  const ex1Norm = (n, max, log = false) => n == null ? 0 : ex1Clamp(log ? Math.log1p(Math.max(0, n)) / Math.log1p(max) : n / max);
+  const ex1Colors = ["#5ce0e5", "#82b5ff", "#c7a3ff", "#f5a8c9", "#f6cd83", "#8fe2ad"];
+  const ex1Labels = ["Generation", "Prompt intake", "Reasoning", "Answer volume", "Turn depth", "Consistency"];
+  const ex1Keys = ["gen", "intake", "reason", "answer", "turn", "stable"];
+  const ex1Profiles = ex1Raw.map((model, index) => {
+    const obs = model.observations || [];
+    const get = path => ex1Average(obs.map(o => ex1Metric(o, path)));
+    const gen = get(["performance", "generation_tokens_per_second"]);
+    const genValues = obs.map(o => ex1Metric(o, ["performance", "generation_tokens_per_second"])).filter(v => v != null);
+    const spread = genValues.length > 1 && gen > 0 ? Math.sqrt(ex1Average(genValues.map(v => (v - gen) ** 2))) / gen : null;
+    const visible = get(["response", "visible_words"]), reasoning = get(["response", "reasoning_words"]);
+    return {index, model, count: obs.length, gen, intake: get(["performance", "prompt_tokens_per_second"]), reason: visible != null && reasoning != null && visible + reasoning > 0 ? reasoning / (visible + reasoning) : null, answer: visible != null && reasoning != null ? visible + reasoning : null, visible, reasoning, turn: get(["conversation", "turn_number"]), stable: spread == null ? null : 1 / (1 + spread), spread, prompt: get(["tokens", "prompt"])};
+  });
+  const ex1Maxima = Object.fromEntries([...ex1Keys, "prompt"].map(key => [key, ex1Max(ex1Profiles.map(p => p[key]))]));
+  ex1Profiles.forEach(p => { p.values = ex1Keys.map(key => ex1Norm(p[key], ex1Maxima[key], key === "answer")); p.workload = ex1Norm(p.prompt, ex1Maxima.prompt, true); });
+  const ex1Scenarios = [
+    {name:"Rapid chat", weights:[.43,.32,0,.05,.05,.15], note:"generation and intake speed with steadiness"},
+    {name:"Deep analysis", weights:[.08,.08,.40,.28,.16,0], note:"reasoning share, answer depth, and turns"},
+    {name:"Long dialogue", weights:[.08,.17,.05,.10,.38,.22], note:"turn depth and consistent throughput"},
+    {name:"Balanced", weights:[1,1,1,1,1,1], note:"all six signals equally"}
+  ];
+  const ex1State = {lens:0, scenario:0, selected:[null,null]};
+  const ex1Esc = value => fmt.esc(String(value ?? "—"));
+  const ex1Fmt = (value, digits = 0) => value == null ? "unavailable" : fmt.n(value, digits);
+  const ex1Score = (profile, scenario) => { const w = scenario.weights, total = w.reduce((a,b) => a+b,0); return profile.values.reduce((sum, v, i) => sum + v*w[i], 0)/total; };
+  const ex1Theme = () => document.documentElement.dataset.theme === "light" ? {ink:"#253446", muted:"#607286", back:"#f4f7fc", glass:"#ffffff", grid:"#b8c7d9"} : {ink:"#edf3fc", muted:"#9aacbf", back:"#0d1621", glass:"#162332", grid:"#42546b"};
+  const ex1Selected = index => ex1State.selected.includes(index);
+  function ex1Controls() {
+    document.getElementById("ex1LensControls").innerHTML = `<span class="ex1-control-label">Sort and illuminate</span>${ex1Labels.map((label,i) => `<button type="button" data-ex1-lens="${i}" class="${i === ex1State.lens ? "active" : ""}" aria-pressed="${i === ex1State.lens}"><span class="ex1-dot" style="background:${ex1Colors[i]};color:${ex1Colors[i]}"></span>${label}</button>`).join("")}`;
+    document.getElementById("ex1ScenarioControls").innerHTML = `<span class="ex1-control-label">Workload</span>${ex1Scenarios.map((s,i) => `<button type="button" data-ex1-scenario="${i}" class="${i === ex1State.scenario ? "active" : ""}" aria-pressed="${i === ex1State.scenario}">${s.name}</button>`).join("")}`;
+  }
+  function ex1Petal(cx, cy, angle, length, width) {
+    const dx = Math.cos(angle), dy = Math.sin(angle), px = -dy, py = dx;
+    const start = 14, end = length, mid = (start+end)*.62;
+    return `M${cx+dx*start} ${cy+dy*start} Q${cx+dx*mid+px*width} ${cy+dy*mid+py*width} ${cx+dx*end} ${cy+dy*end} Q${cx+dx*mid-px*width} ${cy+dy*mid-py*width} ${cx+dx*start} ${cy+dy*start}Z`;
+  }
+  function ex1DrawConservatory() {
+    const t = ex1Theme(), width = 1200, cardW = 380, cardH = 275, gap = 14;
+    const sorted = [...ex1Profiles].sort((a,b) => b.values[ex1State.lens] - a.values[ex1State.lens]);
+    const height = 44 + Math.ceil(sorted.length/3)*(cardH+gap);
+    let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="ex1Glass"><stop stop-color="#ffffff" stop-opacity=".34"/><stop offset=".56" stop-color="#ad9cff" stop-opacity=".12"/><stop offset="1" stop-color="#ad9cff" stop-opacity="0"/></radialGradient><filter id="ex1Bloom"><feGaussianBlur stdDeviation="7"/></filter></defs><text x="20" y="26" fill="${t.muted}" font-size="11" font-family="Inter">SORTED BY ${ex1Labels[ex1State.lens].toUpperCase()} · PETAL LENGTH = RELATIVE SIGNAL · BRIGHT EDGE = ACTIVE LENS</text>`;
+    sorted.forEach((p, rank) => {
+      const x = 14+(rank%3)*(cardW+gap), y = 38+Math.floor(rank/3)*(cardH+gap), cx=x+190, cy=y+131;
+      const chosen = ex1Selected(p.index), fill = chosen ? (document.documentElement.dataset.theme === "light" ? "#eee8ff" : "#292342") : t.glass;
+      svg += `<g data-ex1-model="${p.index}" tabindex="0" role="button" aria-label="Select ${ex1Esc(p.model.model_id)}"><rect x="${x}" y="${y}" width="${cardW}" height="${cardH}" rx="22" fill="${fill}" stroke="${chosen ? "#f4d38d" : t.grid}" stroke-opacity="${chosen ? .9 : .35}" stroke-width="${chosen ? 2 : 1}"/>`;
+      svg += `<text x="${x+17}" y="${y+23}" fill="${t.muted}" font-size="10" font-family="JetBrains Mono">#${rank+1} · ${p.count} OBSERVATIONS</text><text x="${x+17}" y="${y+254}" fill="${t.ink}" font-size="12" font-family="Inter" font-weight="700">${ex1Esc(fmt.shortModel(p.model.model_id).slice(0,42))}</text>`;
+      svg += `<circle cx="${cx}" cy="${cy}" r="103" fill="url(#ex1Glass)"/><circle cx="${cx}" cy="${cy}" r="103" fill="none" stroke="${t.grid}" stroke-opacity=".2" stroke-dasharray="2 8"/>`;
+      for (let i=0;i<6;i++) {
+        const angle = -Math.PI/2+i*Math.PI/3, length = 25+75*p.values[i], focus = i === ex1State.lens;
+        const path = ex1Petal(cx,cy,angle,length,7+11*p.values[i]), missing=p[ex1Keys[i]]==null;
+        svg += `<path d="${path}" fill="${missing?t.grid:ex1Colors[i]}" opacity="${focus ? .38 : .11}" filter="url(#ex1Bloom)"/><path d="${path}" fill="${missing?t.grid:ex1Colors[i]}" fill-opacity="${missing?.08:focus?.62:.30}" stroke="${missing?t.grid:ex1Colors[i]}" stroke-width="${focus ? 2.5 : 1.2}" stroke-opacity="${missing?.3:focus?1:.65}" ${missing?'stroke-dasharray="3 3"':""}/>`;
+        const lx=cx+Math.cos(angle)*110, ly=cy+Math.sin(angle)*110;
+        svg += `<text x="${lx}" y="${ly}" text-anchor="middle" fill="${focus ? ex1Colors[i] : t.muted}" font-size="10" font-family="JetBrains Mono" font-weight="${focus ? 700 : 400}">${missing?"—":Math.round(p.values[i]*100)}</text>`;
+      }
+      const core=8+18*p.workload;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${core+6}" fill="#f7d68d" opacity=".18" filter="url(#ex1Bloom)"/><circle cx="${cx}" cy="${cy}" r="${core}" fill="#e8c782" fill-opacity=".38" stroke="#ffe5a2" stroke-width="1.5"/><text x="${cx}" y="${cy+3}" text-anchor="middle" fill="${t.ink}" font-size="9" font-family="JetBrains Mono">${Math.round(p.workload*100)}</text>`;
+      for (let s=0;s<Math.min(18,p.count);s++) { const a=s*2.399+rank*.4, r=119+(s%3)*6; svg += `<circle cx="${cx+Math.cos(a)*r}" cy="${cy+Math.sin(a)*r}" r="${s<8?1.7:1.2}" fill="#f5d48f" opacity=".55"/>`; }
+      svg += `<rect x="${x}" y="${y}" width="${cardW}" height="${cardH}" fill="transparent"/></g>`;
+    });
+    if (!sorted.length) svg += `<text x="24" y="80" fill="${t.muted}">No model observations available.</text>`;
+    document.getElementById("ex1Score").innerHTML=svg+"</svg>";
+  }
+  function ex1DrawWell() {
+    const t=ex1Theme(), width=1200, height=930, center={x:600,y:446}, scenario=ex1Scenarios[ex1State.scenario];
+    const sorted=[...ex1Profiles].map(p => ({...p,fit:ex1Score(p,scenario)})).sort((a,b)=>b.fit-a.fit);
+    let svg=`<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="ex1Field"><stop stop-color="#8c79ec" stop-opacity=".28"/><stop offset=".5" stop-color="#57bbce" stop-opacity=".07"/><stop offset="1" stop-color="#57bbce" stop-opacity="0"/></radialGradient><filter id="ex1WellGlow"><feGaussianBlur stdDeviation="9"/></filter></defs><circle cx="600" cy="446" r="425" fill="url(#ex1Field)"/>`;
+    [185,265,345,420].forEach((r,i)=> svg+=`<circle cx="600" cy="446" r="${r}" fill="none" stroke="${t.grid}" stroke-opacity="${.23-i*.03}" stroke-dasharray="${i%2?'2 8':'4 11'}"/>`);
+    svg+=`<text x="24" y="31" fill="${t.muted}" font-size="11" font-family="Inter">CLOSER TO CENTER = STRONGER FIT · SIX FACETS = OBSERVED SIGNALS · EDGE COLOR = BIGGEST LIMITATION</text>`;
+    sorted.forEach((p,rank)=>{
+      const angle=-Math.PI/2+rank*2*Math.PI/Math.max(1,sorted.length), r=184+(1-p.fit)*205;
+      p.x=center.x+Math.cos(angle)*r; p.y=center.y+Math.sin(angle)*r;
+      const limiting=p.values.reduce((best,v,i)=>scenario.weights[i] && v<p.values[best] ? i : best, scenario.weights.findIndex(w=>w>0));
+      svg+=`<path d="M600 446 Q${(600+p.x)/2+Math.sin(angle)*26} ${(446+p.y)/2-Math.cos(angle)*26} ${p.x} ${p.y}" fill="none" stroke="${ex1Colors[limiting]}" stroke-opacity=".35" stroke-width="1.6"/>`;
+    });
+    svg+=`<circle cx="600" cy="446" r="75" fill="#ae94ff" opacity=".2" filter="url(#ex1WellGlow)"/><circle cx="600" cy="446" r="69" fill="${t.glass}" stroke="#b9a1ff" stroke-width="2"/><text x="600" y="426" text-anchor="middle" fill="${t.muted}" font-size="10" font-family="Inter">BEST FIT</text><text x="600" y="450" text-anchor="middle" fill="${t.ink}" font-size="15" font-weight="800" font-family="Inter">${ex1Esc(fmt.shortModel(sorted[0]?.model.model_id || "—").slice(0,19))}</text><text x="600" y="471" text-anchor="middle" fill="#f5d48f" font-size="14" font-family="JetBrains Mono">${sorted.length?Math.round(sorted[0].fit*100):0} / 100</text>`;
+    sorted.forEach((p,rank)=>{
+      const x=p.x,y=p.y,chosen=ex1Selected(p.index),limit=p.values.reduce((best,v,i)=>scenario.weights[i] && v<p.values[best] ? i : best,scenario.weights.findIndex(w=>w>0));
+      svg+=`<g data-ex1-model="${p.index}" tabindex="0" role="button" aria-label="Select ${ex1Esc(p.model.model_id)} for comparison"><circle cx="${x}" cy="${y}" r="53" fill="${ex1Colors[limit]}" opacity=".19" filter="url(#ex1WellGlow)"/><path d="M${x} ${y-39} L${x+35} ${y-19} L${x+35} ${y+19} L${x} ${y+39} L${x-35} ${y+19} L${x-35} ${y-19}Z" fill="${chosen ? (document.documentElement.dataset.theme === "light" ? "#eee8ff" : "#34304d") : t.glass}" stroke="${chosen ? "#f5d48f" : ex1Colors[limit]}" stroke-width="${chosen?2.5:1.5}"/>`;
+      for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3, nx=x+Math.cos(a)*25, ny=y+Math.sin(a)*25, rr=2+4*p.values[i]; svg+=`<circle cx="${nx}" cy="${ny}" r="${rr}" fill="${ex1Colors[i]}" opacity="${.3+.7*p.values[i]}"/>`;}
+      svg+=`<text x="${x}" y="${y+5}" text-anchor="middle" fill="${t.ink}" font-size="15" font-weight="800" font-family="JetBrains Mono">${Math.round(p.fit*100)}</text><text x="${x}" y="${y+54}" text-anchor="middle" fill="${t.ink}" font-size="11" font-weight="700" font-family="Inter">${ex1Esc(fmt.shortModel(p.model.model_id).slice(0,20))}</text><text x="${x}" y="${y+68}" text-anchor="middle" fill="${t.muted}" font-size="9" font-family="JetBrains Mono">#${rank+1} · ${ex1Labels[limit]} limited</text><circle cx="${x}" cy="${y}" r="62" fill="transparent"/></g>`;
+    });
+    if (!sorted.length) svg+=`<text x="24" y="80" fill="${t.muted}">No model observations available.</text>`;
+    document.getElementById("ex1Reactors").innerHTML=svg+"</svg>";
+  }
+  function ex1ProfileText(p) {
+    if (!p) return "Select a model to inspect its observed signals.";
+    return `<strong>${ex1Esc(p.model.model_id)}</strong> · ${p.count} snapshots / ${p.model.session_count||0} sessions<br>${ex1Fmt(p.gen,1)} generation tok/s · ${ex1Fmt(p.intake,1)} prompt tok/s · ${p.reason==null?"unavailable":fmt.n(p.reason*100,0)+"%"} reasoning share · ${ex1Fmt(p.answer)} answer words · ${ex1Fmt(p.turn,1)} turns · ${p.spread==null?"unavailable":fmt.n(p.spread*100,0)+"%"} speed variation · ${ex1Fmt(p.prompt)} prompt tokens`;
+  }
+  function ex1Readouts() {
+    const ranked=[...ex1Profiles].sort((a,b)=>b.values[ex1State.lens]-a.values[ex1State.lens]);
+    const leader=ranked[0], lens=ex1State.lens;
+    document.getElementById("ex1ScoreReadout").innerHTML=leader?`<span class="ex1-insight">${ex1Labels[lens]} leader: ${ex1Esc(leader.model.model_id)}</span> · ${ex1Fmt(leader[ex1Keys[lens]],lens===2||lens===5?2:1)} actual value. Click a specimen to pin it; hover for all dimensions.`:"No model observations available.";
+    const chosen=ex1State.selected.map(i=>ex1Profiles[i]).filter(Boolean), scenario=ex1Scenarios[ex1State.scenario];
+    const pairInsight=chosen.length===2?`<br><span class="ex1-insight">Signal leads:</span> ${ex1Labels.map((label,i)=>`${label}: ${ex1Esc(chosen[chosen[0].values[i]>=chosen[1].values[i]?0:1].model.model_id)}`).join(" · ")}`:"";
+    document.getElementById("ex1ReactorReadout").innerHTML=chosen.length?`<span class="ex1-insight">${scenario.name}</span> · ${chosen.map(p=>`${ex1Esc(p.model.model_id)} ${Math.round(ex1Score(p,scenario)*100)}/100`).join(" versus ")}${pairInsight}<br>${chosen.map(p=>ex1ProfileText(p)).join("<br><br>")}`:`<span class="ex1-insight">${scenario.name}</span> weights ${scenario.note}. Select two model crystals to compare exact observed values.`;
+  }
+  function ex1Draw() { ex1Controls(); ex1DrawConservatory(); ex1DrawWell(); ex1Readouts(); }
+  function renderExperimental01() {
+    if (!document.getElementById("ex1Score")) return;
+    ex1Draw();
+    document.getElementById("ex1LensControls").addEventListener("click",e=>{const b=e.target.closest("[data-ex1-lens]");if(!b)return;ex1State.lens=Number(b.dataset.ex1Lens);ex1Draw();});
+    document.getElementById("ex1ScenarioControls").addEventListener("click",e=>{const b=e.target.closest("[data-ex1-scenario]");if(!b)return;ex1State.scenario=Number(b.dataset.ex1Scenario);ex1Draw();});
+    [["ex1Score","ex1ScoreReadout"],["ex1Reactors","ex1ReactorReadout"]].forEach(([id,readoutId])=>{
+      const el=document.getElementById(id),readout=document.getElementById(readoutId);
+      const target=e=>e.target.closest("[data-ex1-model]");
+      const hover=e=>{const node=target(e);if(node)readout.innerHTML=ex1ProfileText(ex1Profiles[Number(node.dataset.ex1Model)]);};
+      el.addEventListener("pointerover",hover);el.addEventListener("focusin",hover);
+      el.addEventListener("pointerleave",ex1Readouts);
+      el.addEventListener("click",e=>{const node=target(e);if(!node)return;const i=Number(node.dataset.ex1Model);ex1State.selected=ex1State.selected.includes(i)?ex1State.selected.filter(v=>v!==i).concat(null).slice(0,2):[ex1State.selected[1],i];ex1Draw();});
+      el.addEventListener("keydown",e=>{if(e.key!=="Enter"&&e.key!==" ")return;const node=target(e);if(!node)return;e.preventDefault();node.dispatchEvent(new MouseEvent("click",{bubbles:true}));});
+    });
+    charts.ex1Graphics={resize:()=>{ex1DrawConservatory();ex1DrawWell();}};
+  }
+
   function applyTheme(theme) {
     const light = theme === "light";
     document.documentElement.dataset.theme = light ? "light" : "dark";
@@ -2816,6 +2978,7 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
   renderExperimental05();
   renderExperimental03BehaviorLab();
   renderExperimental03CrazyCharts();
+  renderExperimental01();
 
 })(jQuery);
 </script>

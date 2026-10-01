@@ -44,7 +44,9 @@ type ClientOptions struct {
 	// inferenceCompleted receives the completed UI turn and visible content.
 	inferenceCompleted func(*ModelSnapshot, string)
 	// pipeline drives sequential turns through the console UI.
-	pipeline *Pipeline
+	pipeline        *Pipeline
+	resourceBudget  *ResourceBudgetConfig
+	progressOverlay *liveMetricsOverlay
 	// mcpTools marks snapshots produced by the configured MCP tool loop.
 	mcpTools               bool
 	mcpToolNames           []string
@@ -204,20 +206,129 @@ func (c *Client) GenerateStreamingSnapshot(ctx context.Context, req *ChatRequest
 	snapshot := &ModelSnapshot{ModelID: req.Model, ModelLoadTime: loadTime, CollectedAt: time.Now(), Messages: snapshotMessages(req)}
 	initializeSnapshotMetadataForMCPWithNames(snapshot, req, c.opts.mcpTools, c.opts.mcpToolNames)
 	monitor := c.startInferenceMonitor(ctx, req.Model, true)
+	var watchdog *reasoningWatchdog
+	if c.opts.resourceBudget != nil && c.opts.resourceBudget.Reasoning != nil && c.opts.resourceBudget.Reasoning.Cutoff != nil && c.opts.resourceBudget.Reasoning.Cutoff.Enabled {
+		enabled := true
+		request := cloneChatRequest(req)
+		request.ReasoningControl = &enabled
+		req = &request
+		watchdog = nil
+		watchdog = newReasoningWatchdog(c.opts.resourceBudget.Reasoning.Cutoff, func(id string) (*ChatCompletionControlResponse, error) {
+			// The active SSE request may be cancelled as soon as it finishes; the
+			// control call has its own short deadline and must not inherit that
+			// cancellation.
+			snapshot := watchdog.snapshotCopy()
+			c.logf("resource budget hit: reasoning cutoff key=%s model=%q completion=%q reasoning_tokens=%d context_percent=%s", reasoningCutoffConfigKey(snapshot.Reason), req.Model, id, snapshot.ReasoningTokens, formatCutoffPercent(snapshot.ContextPercent))
+			result, err := c.EndReasoning(context.Background(), req.Model, id)
+			if err != nil {
+				c.logf("reasoning cutoff control failed model=%q completion=%q error=%v", req.Model, id, err)
+			} else {
+				c.logf("reasoning cutoff control accepted model=%q completion=%q", req.Model, id)
+			}
+			return result, err
+		})
+	}
 	var content, reasoning strings.Builder
+	metricsWarningLogged := false
+	reasoningActive := false
+	sawReasoning := false
+	reasoningTokens := 0
 	chunks := make([]InferenceStreamChunk, 0)
 	err = c.inferStreamChunks(ctx, req, func(chunk InferenceStreamChunk) error {
+		if watchdog != nil && chunk.ID != "" {
+			watchdog.setID(chunk.ID)
+		}
 		chunks = append(chunks, chunk)
 		for _, choice := range chunk.Choices {
-			reasoning.WriteString(choice.Delta.ReasoningContent)
+			if choice.Delta.ReasoningContent != "" {
+				reasoningActive, sawReasoning = true, true
+				if overlay := c.progressOverlay(); overlay != nil {
+					overlay.SetReasoningPhase(true)
+				}
+				metricsGenerated, metricsUsed, metricsCapacity, metricsOK := monitor.latestMetrics()
+				if metricsOK && metricsGenerated > reasoningTokens {
+					reasoningTokens = metricsGenerated
+				}
+				if watchdog != nil {
+					watchdog.start()
+					reasoning.WriteString(choice.Delta.ReasoningContent)
+					if choice.Delta.ReasoningTokens != nil {
+						watchdog.update(*choice.Delta.ReasoningTokens, nil, nil)
+						if *choice.Delta.ReasoningTokens > reasoningTokens {
+							reasoningTokens = *choice.Delta.ReasoningTokens
+						}
+					} else if choice.Logprobs != nil {
+						// Some OpenAI-compatible servers expose one logprob
+						// position per generated token rather than a dedicated
+						// reasoning_tokens field.
+						tokens := watchdog.snapshotCopy().ReasoningTokens + len(choice.Logprobs.Content)
+						watchdog.update(tokens, nil, nil)
+						if tokens > reasoningTokens {
+							reasoningTokens = tokens
+						}
+					} else if metricsOK {
+						watchdog.updateMetrics(metricsGenerated, metricsUsed, metricsCapacity)
+					} else {
+						if !metricsWarningLogged {
+							c.logf("reasoning cutoff waiting for live slot metrics model=%q", req.Model)
+							metricsWarningLogged = true
+						}
+					}
+				}
+				if watchdog == nil {
+					reasoning.WriteString(choice.Delta.ReasoningContent)
+				}
+			}
 			text := choice.Delta.Content
 			if text == "" {
 				text = choice.Text
+			}
+			if text != "" && watchdog != nil {
+				watchdog.end()
+			}
+			if text != "" {
+				reasoningActive = false
+				if overlay := c.progressOverlay(); overlay != nil {
+					overlay.SetReasoningPhase(false)
+				}
+				if generated, _, _, ok := monitor.latestMetrics(); ok && generated > reasoningTokens {
+					reasoningTokens = generated
+				}
 			}
 			content.WriteString(text)
 		}
 		return yield(chunk)
 	})
+	if watchdog != nil {
+		watchdog.stop()
+		cutoff := watchdog.snapshotCopy()
+		snapshot.ReasoningCutoff = &cutoff
+		// The watchdog may have a more recent metric sample than the monitor
+		// callback observed while parsing the stream. Preserve that authoritative
+		// reasoning count for the persisted token split.
+		if cutoff.ReasoningTokens > reasoningTokens {
+			reasoningTokens = cutoff.ReasoningTokens
+		}
+	}
+	if generated, _, _, ok := monitor.latestMetrics(); ok {
+		if generated > reasoningTokens && reasoningActive {
+			reasoningTokens = generated
+		}
+		if sawReasoning {
+			value := reasoningTokens
+			snapshot.ReasoningTokens = &value
+		}
+		if !reasoningActive && generated >= reasoningTokens {
+			value := generated - reasoningTokens
+			snapshot.ResponseTokens = &value
+		}
+	}
+	if snapshot.ResponseTokens == nil && !sawReasoning {
+		if generated, _, _, ok := monitor.latestMetrics(); ok {
+			value := generated
+			snapshot.ResponseTokens = &value
+		}
+	}
 	snapshot.Slots = monitor.Stop()
 	if err != nil {
 		return nil, fmt.Errorf("inference failed: %w", err)
@@ -256,7 +367,7 @@ func (c *Client) GenerateStreamingSnapshot(ctx context.Context, req *ChatRequest
 
 // pollSlots samples /slots at the configured cadence until inference ends and
 // retains only the newest payload.
-func (c *Client) pollSlots(ctx context.Context, model string, overlay *liveMetricsOverlay) SlotsData {
+func (c *Client) pollSlots(ctx context.Context, model string, overlay *liveMetricsOverlay, updates ...func(SlotsData)) SlotsData {
 	if c.opts.pollInterval <= 0 {
 		return nil
 	}
@@ -278,6 +389,13 @@ func (c *Client) pollSlots(ctx context.Context, model string, overlay *liveMetri
 				continue
 			}
 			latest = slots
+			for _, update := range updates {
+				update(slots)
+			}
+			// Publish the same samples consumed by the live overlay so active
+			// watchdogs can use existing metrics without extra requests.
+			// The monitor owns the publication lock; pollSlots itself remains
+			// reusable by non-snapshot callers.
 			if overlay != nil {
 				overlay.updateForModel(model, slots)
 			}

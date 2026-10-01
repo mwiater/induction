@@ -951,6 +951,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	m.request.MaxTokens = nil
 	m.request.Classification = nil
 	m.request.Decision = nil
+	m.request.ReasoningControl = nil
 	m.request.RepeatPenalty = nil
 	m.request.Seed = nil
 	if step.ResponseFormat != nil {

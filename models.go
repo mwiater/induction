@@ -59,11 +59,12 @@ type ChatRequest struct {
 	// Messages carries a chat transcript for chat-completion-style requests.
 	Messages []Message `json:"messages,omitempty"`
 	// Prompt accepts a string or an array of token IDs for completion requests.
-	Prompt      any    `json:"prompt,omitempty"`
-	Model       string `json:"model,omitempty"`
-	Stream      *bool  `json:"stream,omitempty"`
-	Logprobs    *bool  `json:"logprobs,omitempty"`
-	TopLogprobs *int   `json:"top_logprobs,omitempty"`
+	Prompt           any    `json:"prompt,omitempty"`
+	Model            string `json:"model,omitempty"`
+	Stream           *bool  `json:"stream,omitempty"`
+	ReasoningControl *bool  `json:"reasoning_control,omitempty"`
+	Logprobs         *bool  `json:"logprobs,omitempty"`
+	TopLogprobs      *int   `json:"top_logprobs,omitempty"`
 	// ChatTemplateKwargs contains llama.cpp per-request chat-template options.
 	// Classification uses it to disable model thinking when supported.
 	ChatTemplateKwargs map[string]any `json:"chat_template_kwargs,omitempty"`
@@ -247,6 +248,10 @@ type InferenceStreamDelta struct {
 	ReasoningContent string                    `json:"reasoning_content,omitempty"`
 	Refusal          string                    `json:"refusal,omitempty"`
 	ToolCalls        []InferenceStreamToolCall `json:"tool_calls,omitempty"`
+	// Optional llama.cpp extensions used for authoritative cutoff accounting.
+	ReasoningTokens *int `json:"reasoning_tokens,omitempty"`
+	ContextTokens   *int `json:"context_tokens,omitempty"`
+	ContextSize     *int `json:"context_size,omitempty"`
 }
 
 // InferenceStreamToolCall contains an incremental tool-call update.
@@ -318,6 +323,10 @@ type ModelSnapshot struct {
 	CollectedAt time.Time
 	// Interaction stores the inference responses represented by this snapshot.
 	Interaction []Interaction
+	// ReasoningCutoff contains optional runtime cutoff telemetry.
+	ReasoningCutoff *ReasoningCutoffSnapshot `json:"reasoning_cutoff,omitempty"`
+	ReasoningTokens *int                     `json:"reasoning_tokens,omitempty"`
+	ResponseTokens  *int                     `json:"response_tokens,omitempty"`
 	// Messages stores the complete chat history represented by this snapshot.
 	Messages []Message `json:"messages"`
 	// Props stores the /props response when available.

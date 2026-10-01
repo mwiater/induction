@@ -19,6 +19,9 @@ type liveMetricsOverlay struct {
 	lastAt             time.Time
 	lastPrompt         float64
 	lastGenerated      float64
+	reasoningTokens    float64
+	responseTokens     float64
+	reasoningPhase     bool
 	lastPrefillRate    float64
 	lastDecodeRate     float64
 	lastContextPercent float64
@@ -121,7 +124,12 @@ func (o *liveMetricsOverlay) updateForModel(model string, slots SlotsData) {
 
 	o.lastContextPercent = contextPercent
 	prefillRate := o.lastPrefillRate
-	plain := formatLiveMetricsPlain(o.model, stage, prefillRate, decodeRate, generated, contextPercent)
+	if o.reasoningPhase {
+		o.reasoningTokens = generated
+	} else if generated >= o.reasoningTokens {
+		o.responseTokens = generated - o.reasoningTokens
+	}
+	plain := formatLiveMetricsBreakdownPlain(o.model, stage, prefillRate, decodeRate, o.reasoningTokens, o.responseTokens, contextPercent)
 	o.render(formatFooter(plain))
 	if o.notify != nil {
 		o.notify(overlayUpdate{model: o.model, footer: plain, slots: slots})
@@ -141,7 +149,7 @@ func (o *liveMetricsOverlay) Complete() {
 	if o.lastDecodeRate > 0 {
 		decodeRate = &o.lastDecodeRate
 	}
-	plain := formatLiveMetricsPlain(o.model, "Complete", o.lastPrefillRate, decodeRate, o.lastGenerated, o.lastContextPercent)
+	plain := formatLiveMetricsBreakdownPlain(o.model, "Complete", o.lastPrefillRate, decodeRate, o.reasoningTokens, o.responseTokens, o.lastContextPercent)
 	o.render(formatFooter(plain))
 	if o.notify != nil {
 		o.notify(overlayUpdate{model: o.model, footer: plain})
@@ -181,6 +189,9 @@ func (o *liveMetricsOverlay) StartModelLoad(model string) {
 	o.lastDecodeRate = 0
 	o.lastPrefillRate = 0
 	o.lastGenerated = 0
+	o.reasoningTokens = 0
+	o.responseTokens = 0
+	o.reasoningPhase = false
 	o.lastContextPercent = 0
 	o.render(formatFooter(formatModelLoadingPlain(model, modelLoadProgress{})))
 	if o.notify != nil {
@@ -196,6 +207,27 @@ func (o *liveMetricsOverlay) SetModel(model string) {
 	o.mu.Lock()
 	o.model = model
 	o.mu.Unlock()
+}
+
+// SetReasoningPhase lets the stream parser split the existing decoded-token
+// metric between reasoning and final-answer generation.
+func (o *liveMetricsOverlay) SetReasoningPhase(reasoning bool) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.reasoningPhase = reasoning
+	if !reasoning && o.lastGenerated >= o.reasoningTokens {
+		o.responseTokens = o.lastGenerated - o.reasoningTokens
+	}
+	if o.hasMeasurement {
+		var decodeRate *float64
+		if o.lastDecodeRate > 0 {
+			decodeRate = &o.lastDecodeRate
+		}
+		o.render(formatLiveMetricsBreakdownPlain(o.model, "Decode", o.lastPrefillRate, decodeRate, o.reasoningTokens, o.responseTokens, o.lastContextPercent))
+	}
 }
 
 func (o *liveMetricsOverlay) ModelLoaded() {
@@ -220,6 +252,9 @@ func (o *liveMetricsOverlay) StartInference(model string) {
 	o.lastDecodeRate = 0
 	o.lastPrefillRate = 0
 	o.lastGenerated = 0
+	o.reasoningTokens = 0
+	o.responseTokens = 0
+	o.reasoningPhase = false
 	o.lastContextPercent = 0
 	plain := formatLiveMetricsPlain(o.model, "Prefill", 0, nil, 0, 0)
 	o.render(formatFooter(plain))
@@ -241,6 +276,9 @@ func (o *liveMetricsOverlay) modelLoadedForModel(model string) {
 	o.lastDecodeRate = 0
 	o.lastPrefillRate = 0
 	o.lastGenerated = 0
+	o.reasoningTokens = 0
+	o.responseTokens = 0
+	o.reasoningPhase = false
 	o.lastContextPercent = 0
 	plain := formatModelReadyPlain(o.model)
 	o.render(formatFooter(plain))
@@ -307,13 +345,17 @@ func formatLiveMetrics(model, stage string, promptRate float64, decodeRate *floa
 }
 
 func formatLiveMetricsPlain(model, stage string, promptRate float64, decodeRate *float64, tokensGenerated, contextPercent float64) string {
+	return formatLiveMetricsBreakdownPlain(model, stage, promptRate, decodeRate, 0, tokensGenerated, contextPercent)
+}
+
+func formatLiveMetricsBreakdownPlain(model, stage string, promptRate float64, decodeRate *float64, reasoningTokens, responseTokens, contextPercent float64) string {
 	decode := "n/a"
 	if decodeRate != nil {
 		decode = fmt.Sprintf("%.1f", *decodeRate)
 	}
 	content := fmt.Sprintf(
-		"  [Induction: Live Metrics] %s | Stage: %s | Prefill (tok/s): %.1f  |  Decode (tok/s): %s  |  Tokens Generated: %.0f  |  Context Used: %.1f%% ",
-		model, stage, promptRate, decode, tokensGenerated, contextPercent,
+		"  [Induction: Live Metrics] %s | Stage: %s | Prefill (tok/s): %.1f  |  Decode (tok/s): %s  |  Reasoning Tokens: %.0f | Response Tokens: %.0f  |  Ctx Used: %.1f%% ",
+		model, stage, promptRate, decode, reasoningTokens, responseTokens, contextPercent,
 	)
 
 	return content

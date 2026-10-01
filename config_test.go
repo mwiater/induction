@@ -8,9 +8,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // TestLoadConfig verifies YAML parsing, singleton behavior, and configured client construction.
@@ -19,16 +22,23 @@ func TestLoadConfig(t *testing.T) {
 	contents := []byte(`
 server: http://localhost:9998
 timeout: 20m
-poll_interval: 2s
-load_wait_interval: 1s
+pollInterval: 2s
+loadWaitInterval: 1s
 sidebarWidth: 40
-MCPServers:
-  - MCPServerAllow: true
-    MCPServerName: FEXR
-    MCPServerURL: http://192.168.0.239:4002/mcp
-  - MCPServerAllow: false
-    MCPServerName: DISABLED
-    MCPServerURL: https://example.test/mcp
+mcpServers:
+  - mcpServerAllow: true
+    mcpServerName: FEXR
+    mcpServerURL: http://192.168.0.239:4002/mcp
+  - mcpServerAllow: false
+    mcpServerName: DISABLED
+    mcpServerURL: https://example.test/mcp
+resourceBudget:
+  reasoning:
+    cutoff:
+      enabled: true
+      maxTokens: 3
+      maxSeconds: 1
+      maxContextPercent: 75
 `)
 	if err := os.WriteFile(path, contents, 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
@@ -56,6 +66,9 @@ MCPServers:
 	}
 	if len(first.MCPServers) != 2 || !first.MCPServers[0].Allow || first.MCPServers[0].Name != "FEXR" || first.MCPServers[0].URL != "http://192.168.0.239:4002/mcp" || first.MCPServers[1].Allow {
 		t.Fatalf("unexpected MCP server configuration: %#v", first.MCPServers)
+	}
+	if first.ResourceBudget == nil || first.ResourceBudget.Reasoning == nil || first.ResourceBudget.Reasoning.Cutoff == nil || !first.ResourceBudget.Reasoning.Cutoff.Enabled || *first.ResourceBudget.Reasoning.Cutoff.MaxTokens != 3 {
+		t.Fatalf("unexpected resource budget configuration: %#v", first.ResourceBudget)
 	}
 
 	client, err := NewClientFromConfig(context.Background())
@@ -92,10 +105,42 @@ func TestConfigValidatesMCPServers(t *testing.T) {
 			}
 		})
 	}
+	noMCP := valid()
+	if err := noMCP.validate(); err != nil {
+		t.Fatalf("configuration without MCP servers rejected: %v", err)
+	}
 	cfg := valid()
 	cfg.MCPServers = []MCPServerConfig{{Allow: true, Name: "FEXR", URL: "http://192.168.0.239:4002/mcp"}}
 	if err := cfg.validate(); err != nil {
 		t.Fatalf("valid MCP configuration rejected: %v", err)
+	}
+}
+
+func TestConfigAcceptsBlankUnusedReasoningCutoffThresholds(t *testing.T) {
+	var cfg Config
+	decoder := yaml.NewDecoder(strings.NewReader(`
+server: http://localhost:9998
+timeout: 20m
+pollInterval: 2s
+loadWaitInterval: 1s
+resourceBudget:
+  reasoning:
+    cutoff:
+      enabled: true
+      maxTokens:
+      maxSeconds: 1100
+      maxContextPercent:
+`))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&cfg); err != nil {
+		t.Fatalf("decode config: %v", err)
+	}
+	if err := cfg.validate(); err != nil {
+		t.Fatalf("config with one configured threshold should validate: %v", err)
+	}
+	cutoff := cfg.ResourceBudget.Reasoning.Cutoff
+	if cutoff.MaxTokens != nil || cutoff.MaxContextPercent != nil || cutoff.MaxSeconds == nil || *cutoff.MaxSeconds != 1100 {
+		t.Fatalf("unexpected cutoff values: %#v", cutoff)
 	}
 }
 

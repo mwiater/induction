@@ -94,12 +94,13 @@ func TestSnapshotMetadataRecordsAvailableButUnusedMCPTools(t *testing.T) {
 }
 
 func TestSnapshotMetadataUsesRequestedJSONTags(t *testing.T) {
-	data, err := json.Marshal(ModelSnapshot{InputType: "text", OutputType: "text"})
+	reasoningTokens, responseTokens := 3, 5
+	data, err := json.Marshal(ModelSnapshot{InputType: "text", OutputType: "text", ReasoningTokens: &reasoningTokens, ResponseTokens: &responseTokens})
 	if err != nil {
 		t.Fatal(err)
 	}
 	encoded := string(data)
-	for _, field := range []string{"\"inputType\"", "\"outputType\"", "\"applicationTools\"", "\"MCPTools\""} {
+	for _, field := range []string{"\"inputType\"", "\"outputType\"", "\"applicationTools\"", "\"MCPTools\"", "\"reasoning_tokens\"", "\"response_tokens\""} {
 		if !containsJSONField(encoded, field) {
 			t.Fatalf("missing JSON field %s in %s", field, encoded)
 		}

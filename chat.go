@@ -177,6 +177,8 @@ func (c *Client) withoutLiveMetricsOverlay(ctx context.Context) *Client {
 		WithPollInterval(c.opts.pollInterval),
 		WithLoadWaitInterval(c.opts.loadWaitInterval),
 		WithLogger(c.opts.logger),
+		withResourceBudget(c.opts.resourceBudget),
+		withProgressOverlay(c.progressOverlay()),
 		WithLiveMetricsOverlay(false),
 		func(o *ClientOptions) { o.mcpTools = c.opts.mcpTools },
 		func(o *ClientOptions) { o.mcpToolNames = append([]string(nil), c.opts.mcpToolNames...) },
@@ -184,6 +186,16 @@ func (c *Client) withoutLiveMetricsOverlay(ctx context.Context) *Client {
 	client.pendingModelLoadDurations = c.pendingModelLoadDurations
 	client.classificationTokens = c.classificationTokens
 	return client
+}
+
+func (c *Client) progressOverlay() *liveMetricsOverlay {
+	if c == nil || c.opts == nil {
+		return nil
+	}
+	if c.opts.progressOverlay != nil {
+		return c.opts.progressOverlay
+	}
+	return c.opts.liveMetricsOverlay
 }
 
 func startChatMonitor(ctx context.Context, req *ChatRequest, options ...ClientOption) (*Client, ChatRequest, *inferenceMonitor, time.Duration, error) {

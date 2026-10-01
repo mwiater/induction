@@ -20,6 +20,6 @@ induction models download "author/model-GGUF" "model-Q4_K_M.gguf" --yes --beta
 induction models mmproj --beta
 ```
 
-The model manager requires `ModelManager.ModelsPath` in the configuration.
+The model manager requires `modelManager.modelsPath` in the configuration.
 `induction pdf preview --file PATH` extracts local PDF text without contacting
 the server.
