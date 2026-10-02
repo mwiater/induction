@@ -15,5 +15,11 @@ The source is `.sessions/`. Outputs are
 `data/dashboard/dashboard.html`. Raw transcripts, reasoning, responses,
 properties, metrics, and slot payloads remain in the session files.
 
+To exclude models from the generated dashboard, create `.dashboardignore` in
+the repository root with one exact model ID per line. Blank lines and lines
+starting with `#` are ignored. Matching model snapshots and evaluation results
+are omitted from both dashboard artifacts. If the file is absent, no models
+are excluded.
+
 See the [CLI reference](CLI-REFERENCE.md#server-and-runtime-json-output) for
 related command options.

@@ -33,6 +33,49 @@ func TestBuildDashboardMetricsGroupsSnapshotsBySnapshotModel(t *testing.T) {
 	}
 }
 
+func TestDashboardIgnoreExcludesSessionAndEvaluationModels(t *testing.T) {
+	sessionsDirectory := t.TempDir()
+	evalsDirectory := t.TempDir()
+	ignorePath := filepath.Join(t.TempDir(), ".dashboardignore")
+	if err := os.WriteFile(ignorePath, []byte("\n# Keep this list exact.\nignored-model\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	session := &ChatSession{
+		Version: chatSessionVersion,
+		ID:      "00000000-0000-0000-0000-000000000007",
+		Type:    sessionTypeDirect,
+		Model:   "kept-model",
+		Snapshots: []*ModelSnapshot{
+			{ModelID: "kept-model"},
+			{ModelID: "ignored-model"},
+		},
+	}
+	writeTestSession(t, sessionsDirectory, session)
+	writeDashboardEvalResult(t, evalsDirectory, "kept", &dashboardEvalResult{
+		RunID: "kept", Model: dashboardEvalModelWire{Name: "kept-model"}, Suite: dashboardEvalSuiteWire{Name: "suite"}, Status: "success", CompletedAt: time.Now().UTC(),
+		Benchmarks: []dashboardEvalBenchmarkWire{{Name: "task", Task: "inspect_evals/task", Samples: 1, Score: 0.8}},
+	})
+	writeDashboardEvalResult(t, evalsDirectory, "ignored", &dashboardEvalResult{
+		RunID: "ignored", Model: dashboardEvalModelWire{Name: "ignored-model"}, Suite: dashboardEvalSuiteWire{Name: "suite"}, Status: "success", CompletedAt: time.Now().UTC(),
+		Benchmarks: []dashboardEvalBenchmarkWire{{Name: "task", Task: "inspect_evals/task", Samples: 1, Score: 0.9}},
+	})
+
+	metrics, err := buildDashboardMetricsFromDirectoriesWithIgnore(sessionsDirectory, evalsDirectory, ignorePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metrics.Source.SnapshotsSeen != 2 || metrics.Source.SnapshotsIncluded != 1 || metrics.Source.SnapshotsSkipped != 1 {
+		t.Fatalf("unexpected snapshot counts: %+v", metrics.Source)
+	}
+	if metrics.Source.EvalFilesSeen != 2 || metrics.Source.EvalsIncluded != 1 || metrics.Source.EvalsSkipped != 1 {
+		t.Fatalf("unexpected evaluation counts: %+v", metrics.Source)
+	}
+	if len(metrics.Models) != 1 || metrics.Models[0].ModelID != "kept-model" || len(metrics.Models[0].Evals) != 1 {
+		t.Fatalf("ignored model data was included: %+v", metrics.Models)
+	}
+}
+
 func TestDashboardProjectionPrunesRawTextAndExtractsTelemetry(t *testing.T) {
 	session := &ChatSession{
 		ID: "00000000-0000-0000-0000-000000000002", Type: sessionTypeDirect, Saved: true, Title: "title", Model: "model",

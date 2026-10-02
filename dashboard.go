@@ -1,6 +1,7 @@
 package induction
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,7 @@ const (
 	DefaultDashboardSessionsDirectory    = sessionDirectory
 	DefaultDashboardEvalResultsDirectory = "data/evals/results"
 	DefaultDashboardEvalConfigPath       = "inspect_evals.yaml"
+	DefaultDashboardIgnorePath           = ".dashboardignore"
 	DefaultDashboardMetricsPath          = "data/dashboard/session_metrics.json"
 	DefaultDashboardTemplatePath         = "dashboard.template.html"
 	DefaultDashboardHTMLPath             = "data/dashboard/dashboard.html"
@@ -29,6 +31,7 @@ const (
 type DashboardGenerateOptions struct {
 	SessionsDirectory    string
 	EvalResultsDirectory string
+	IgnoreFilePath       string
 }
 
 type DashboardMetrics struct {
@@ -239,12 +242,20 @@ func BuildDashboardMetrics(sessionsDirectory string) (*DashboardMetrics, error) 
 	if sessionsDirectory == "" {
 		sessionsDirectory = DefaultDashboardSessionsDirectory
 	}
-	return buildDashboardMetricsFromDirectories(sessionsDirectory, DefaultDashboardEvalResultsDirectory)
+	return buildDashboardMetricsFromDirectoriesWithIgnore(sessionsDirectory, DefaultDashboardEvalResultsDirectory, DefaultDashboardIgnorePath)
 }
 
 func buildDashboardMetricsFromDirectories(sessionsDirectory, evalResultsDirectory string) (*DashboardMetrics, error) {
+	return buildDashboardMetricsFromDirectoriesWithIgnore(sessionsDirectory, evalResultsDirectory, DefaultDashboardIgnorePath)
+}
+
+func buildDashboardMetricsFromDirectoriesWithIgnore(sessionsDirectory, evalResultsDirectory, ignoreFilePath string) (*DashboardMetrics, error) {
 	if sessionsDirectory == "" {
 		sessionsDirectory = DefaultDashboardSessionsDirectory
+	}
+	ignoredModels, err := loadDashboardIgnoredModels(ignoreFilePath)
+	if err != nil {
+		return nil, err
 	}
 	sources, err := scanDashboardSessions(sessionsDirectory)
 	if err != nil {
@@ -255,7 +266,7 @@ func buildDashboardMetricsFromDirectories(sessionsDirectory, evalResultsDirector
 		source.SessionsLoaded++
 		source.SnapshotsSeen += len(item.session.Snapshots)
 	}
-	result, err := buildDashboardMetrics(sources, source)
+	result, err := buildDashboardMetrics(sources, source, ignoredModels)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +276,7 @@ func buildDashboardMetricsFromDirectories(sessionsDirectory, evalResultsDirector
 	}
 	result.Source.EvalFilesSeen = len(evalSources)
 	for _, evalSource := range evalSources {
-		if evalSource.result == nil || !mergeDashboardEval(result, evalSource.result) {
+		if evalSource.result == nil || ignoredModels[evalSource.result.Model.Name] || !mergeDashboardEval(result, evalSource.result) {
 			result.Source.EvalsSkipped++
 			continue
 		}
@@ -274,6 +285,34 @@ func buildDashboardMetricsFromDirectories(sessionsDirectory, evalResultsDirector
 	result.Source.Models = len(result.Models)
 	result.GeneratedAt = time.Now().UTC()
 	return result, nil
+}
+
+func loadDashboardIgnoredModels(path string) (map[string]bool, error) {
+	ignored := make(map[string]bool)
+	if strings.TrimSpace(path) == "" {
+		return ignored, nil
+	}
+	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return ignored, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("generate dashboard: open ignore file %q: %w", path, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		modelID := strings.TrimSpace(scanner.Text())
+		if modelID == "" || strings.HasPrefix(modelID, "#") {
+			continue
+		}
+		ignored[modelID] = true
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("generate dashboard: read ignore file %q: %w", path, err)
+	}
+	return ignored, nil
 }
 
 func scanDashboardSessions(directory string) ([]dashboardSessionSource, error) {
@@ -454,11 +493,15 @@ func mergeDashboardEval(metrics *DashboardMetrics, result *dashboardEvalResult) 
 	return true
 }
 
-func buildDashboardMetrics(sources []dashboardSessionSource, source DashboardSource) (*DashboardMetrics, error) {
+func buildDashboardMetrics(sources []dashboardSessionSource, source DashboardSource, ignoredModels map[string]bool) (*DashboardMetrics, error) {
 	groups := make(map[string]*dashboardModelBuilder)
 	for _, item := range sources {
 		for index, snapshot := range item.session.Snapshots {
 			if snapshot == nil || strings.TrimSpace(snapshot.ModelID) == "" {
+				source.SnapshotsSkipped++
+				continue
+			}
+			if ignoredModels[snapshot.ModelID] {
 				source.SnapshotsSkipped++
 				continue
 			}
@@ -975,7 +1018,11 @@ func GenerateDashboardMetrics(options DashboardGenerateOptions) (*DashboardMetri
 	if evalResultsDirectory == "" {
 		evalResultsDirectory = DefaultDashboardEvalResultsDirectory
 	}
-	metrics, err := buildDashboardMetricsFromDirectories(options.SessionsDirectory, evalResultsDirectory)
+	ignoreFilePath := options.IgnoreFilePath
+	if ignoreFilePath == "" {
+		ignoreFilePath = DefaultDashboardIgnorePath
+	}
+	metrics, err := buildDashboardMetricsFromDirectoriesWithIgnore(options.SessionsDirectory, evalResultsDirectory, ignoreFilePath)
 	if err != nil {
 		return nil, err
 	}

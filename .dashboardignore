@@ -1,0 +1,2 @@
+# List of models to ignore when running: `induction dashboard generate`
+JEV5K-v0.3-4B-Q8_0
