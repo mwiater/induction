@@ -6,7 +6,7 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 shopt -s nullglob
-pipelines=(pipelines/pipeline*.yaml)
+pipelines=(pipelines/*.yaml)
 
 if ((${#pipelines[@]} == 0)); then
   echo "No pipeline YAML files found in pipelines/." >&2

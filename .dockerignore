@@ -8,6 +8,13 @@
 dist/
 coverage.out
 *.log
+Dockerfile.local
+Dockerfile.install.md
+
+# Local configuration
 induction.yaml
+
+# Required by Dockerfile
+!induction.yaml
 inspect_evals.yaml
 tmp/

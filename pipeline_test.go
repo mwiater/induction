@@ -14,8 +14,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func activePipelinePaths(pattern string) ([]string, error) {
+	paths, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+	active := paths[:0]
+	for _, path := range paths {
+		if strings.HasSuffix(path, ".local.yaml") {
+			continue
+		}
+		active = append(active, path)
+	}
+	return active, nil
+}
+
 func TestLoadAllPipelineExamples(t *testing.T) {
-	paths, err := filepath.Glob("pipelines/pipeline*.yaml")
+	paths, err := activePipelinePaths("pipelines/pipeline*.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +52,7 @@ func TestImagePipelineModelCoverage(t *testing.T) {
 	valid := currentCachedModelIDs(t)
 	unknown := map[string]bool{}
 
-	paths, err := filepath.Glob("pipelines/pipeline*.yaml")
+	paths, err := activePipelinePaths("pipelines/pipeline*.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +80,7 @@ func TestImagePipelineModelCoverage(t *testing.T) {
 }
 
 func TestImagePipelinesHaveAtLeastTwoSteps(t *testing.T) {
-	paths, err := filepath.Glob("pipelines/pipeline.image*.yaml")
+	paths, err := activePipelinePaths("pipelines/pipeline.image*.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +96,7 @@ func TestImagePipelinesHaveAtLeastTwoSteps(t *testing.T) {
 }
 
 func TestDocumentPipelinesHaveAtLeastTwoSteps(t *testing.T) {
-	paths, err := filepath.Glob("pipelines/pipeline.document*.yaml")
+	paths, err := activePipelinePaths("pipelines/pipeline.document*.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +115,7 @@ func TestDocumentPipelinesHaveAtLeastTwoSteps(t *testing.T) {
 }
 
 func TestMCPPipelinesHaveAtLeastTwoSteps(t *testing.T) {
-	paths, err := filepath.Glob("pipelines/pipeline.mcp*.yaml")
+	paths, err := activePipelinePaths("pipelines/pipeline.mcp*.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +131,7 @@ func TestMCPPipelinesHaveAtLeastTwoSteps(t *testing.T) {
 }
 
 func TestTextPipelinesHaveAtLeastTwoStepsAndNoAttachments(t *testing.T) {
-	paths, err := filepath.Glob("pipelines/pipeline.text*.yaml")
+	paths, err := activePipelinePaths("pipelines/pipeline.text*.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,15 +153,15 @@ func TestTextPipelinesHaveAtLeastTwoStepsAndNoAttachments(t *testing.T) {
 
 func TestPipelineExampleTypeCounts(t *testing.T) {
 	want := map[string]int{
-		"pipelines/pipeline.document-*.yaml":            5,
-		"pipelines/pipeline.image-[0-9][0-9].yaml":      5,
-		"pipelines/pipeline.image-text-*.yaml":          5,
+		"pipelines/pipeline.document-*.yaml":            1,
+		"pipelines/pipeline.image-[0-9][0-9].yaml":      1,
+		"pipelines/pipeline.image-text-*.yaml":          1,
 		"pipelines/pipeline.mcp-*.yaml":                 5,
-		"pipelines/pipeline.prompt-optimization-*.yaml": 5,
-		"pipelines/pipeline.text-*.yaml":                5,
+		"pipelines/pipeline.prompt-optimization-*.yaml": 1,
+		"pipelines/pipeline.text-*.yaml":                1,
 	}
 	for pattern, expected := range want {
-		paths, err := filepath.Glob(pattern)
+		paths, err := activePipelinePaths(pattern)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -160,7 +175,7 @@ func TestPipelineModelCoverage(t *testing.T) {
 	valid := currentCachedModelIDs(t)
 	unknown := map[string]bool{}
 
-	paths, err := filepath.Glob("pipelines/*.yaml")
+	paths, err := activePipelinePaths("pipelines/*.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +443,7 @@ steps:
 }
 
 func TestLoadFullExamplePipeline(t *testing.T) {
-	p, err := LoadPipeline("pipelines/pipeline.full-example.yaml")
+	p, err := LoadPipeline("pipelines/pipeline.custom-model-paramers-01.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,3 +1,27 @@
+# Text Pipeline Examples
+
+## Structured text log analysis
+
+### 1. Overview
+
+Parses fixed application log lines and converts observations into an incident summary. It is useful for conservative operational reporting where exact values matter but root cause must not be asserted without evidence.
+
+### 2. Steps
+
+- **parse-log:** Extracts timestamps, levels, request IDs, latencies, statuses, and observable patterns.
+- **produce-incident-summary:** Returns JSON with summary, observations, affected_requests, and next_checks, separating observations from hypotheses.
+
+### 3. Expected final output
+
+A JSON object with summary, observations, affected_requests, and next_checks, preserving exact values and counts and listing diagnostic checks without claiming an unverified cause.
+
+### 4. Example YAML
+
+[Open pipelines/pipeline.text-01.yaml in the repository](../pipelines/pipeline.text-01.yaml)
+
+### 5. YAML source
+
+```yaml
 name: text-05-structured-log-analysis
 
 config: induction.yaml
@@ -26,3 +50,5 @@ steps:
       asserting an unverified cause.
     responseFormat:
       type: json_object
+```
+

@@ -57,10 +57,10 @@ func TestBatchInvalidItemDoesNotBlockValidItems(t *testing.T) {
 
 func TestBatchExamplesLoad(t *testing.T) {
 	for _, path := range []string{
-		"pipelines/pipeline.multi-image-analysis.yaml",
-		"pipelines/pipeline.batch-image-analysis.yaml",
-		"pipelines/pipeline.multi-document-analysis.yaml",
-		"pipelines/pipeline.batch-document-analysis.yaml",
+		"pipelines/pipeline.multi-image-analysis-01.yaml",
+		"pipelines/pipeline.batch-image-analysis-01.yaml",
+		"pipelines/pipeline.multi-document-analysis-01.yaml",
+		"pipelines/pipeline.batch-document-analysis-01.yaml",
 	} {
 		if _, err := LoadPipeline(path); err != nil {
 			t.Fatalf("load %s: %v", path, err)

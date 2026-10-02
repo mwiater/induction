@@ -1,46 +1,29 @@
-name: image-text-extraction
+name: image-text-05-form-processing
 
 config: induction.yaml
 
 steps:
-  - name: extract-image-text
+  - name: extract-form-content
     model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
     nomcp: true
     systemPrompt: |
-      You are a careful OCR transcription assistant. Read only text that is
-      visibly present in the supplied image. Preserve the original wording,
-      capitalization, numbers, punctuation, and meaningful line breaks as
-      accurately as possible. Do not translate, summarize, correct, or infer
-      text that is unclear. If a character or word cannot be read confidently,
-      mark the uncertainty instead of inventing content.
+      You are a careful form-processing assistant. Read only text visibly
+      present in the supplied image and preserve labels, values, punctuation,
+      and uncertainty. Do not infer personal data or fill missing fields.
     userPrompt: |
-      Extract and transcribe all visible text from this image. Include every
-      readable heading, date, price, label, slogan, and small-print phrase.
-      Preserve the visual reading order and use line breaks to reflect the
-      layout where practical.
+      Extract the visible text as a form record. Preserve the reading order,
+      associate each value with its visible label, and mark blank, obscured, or
+      unreadable fields explicitly. Keep the original wording rather than
+      correcting it.
     image: ../data/fixtures/images/fixture-text-01.jpg
 
-  - name: return-json
+  - name: validate-form-record
     model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
     nomcp: true
     systemPrompt: |
-      You are a precise JSON serialization assistant. Use the preceding OCR
-      transcription as the source of truth. Return exactly one JSON object
-      matching the supplied schema. Do not add, remove, translate, summarize,
-      correct, or reinterpret any extracted text. Return JSON only, without
-      Markdown fences or commentary.
+      You validate a preceding image-text extraction for data entry. Treat the
+      extraction as authoritative and never invent or silently correct values.
     userPrompt: |
-      Convert the complete OCR transcription from the preceding step into the
-      required JSON object. Preserve all extracted text, including line breaks
-      and uncertain readings, in the text property.
-    responseFormat:
-      type: json_object
-    jsonSchema:
-      type: object
-      properties:
-        text:
-          type: string
-          description: All text extracted from the image in visual reading order.
-      required:
-        - text
-      additionalProperties: false
+      Review the extracted form record for consistency. Return a concise report
+      with captured fields, fields needing manual review, and a transcription
+      of any ambiguous text. Explain why each field needs review when possible.

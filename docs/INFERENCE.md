@@ -114,21 +114,8 @@ func decide(ctx context.Context, client *induction.Client) (*induction.DecisionR
 }
 ```
 
-Pipeline users can use `decision:` together with `when:` to route later steps
-on the semantic value. The [`pipeline authoring guide`](PIPELINES.md#decision-steps-and-conditional-routing)
-covers pipeline syntax, thresholds, skipped steps, and the compatible
-`classification:` alias.
+For pipeline-specific routing, thresholds, skipped steps, and the legacy
+`classification:` alias, see the [pipeline authoring guide](PIPELINES.md#decision-steps-and-conditional-routing).
 
-## Common commands
-
-```bash
-induction --model MODEL
-induction --model MODEL --image PATH --userPrompt "Describe this image." --autosubmit
-induction --model MODEL --document PATH --userPrompt "Summarize this document." --autosubmit
-induction --model MODEL --userPrompt "Return JSON." --responseFormat json_object --autosubmit --autoexit
-```
-
-Sampling controls include `--temperature`, `--top-p`, `--top-k`,
-`--max-tokens`, `--repeat-penalty`, and `--seed`. Use `--config PATH` for a
-non-default configuration and `--nomcp` to disable configured MCP servers for
-one invocation.
+For command-line examples and the complete sampling/configuration flag list,
+see the [CLI reference](CLI-REFERENCE.md#direct-inference-induction).

@@ -4,6 +4,7 @@
 /.sessions/
 /.venv-inspect
 /coverage.out
+/Dockerfile.local
 /data/dashboard/session_metrics.json
 /data/eoc
 /data/evals
@@ -17,6 +18,7 @@
 /induction.yaml
 /inspect_evals.yaml
 /pipelines/**/*.dev.yaml
+/pipelines/**/*.local.yaml
 /PROJECT_CLEANUP_GUIDE.md
 /TESTING_NOTES.md
 /TO_DO.md

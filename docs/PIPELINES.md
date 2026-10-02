@@ -99,28 +99,8 @@ such as `uncertain` and gating an ordinary generative review on
 expression language; use an explicit uncertainty candidate when the pipeline
 needs a review path.
 
-Decision results are constructed by Induction and retained in the normal
-session snapshot. Probabilities are normalized only over the configured
-candidates, not the model's full vocabulary. `confidence` is the largest
-normalized candidate probability; `margin` is the difference between the
-largest and second-largest. Candidate rows are sorted lexicographically by
-candidate key, with ties selecting the first row. Representative result:
-
-```json
-{
-  "type": "decision",
-  "selectedCandidate": "A",
-  "selectedValue": "security",
-  "confidence": 0.91,
-  "margin": 0.82,
-  "candidates": [
-    {"candidate": "A", "value": "security", "logprob": -0.10, "probability": 0.91},
-    {"candidate": "B", "value": "other", "logprob": -2.41, "probability": 0.09}
-  ]
-}
-```
-
-The values above are illustrative, not guaranteed output. `classification:`
+For the `DecisionResult` structure and programmatic decision API, see
+[`docs/INFERENCE.md`](INFERENCE.md#bounded-decisions). `classification:`
 remains supported as a legacy alias for `decision:`; both keys on one step
 are invalid. Decision steps cannot use `responseFormat` or `jsonSchema`, and
 `parameters.maxTokens`, if supplied, must equal `1`.
@@ -170,7 +150,7 @@ Induction can build an evidence-backed knowledge graph from one or more
 documents through the normal Bubble Tea pipeline UI:
 
 ```bash
-induction --pipeline pipelines/pipeline.emergent-knowledge-graph.yaml
+induction --pipeline pipelines/pipeline.emergent-knowledge-graph-01.yaml
 ```
 
 The corpus profile supplies ontology hints; it is not a closed schema. Model
@@ -198,11 +178,9 @@ also retained as partial semantics, with the missing arrays reported. The final
 artifact metadata records `semantics_status` (`valid`, `partial`, or `invalid`)
 and any `semantics_issues`, so a completed run makes schema problems visible.
 
-Reusable step fields are `output`, `transform`, `input`, `forEach`, and `as`.
-References intentionally support forms such as `{{ steps.name.output }}`,
-`{{ steps.name.output.field }}`, `{{ steps.name.items }}`,
-`{{ inputs.documents.chunks }}`, and the active fan-out item. Fan-out executes
-sequentially in the existing Bubble Tea pipeline and preserves input order.
+The reusable step fields and reference forms for this pipeline are defined in
+the [authoring section](#authoring). They apply to the knowledge-graph steps as
+well, including sequential fan-out over document chunks and candidates.
 
 Document and chunk IDs are derived from source bytes and exact chunk content.
 Evidence must occur verbatim in its source chunk, apart from CRLF/LF

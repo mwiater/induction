@@ -1,37 +1,22 @@
-# syntax=docker/dockerfile:1
+# Build/install the publicly released Induction
+FROM golang:latest AS builder
 
-ARG GO_VERSION=1.26.4
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+RUN go install github.com/mwiater/induction/cmd/induction@latest
 
-# Build stage. GoReleaser and the repository's development tools are not
-# carried into the runtime image.
-FROM golang:${GO_VERSION}-alpine AS builder
+# Clean runtime environment
+FROM debian:bookworm-slim
 
-ARG TARGETOS
-ARG TARGETARCH
-WORKDIR /src
-
-COPY go.mod go.sum ./
-RUN go mod download
-
-COPY . .
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -trimpath -ldflags="-s -w" -o /out/induction ./cmd/induction
-
-# Small runtime image. The inference server and model files remain external;
-# this image contains only Induction and the repository assets used by its
-# example pipelines.
-FROM alpine:3.22 AS runtime
-
-RUN apk add --no-cache ca-certificates
+# Install the globally accessible Induction binary
+COPY --from=builder /go/bin/induction /usr/local/bin/induction
 
 ENV COLORTERM=truecolor
-WORKDIR /app
 
-COPY --from=builder /out/induction /usr/local/bin/induction
-COPY data /app/data
-COPY pipelines /app/pipelines
-COPY induction.example.yaml /app/induction.yaml
+# Create a clean working directory
+WORKDIR /induction
 
-ENTRYPOINT ["/usr/local/bin/induction"]
+# Copy runtime configuration and example pipelines
+COPY induction.yaml ./induction.yaml
+COPY pipelines/ ./pipelines/
+
+ENTRYPOINT ["induction"]
+CMD ["--help"]

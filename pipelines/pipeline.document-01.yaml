@@ -1,24 +1,33 @@
-name: document-analysis
+name: document-05-structured-extraction
+
+config: induction.yaml
 
 steps:
-  - name: analyze-document
-    model: GLM-4.7-Flash-Q4_K_M
+  - name: extract-records
+    model: Muse-Glimmer-30B-Q4_K_XL
     nomcp: true
     systemPrompt: |
-      You are a careful document-analysis assistant. Base your work only on
-      the supplied document and distinguish explicit claims from inference.
+      You are a conservative document data-extraction assistant. Extract only
+      values explicitly present in the supplied document and preserve their
+      wording, units, dates, and qualifiers.
     userPrompt: |
-      Summarize the provided document. Identify its main argument, supporting
-      points, important evidence, and conclusions.
+      Read the document and inventory every useful structured value you can
+      find, including names, dates, numbers, units, categories, and cited
+      entities. Group related values, retain their surrounding context, and
+      mark absent or ambiguous values as unknown rather than guessing.
     document: ../data/fixtures/documents/fixture-01.pdf
 
-  - name: produce-document-summary
-    model: GLM-4.7-Flash-Q4_K_M
+  - name: normalize-document-data
+    model: Muse-Glimmer-30B-Q4_K_XL
     nomcp: true
     systemPrompt: |
-      You write concise summaries from a preceding document analysis. Preserve
-      the document's uncertainty and do not introduce outside information.
+      You normalize a preceding document extraction for downstream processing.
+      The ingested document is authoritative; never silently correct or infer
+      a value.
     userPrompt: |
-      Turn the preceding analysis into a final reader-friendly summary with a
-      short overview, the main supporting points, the most important evidence,
-      and the document's conclusions. Keep it faithful to the ingested text.
+      Convert the extracted values into a clear JSON object with an `entities`
+      array and a `facts` array. Each entity or fact must include its exact
+      source wording, normalized type, and source context. Use null for values
+      that are not present or cannot be determined, and return JSON only.
+    responseFormat:
+      type: json_object
