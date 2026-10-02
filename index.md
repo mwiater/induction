@@ -47,6 +47,8 @@ Package induction provides clients and helpers for local LLM inference, streamin
 - [type BatchItemStatus](<#BatchItemStatus>)
 - [type BatchStatus](<#BatchStatus>)
 - [type BatchSummary](<#BatchSummary>)
+- [type ChatCompletionControlRequest](<#ChatCompletionControlRequest>)
+- [type ChatCompletionControlResponse](<#ChatCompletionControlResponse>)
 - [type ChatRequest](<#ChatRequest>)
 - [type ChatSession](<#ChatSession>)
   - [func LoadChatSession\(path string\) \(\*ChatSession, error\)](<#LoadChatSession>)
@@ -61,6 +63,7 @@ Package induction provides clients and helpers for local LLM inference, streamin
   - [func \(c \*Client\) CheckHealth\(\) error](<#Client.CheckHealth>)
   - [func \(c \*Client\) Complete\(ctx context.Context, req \*ChatRequest\) \(\*Interaction, error\)](<#Client.Complete>)
   - [func \(c \*Client\) DeleteFile\(ctx context.Context, id string\) error](<#Client.DeleteFile>)
+  - [func \(c \*Client\) EndReasoning\(ctx context.Context, model, completionID string\) \(\*ChatCompletionControlResponse, error\)](<#Client.EndReasoning>)
   - [func \(c \*Client\) GenerateSnapshot\(ctx context.Context, req \*ChatRequest\) \(\*ModelSnapshot, error\)](<#Client.GenerateSnapshot>)
   - [func \(c \*Client\) GenerateStreamingSnapshot\(ctx context.Context, req \*ChatRequest, yield func\(InferenceStreamChunk\) error\) \(\*ModelSnapshot, error\)](<#Client.GenerateStreamingSnapshot>)
   - [func \(c \*Client\) GetRuntimeStatus\(ctx context.Context\) \(\*RuntimeStatus, error\)](<#Client.GetRuntimeStatus>)
@@ -178,6 +181,11 @@ Package induction provides clients and helpers for local LLM inference, streamin
 - [type PipelineParameters](<#PipelineParameters>)
 - [type PipelineStep](<#PipelineStep>)
 - [type PropsData](<#PropsData>)
+- [type ReasoningConfig](<#ReasoningConfig>)
+- [type ReasoningCutoffConfig](<#ReasoningCutoffConfig>)
+- [type ReasoningCutoffReason](<#ReasoningCutoffReason>)
+- [type ReasoningCutoffSnapshot](<#ReasoningCutoffSnapshot>)
+- [type ResourceBudgetConfig](<#ResourceBudgetConfig>)
 - [type ResponseFormat](<#ResponseFormat>)
 - [type RuntimeModel](<#RuntimeModel>)
 - [type RuntimeOperation](<#RuntimeOperation>)
@@ -213,6 +221,7 @@ const (
     DefaultDashboardSessionsDirectory    = sessionDirectory
     DefaultDashboardEvalResultsDirectory = "data/evals/results"
     DefaultDashboardEvalConfigPath       = "inspect_evals.yaml"
+    DefaultDashboardIgnorePath           = ".dashboardignore"
     DefaultDashboardMetricsPath          = "data/dashboard/session_metrics.json"
     DefaultDashboardTemplatePath         = "dashboard.template.html"
     DefaultDashboardHTMLPath             = "data/dashboard/dashboard.html"
@@ -507,7 +516,7 @@ func ListLoadedModels(endpoint string, options ...ClientOption) error
 ListLoadedModels fetches /v1/models and logs only loaded models.
 
 <a name="ListModels"></a>
-## func [ListModels](<https://github.com/mwiater/induction/blob/main/models.go#L381>)
+## func [ListModels](<https://github.com/mwiater/induction/blob/main/models.go#L390>)
 
 ```go
 func ListModels(endpoint string, options ...ClientOption) error
@@ -534,7 +543,7 @@ func RunConsoleThemePreview(ctx context.Context, in io.Reader, out io.Writer) er
 RunConsoleThemePreview displays one sample of every console theme element and exits after rendering it once.
 
 <a name="WriteDashboardHTML"></a>
-## func [WriteDashboardHTML](<https://github.com/mwiater/induction/blob/main/dashboard.go#L922>)
+## func [WriteDashboardHTML](<https://github.com/mwiater/induction/blob/main/dashboard.go#L965>)
 
 ```go
 func WriteDashboardHTML(templatePath, path string, metrics *DashboardMetrics) error
@@ -543,7 +552,7 @@ func WriteDashboardHTML(templatePath, path string, metrics *DashboardMetrics) er
 WriteDashboardHTML embeds the dashboard metrics in the HTML template and atomically writes the resulting self\-contained dashboard artifact.
 
 <a name="WriteDashboardMetrics"></a>
-## func [WriteDashboardMetrics](<https://github.com/mwiater/induction/blob/main/dashboard.go#L878>)
+## func [WriteDashboardMetrics](<https://github.com/mwiater/induction/blob/main/dashboard.go#L921>)
 
 ```go
 func WriteDashboardMetrics(path string, metrics *DashboardMetrics) error
@@ -710,8 +719,33 @@ type BatchSummary struct {
 }
 ```
 
+<a name="ChatCompletionControlRequest"></a>
+## type [ChatCompletionControlRequest](<https://github.com/mwiater/induction/blob/main/reasoning_cutoff.go#L52-L56>)
+
+
+
+```go
+type ChatCompletionControlRequest struct {
+    ID     string `json:"id"`
+    Action string `json:"action"`
+    Model  string `json:"model,omitempty"`
+}
+```
+
+<a name="ChatCompletionControlResponse"></a>
+## type [ChatCompletionControlResponse](<https://github.com/mwiater/induction/blob/main/reasoning_cutoff.go#L57-L60>)
+
+
+
+```go
+type ChatCompletionControlResponse struct {
+    Success bool   `json:"success"`
+    Message string `json:"message,omitempty"`
+}
+```
+
 <a name="ChatRequest"></a>
-## type [ChatRequest](<https://github.com/mwiater/induction/blob/main/models.go#L58-L129>)
+## type [ChatRequest](<https://github.com/mwiater/induction/blob/main/models.go#L58-L130>)
 
 ChatRequest defines the payload sent to llama.cpp\-compatible completion endpoints. It supports both /v1/chat/completions and completion\-style requests.
 
@@ -720,11 +754,12 @@ type ChatRequest struct {
     // Messages carries a chat transcript for chat-completion-style requests.
     Messages []Message `json:"messages,omitempty"`
     // Prompt accepts a string or an array of token IDs for completion requests.
-    Prompt      any    `json:"prompt,omitempty"`
-    Model       string `json:"model,omitempty"`
-    Stream      *bool  `json:"stream,omitempty"`
-    Logprobs    *bool  `json:"logprobs,omitempty"`
-    TopLogprobs *int   `json:"top_logprobs,omitempty"`
+    Prompt           any    `json:"prompt,omitempty"`
+    Model            string `json:"model,omitempty"`
+    Stream           *bool  `json:"stream,omitempty"`
+    ReasoningControl *bool  `json:"reasoning_control,omitempty"`
+    Logprobs         *bool  `json:"logprobs,omitempty"`
+    TopLogprobs      *int   `json:"top_logprobs,omitempty"`
     // ChatTemplateKwargs contains llama.cpp per-request chat-template options.
     // Classification uses it to disable model thinking when supported.
     ChatTemplateKwargs map[string]any `json:"chat_template_kwargs,omitempty"`
@@ -841,7 +876,7 @@ type ChatSessionSummary struct {
 ```
 
 <a name="ChoiceLogprobs"></a>
-## type [ChoiceLogprobs](<https://github.com/mwiater/induction/blob/main/models.go#L190-L192>)
+## type [ChoiceLogprobs](<https://github.com/mwiater/induction/blob/main/models.go#L191-L193>)
 
 
 
@@ -878,7 +913,7 @@ type ClassificationResult struct {
 ```
 
 <a name="Client"></a>
-## type [Client](<https://github.com/mwiater/induction/blob/main/client.go#L65-L78>)
+## type [Client](<https://github.com/mwiater/induction/blob/main/client.go#L67-L80>)
 
 Client orchestrates interactions with a local llama.cpp\-compatible server.
 
@@ -889,7 +924,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](<https://github.com/mwiater/induction/blob/main/client.go#L81>)
+### func [NewClient](<https://github.com/mwiater/induction/blob/main/client.go#L83>)
 
 ```go
 func NewClient(ctx context.Context, endpoint string, options ...ClientOption) *Client
@@ -898,7 +933,7 @@ func NewClient(ctx context.Context, endpoint string, options ...ClientOption) *C
 NewClient initializes and returns a configured Induction client.
 
 <a name="NewClientFromConfig"></a>
-### func [NewClientFromConfig](<https://github.com/mwiater/induction/blob/main/config.go#L124>)
+### func [NewClientFromConfig](<https://github.com/mwiater/induction/blob/main/config.go#L130>)
 
 ```go
 func NewClientFromConfig(ctx context.Context, options ...ClientOption) (*Client, error)
@@ -942,8 +977,17 @@ func (c *Client) DeleteFile(ctx context.Context, id string) error
 
 DeleteFile removes a previously uploaded file by server\-assigned ID.
 
+<a name="Client.EndReasoning"></a>
+### func \(\*Client\) [EndReasoning](<https://github.com/mwiater/induction/blob/main/reasoning_cutoff.go#L63>)
+
+```go
+func (c *Client) EndReasoning(ctx context.Context, model, completionID string) (*ChatCompletionControlResponse, error)
+```
+
+EndReasoning asks llama.cpp to close reasoning on the active completion.
+
 <a name="Client.GenerateSnapshot"></a>
-### func \(\*Client\) [GenerateSnapshot](<https://github.com/mwiater/induction/blob/main/client.go#L110>)
+### func \(\*Client\) [GenerateSnapshot](<https://github.com/mwiater/induction/blob/main/client.go#L112>)
 
 ```go
 func (c *Client) GenerateSnapshot(ctx context.Context, req *ChatRequest) (*ModelSnapshot, error)
@@ -952,7 +996,7 @@ func (c *Client) GenerateSnapshot(ctx context.Context, req *ChatRequest) (*Model
 GenerateSnapshot executes an inference request and collects related telemetry.
 
 <a name="Client.GenerateStreamingSnapshot"></a>
-### func \(\*Client\) [GenerateStreamingSnapshot](<https://github.com/mwiater/induction/blob/main/client.go#L190>)
+### func \(\*Client\) [GenerateStreamingSnapshot](<https://github.com/mwiater/induction/blob/main/client.go#L192>)
 
 ```go
 func (c *Client) GenerateStreamingSnapshot(ctx context.Context, req *ChatRequest, yield func(InferenceStreamChunk) error) (*ModelSnapshot, error)
@@ -1006,7 +1050,7 @@ func (c *Client) ListModelCatalog(ctx context.Context) ([]ModelCatalogEntry, err
 ListModelCatalog fetches model identifiers and modality capabilities directly from the OpenAI\-compatible /v1/models endpoint.
 
 <a name="Client.ListModels"></a>
-### func \(\*Client\) [ListModels](<https://github.com/mwiater/induction/blob/main/models.go#L387>)
+### func \(\*Client\) [ListModels](<https://github.com/mwiater/induction/blob/main/models.go#L396>)
 
 ```go
 func (c *Client) ListModels() error
@@ -1033,7 +1077,7 @@ func (c *Client) LoadedModelNames(ctx context.Context) ([]string, error)
 LoadedModelNames fetches /v1/models and returns only the currently loaded model identifiers in the order reported by the server.
 
 <a name="Client.RefreshModelListCache"></a>
-### func \(\*Client\) [RefreshModelListCache](<https://github.com/mwiater/induction/blob/main/models.go#L420>)
+### func \(\*Client\) [RefreshModelListCache](<https://github.com/mwiater/induction/blob/main/models.go#L429>)
 
 ```go
 func (c *Client) RefreshModelListCache(ctx context.Context, path string) error
@@ -1096,7 +1140,7 @@ func (c *Client) UploadFile(ctx context.Context, filename string, content io.Rea
 UploadFile uploads a document through the OpenAI\-compatible /v1/files API. The endpoint is optional across llama.cpp\-compatible servers; callers should treat a 404 as an unsupported file feature and may use FileDataURL instead.
 
 <a name="ClientOption"></a>
-## type [ClientOption](<https://github.com/mwiater/induction/blob/main/client.go#L62>)
+## type [ClientOption](<https://github.com/mwiater/induction/blob/main/client.go#L64>)
 
 ClientOption mutates a ClientOptions value during client construction.
 
@@ -1222,7 +1266,7 @@ func WithSessionSaved(callback func(string)) ClientOption
 WithSessionSaved registers a callback invoked with the path of a session after it has been written successfully.
 
 <a name="ClientOptions"></a>
-## type [ClientOptions](<https://github.com/mwiater/induction/blob/main/client.go#L21-L53>)
+## type [ClientOptions](<https://github.com/mwiater/induction/blob/main/client.go#L21-L55>)
 
 ClientOptions stores runtime configuration for a Client.
 
@@ -1233,25 +1277,26 @@ type ClientOptions struct {
 ```
 
 <a name="Config"></a>
-## type [Config](<https://github.com/mwiater/induction/blob/main/config.go#L68-L77>)
+## type [Config](<https://github.com/mwiater/induction/blob/main/config.go#L73-L83>)
 
 Config contains runtime settings loaded from induction.yaml.
 
 ```go
 type Config struct {
-    Server           string             `yaml:"server"`
-    Timeout          Duration           `yaml:"timeout"`
-    PollInterval     Duration           `yaml:"poll_interval"`
-    LoadWaitInterval Duration           `yaml:"load_wait_interval"`
-    SidebarWidth     int                `yaml:"sidebarWidth"`
-    MCPServers       []MCPServerConfig  `yaml:"MCPServers"`
-    Log              LogConfig          `yaml:"log"`
-    ModelManager     ModelManagerConfig `yaml:"ModelManager" mapstructure:"ModelManager"`
+    Server           string                `yaml:"server"`
+    Timeout          Duration              `yaml:"timeout"`
+    PollInterval     Duration              `yaml:"pollInterval"`
+    LoadWaitInterval Duration              `yaml:"loadWaitInterval"`
+    SidebarWidth     int                   `yaml:"sidebarWidth"`
+    MCPServers       []MCPServerConfig     `yaml:"mcpServers"`
+    Log              LogConfig             `yaml:"log"`
+    ModelManager     ModelManagerConfig    `yaml:"modelManager" mapstructure:"modelManager"`
+    ResourceBudget   *ResourceBudgetConfig `yaml:"resourceBudget,omitempty" json:"resourceBudget,omitempty"`
 }
 ```
 
 <a name="LoadConfig"></a>
-### func [LoadConfig](<https://github.com/mwiater/induction/blob/main/config.go#L89>)
+### func [LoadConfig](<https://github.com/mwiater/induction/blob/main/config.go#L95>)
 
 ```go
 func LoadConfig(path ...string) (*Config, error)
@@ -1260,7 +1305,7 @@ func LoadConfig(path ...string) (*Config, error)
 LoadConfig loads induction.yaml once and returns the process\-wide config. Without an explicit path, induction.yaml must exist in the current working directory \(normally the project root\). An optional path may be supplied; the path from the first call is the one used for the lifetime of the process.
 
 <a name="Config.Validate"></a>
-### func \(\*Config\) [Validate](<https://github.com/mwiater/induction/blob/main/config.go#L269>)
+### func \(\*Config\) [Validate](<https://github.com/mwiater/induction/blob/main/config.go#L281>)
 
 ```go
 func (c *Config) Validate() error
@@ -1283,7 +1328,7 @@ type ContentPart struct {
 ```
 
 <a name="DashboardConversation"></a>
-## type [DashboardConversation](<https://github.com/mwiater/induction/blob/main/dashboard.go#L132-L141>)
+## type [DashboardConversation](<https://github.com/mwiater/induction/blob/main/dashboard.go#L135-L144>)
 
 
 
@@ -1301,7 +1346,7 @@ type DashboardConversation struct {
 ```
 
 <a name="DashboardEvalAggregate"></a>
-## type [DashboardEvalAggregate](<https://github.com/mwiater/induction/blob/main/dashboard.go#L95-L98>)
+## type [DashboardEvalAggregate](<https://github.com/mwiater/induction/blob/main/dashboard.go#L98-L101>)
 
 
 
@@ -1313,7 +1358,7 @@ type DashboardEvalAggregate struct {
 ```
 
 <a name="DashboardEvalBenchmark"></a>
-## type [DashboardEvalBenchmark](<https://github.com/mwiater/induction/blob/main/dashboard.go#L85-L94>)
+## type [DashboardEvalBenchmark](<https://github.com/mwiater/induction/blob/main/dashboard.go#L88-L97>)
 
 
 
@@ -1331,7 +1376,7 @@ type DashboardEvalBenchmark struct {
 ```
 
 <a name="DashboardEvalData"></a>
-## type [DashboardEvalData](<https://github.com/mwiater/induction/blob/main/dashboard.go#L62-L72>)
+## type [DashboardEvalData](<https://github.com/mwiater/induction/blob/main/dashboard.go#L65-L75>)
 
 
 
@@ -1350,7 +1395,7 @@ type DashboardEvalData struct {
 ```
 
 <a name="DashboardEvalEngine"></a>
-## type [DashboardEvalEngine](<https://github.com/mwiater/induction/blob/main/dashboard.go#L77-L80>)
+## type [DashboardEvalEngine](<https://github.com/mwiater/induction/blob/main/dashboard.go#L80-L83>)
 
 
 
@@ -1362,7 +1407,7 @@ type DashboardEvalEngine struct {
 ```
 
 <a name="DashboardEvalServer"></a>
-## type [DashboardEvalServer](<https://github.com/mwiater/induction/blob/main/dashboard.go#L81-L84>)
+## type [DashboardEvalServer](<https://github.com/mwiater/induction/blob/main/dashboard.go#L84-L87>)
 
 
 
@@ -1374,7 +1419,7 @@ type DashboardEvalServer struct {
 ```
 
 <a name="DashboardEvalSuite"></a>
-## type [DashboardEvalSuite](<https://github.com/mwiater/induction/blob/main/dashboard.go#L73-L76>)
+## type [DashboardEvalSuite](<https://github.com/mwiater/induction/blob/main/dashboard.go#L76-L79>)
 
 
 
@@ -1386,7 +1431,7 @@ type DashboardEvalSuite struct {
 ```
 
 <a name="DashboardGenerateOptions"></a>
-## type [DashboardGenerateOptions](<https://github.com/mwiater/induction/blob/main/dashboard.go#L29-L32>)
+## type [DashboardGenerateOptions](<https://github.com/mwiater/induction/blob/main/dashboard.go#L31-L35>)
 
 
 
@@ -1394,11 +1439,12 @@ type DashboardEvalSuite struct {
 type DashboardGenerateOptions struct {
     SessionsDirectory    string
     EvalResultsDirectory string
+    IgnoreFilePath       string
 }
 ```
 
 <a name="DashboardMetrics"></a>
-## type [DashboardMetrics](<https://github.com/mwiater/induction/blob/main/dashboard.go#L34-L39>)
+## type [DashboardMetrics](<https://github.com/mwiater/induction/blob/main/dashboard.go#L37-L42>)
 
 
 
@@ -1412,7 +1458,7 @@ type DashboardMetrics struct {
 ```
 
 <a name="BuildDashboardMetrics"></a>
-### func [BuildDashboardMetrics](<https://github.com/mwiater/induction/blob/main/dashboard.go#L238>)
+### func [BuildDashboardMetrics](<https://github.com/mwiater/induction/blob/main/dashboard.go#L241>)
 
 ```go
 func BuildDashboardMetrics(sessionsDirectory string) (*DashboardMetrics, error)
@@ -1421,7 +1467,7 @@ func BuildDashboardMetrics(sessionsDirectory string) (*DashboardMetrics, error)
 BuildDashboardMetrics builds the rebuildable dashboard projection without contacting a server.
 
 <a name="GenerateDashboardMetrics"></a>
-### func [GenerateDashboardMetrics](<https://github.com/mwiater/induction/blob/main/dashboard.go#L973>)
+### func [GenerateDashboardMetrics](<https://github.com/mwiater/induction/blob/main/dashboard.go#L1016>)
 
 ```go
 func GenerateDashboardMetrics(options DashboardGenerateOptions) (*DashboardMetrics, error)
@@ -1430,7 +1476,7 @@ func GenerateDashboardMetrics(options DashboardGenerateOptions) (*DashboardMetri
 GenerateDashboardMetrics builds and writes the default dashboard artifacts.
 
 <a name="DashboardModelData"></a>
-## type [DashboardModelData](<https://github.com/mwiater/induction/blob/main/dashboard.go#L52-L60>)
+## type [DashboardModelData](<https://github.com/mwiater/induction/blob/main/dashboard.go#L55-L63>)
 
 
 
@@ -1447,7 +1493,7 @@ type DashboardModelData struct {
 ```
 
 <a name="DashboardPerformance"></a>
-## type [DashboardPerformance](<https://github.com/mwiater/induction/blob/main/dashboard.go#L158-L164>)
+## type [DashboardPerformance](<https://github.com/mwiater/induction/blob/main/dashboard.go#L161-L167>)
 
 
 
@@ -1462,7 +1508,7 @@ type DashboardPerformance struct {
 ```
 
 <a name="DashboardResponse"></a>
-## type [DashboardResponse](<https://github.com/mwiater/induction/blob/main/dashboard.go#L142-L151>)
+## type [DashboardResponse](<https://github.com/mwiater/induction/blob/main/dashboard.go#L145-L154>)
 
 
 
@@ -1480,7 +1526,7 @@ type DashboardResponse struct {
 ```
 
 <a name="DashboardRuntime"></a>
-## type [DashboardRuntime](<https://github.com/mwiater/induction/blob/main/dashboard.go#L170-L180>)
+## type [DashboardRuntime](<https://github.com/mwiater/induction/blob/main/dashboard.go#L173-L183>)
 
 
 
@@ -1499,7 +1545,7 @@ type DashboardRuntime struct {
 ```
 
 <a name="DashboardSessionProvenance"></a>
-## type [DashboardSessionProvenance](<https://github.com/mwiater/induction/blob/main/dashboard.go#L124-L131>)
+## type [DashboardSessionProvenance](<https://github.com/mwiater/induction/blob/main/dashboard.go#L127-L134>)
 
 
 
@@ -1515,7 +1561,7 @@ type DashboardSessionProvenance struct {
 ```
 
 <a name="DashboardSnapshotObservation"></a>
-## type [DashboardSnapshotObservation](<https://github.com/mwiater/induction/blob/main/dashboard.go#L99-L113>)
+## type [DashboardSnapshotObservation](<https://github.com/mwiater/induction/blob/main/dashboard.go#L102-L116>)
 
 
 
@@ -1538,7 +1584,7 @@ type DashboardSnapshotObservation struct {
 ```
 
 <a name="DashboardSource"></a>
-## type [DashboardSource](<https://github.com/mwiater/induction/blob/main/dashboard.go#L40-L51>)
+## type [DashboardSource](<https://github.com/mwiater/induction/blob/main/dashboard.go#L43-L54>)
 
 
 
@@ -1558,7 +1604,7 @@ type DashboardSource struct {
 ```
 
 <a name="DashboardSpeculative"></a>
-## type [DashboardSpeculative](<https://github.com/mwiater/induction/blob/main/dashboard.go#L165-L169>)
+## type [DashboardSpeculative](<https://github.com/mwiater/induction/blob/main/dashboard.go#L168-L172>)
 
 
 
@@ -1571,7 +1617,7 @@ type DashboardSpeculative struct {
 ```
 
 <a name="DashboardTokens"></a>
-## type [DashboardTokens](<https://github.com/mwiater/induction/blob/main/dashboard.go#L152-L157>)
+## type [DashboardTokens](<https://github.com/mwiater/induction/blob/main/dashboard.go#L155-L160>)
 
 
 
@@ -1585,7 +1631,7 @@ type DashboardTokens struct {
 ```
 
 <a name="DashboardToolUsage"></a>
-## type [DashboardToolUsage](<https://github.com/mwiater/induction/blob/main/dashboard.go#L114-L123>)
+## type [DashboardToolUsage](<https://github.com/mwiater/induction/blob/main/dashboard.go#L117-L126>)
 
 
 
@@ -1724,7 +1770,7 @@ type IconSet struct {
 ```
 
 <a name="ImageData"></a>
-## type [ImageData](<https://github.com/mwiater/induction/blob/main/models.go#L151-L154>)
+## type [ImageData](<https://github.com/mwiater/induction/blob/main/models.go#L152-L155>)
 
 ImageData carries a base64\-encoded image for multimodal inference.
 
@@ -1748,7 +1794,7 @@ type ImageURLPart struct {
 ```
 
 <a name="InferenceChoice"></a>
-## type [InferenceChoice](<https://github.com/mwiater/induction/blob/main/models.go#L169-L175>)
+## type [InferenceChoice](<https://github.com/mwiater/induction/blob/main/models.go#L170-L176>)
 
 InferenceChoice is one generated choice from a chat or completion response.
 
@@ -1763,7 +1809,7 @@ type InferenceChoice struct {
 ```
 
 <a name="InferenceFunctionCall"></a>
-## type [InferenceFunctionCall](<https://github.com/mwiater/induction/blob/main/models.go#L211-L214>)
+## type [InferenceFunctionCall](<https://github.com/mwiater/induction/blob/main/models.go#L212-L215>)
 
 InferenceFunctionCall contains a requested function name and JSON arguments.
 
@@ -1775,7 +1821,7 @@ type InferenceFunctionCall struct {
 ```
 
 <a name="InferenceResponse"></a>
-## type [InferenceResponse](<https://github.com/mwiater/induction/blob/main/models.go#L158-L166>)
+## type [InferenceResponse](<https://github.com/mwiater/induction/blob/main/models.go#L159-L167>)
 
 InferenceResponse is the OpenAI\-compatible response returned by Infer. Choices supports both chat\-completion messages and completion text.
 
@@ -1819,7 +1865,7 @@ func InferMCPWithApproval(ctx context.Context, req *ChatRequest, approve MCPAppr
 InferMCPWithApproval is InferMCP with an explicit approval callback for tools that are not annotated as read\-only by their MCP server.
 
 <a name="InferenceResponseMessage"></a>
-## type [InferenceResponseMessage](<https://github.com/mwiater/induction/blob/main/models.go#L195-L201>)
+## type [InferenceResponseMessage](<https://github.com/mwiater/induction/blob/main/models.go#L196-L202>)
 
 InferenceResponseMessage is an assistant message returned by the model.
 
@@ -1834,7 +1880,7 @@ type InferenceResponseMessage struct {
 ```
 
 <a name="InferenceStreamChoice"></a>
-## type [InferenceStreamChoice](<https://github.com/mwiater/induction/blob/main/models.go#L235-L241>)
+## type [InferenceStreamChoice](<https://github.com/mwiater/induction/blob/main/models.go#L236-L242>)
 
 InferenceStreamChoice contains a chat delta or completion text fragment.
 
@@ -1849,7 +1895,7 @@ type InferenceStreamChoice struct {
 ```
 
 <a name="InferenceStreamChunk"></a>
-## type [InferenceStreamChunk](<https://github.com/mwiater/induction/blob/main/models.go#L224-L232>)
+## type [InferenceStreamChunk](<https://github.com/mwiater/induction/blob/main/models.go#L225-L233>)
 
 InferenceStreamChunk is one OpenAI\-compatible streaming response object.
 
@@ -1866,7 +1912,7 @@ type InferenceStreamChunk struct {
 ```
 
 <a name="InferenceStreamDelta"></a>
-## type [InferenceStreamDelta](<https://github.com/mwiater/induction/blob/main/models.go#L244-L250>)
+## type [InferenceStreamDelta](<https://github.com/mwiater/induction/blob/main/models.go#L245-L255>)
 
 InferenceStreamDelta contains incremental assistant content and tool calls.
 
@@ -1877,11 +1923,15 @@ type InferenceStreamDelta struct {
     ReasoningContent string                    `json:"reasoning_content,omitempty"`
     Refusal          string                    `json:"refusal,omitempty"`
     ToolCalls        []InferenceStreamToolCall `json:"tool_calls,omitempty"`
+    // Optional llama.cpp extensions used for authoritative cutoff accounting.
+    ReasoningTokens *int `json:"reasoning_tokens,omitempty"`
+    ContextTokens   *int `json:"context_tokens,omitempty"`
+    ContextSize     *int `json:"context_size,omitempty"`
 }
 ```
 
 <a name="InferenceStreamToolCall"></a>
-## type [InferenceStreamToolCall](<https://github.com/mwiater/induction/blob/main/models.go#L253-L258>)
+## type [InferenceStreamToolCall](<https://github.com/mwiater/induction/blob/main/models.go#L258-L263>)
 
 InferenceStreamToolCall contains an incremental tool\-call update.
 
@@ -1895,7 +1945,7 @@ type InferenceStreamToolCall struct {
 ```
 
 <a name="InferenceToolCall"></a>
-## type [InferenceToolCall](<https://github.com/mwiater/induction/blob/main/models.go#L204-L208>)
+## type [InferenceToolCall](<https://github.com/mwiater/induction/blob/main/models.go#L205-L209>)
 
 InferenceToolCall describes a function call requested by the model.
 
@@ -1908,7 +1958,7 @@ type InferenceToolCall struct {
 ```
 
 <a name="InferenceUsage"></a>
-## type [InferenceUsage](<https://github.com/mwiater/induction/blob/main/models.go#L217-L221>)
+## type [InferenceUsage](<https://github.com/mwiater/induction/blob/main/models.go#L218-L222>)
 
 InferenceUsage contains OpenAI\-compatible token counts.
 
@@ -1961,7 +2011,7 @@ func (s InputSet) Validate(label string) error
 
 
 <a name="Interaction"></a>
-## type [Interaction](<https://github.com/mwiater/induction/blob/main/models.go#L261-L268>)
+## type [Interaction](<https://github.com/mwiater/induction/blob/main/models.go#L266-L273>)
 
 Interaction stores the response body and best\-effort extracted text content.
 
@@ -2028,7 +2078,7 @@ type LogConfig struct {
 ```
 
 <a name="Logger"></a>
-## type [Logger](<https://github.com/mwiater/induction/blob/main/client.go#L57-L59>)
+## type [Logger](<https://github.com/mwiater/induction/blob/main/client.go#L59-L61>)
 
 Logger is the logging contract used by Induction. The standard library's log.Logger satisfies this interface, as do many application log adapters.
 
@@ -2063,9 +2113,9 @@ MCPServerConfig describes a remote Model Context Protocol server. Allow is an ex
 
 ```go
 type MCPServerConfig struct {
-    Allow bool   `yaml:"MCPServerAllow"`
-    Name  string `yaml:"MCPServerName"`
-    URL   string `yaml:"MCPServerURL"`
+    Allow bool   `yaml:"mcpServerAllow"`
+    Name  string `yaml:"mcpServerName"`
+    URL   string `yaml:"mcpServerURL"`
 }
 ```
 
@@ -2103,7 +2153,7 @@ type Message struct {
 ```
 
 <a name="MetricsData"></a>
-## type [MetricsData](<https://github.com/mwiater/induction/blob/main/models.go#L284-L289>)
+## type [MetricsData](<https://github.com/mwiater/induction/blob/main/models.go#L289-L294>)
 
 MetricsData holds the raw Prometheus text and parsed metric entries.
 
@@ -2196,20 +2246,20 @@ ModelManagerConfig controls model discovery and local model storage.
 
 ```go
 type ModelManagerConfig struct {
-    SearchResults          int      `yaml:"SearchResults" mapstructure:"SearchResults" json:"searchResults"`
-    PreferredProviders     []string `yaml:"PreferredProviders" mapstructure:"PreferredProviders" json:"preferredProviders"`
-    ModelsPath             string   `yaml:"ModelsPath" mapstructure:"ModelsPath" json:"modelsPath"`
-    PreferredQuantizations []string `yaml:"PreferredQuantizations" mapstructure:"PreferredQuantizations" json:"preferredQuantizations,omitempty"`
-    IncludePatterns        []string `yaml:"IncludePatterns" mapstructure:"IncludePatterns" json:"includePatterns,omitempty"`
-    ExcludePatterns        []string `yaml:"ExcludePatterns" mapstructure:"ExcludePatterns" json:"excludePatterns,omitempty"`
-    AvailableRAM           string   `yaml:"AvailableRAM" mapstructure:"AvailableRAM" json:"availableRAM,omitempty"`
-    AvailableVRAM          string   `yaml:"AvailableVRAM" mapstructure:"AvailableVRAM" json:"availableVRAM,omitempty"`
-    HuggingFaceToken       string   `yaml:"HuggingFaceToken" mapstructure:"HuggingFaceToken" json:"-"`
+    SearchResults          int      `yaml:"searchResults" mapstructure:"searchResults" json:"searchResults"`
+    PreferredProviders     []string `yaml:"preferredProviders" mapstructure:"preferredProviders" json:"preferredProviders"`
+    ModelsPath             string   `yaml:"modelsPath" mapstructure:"modelsPath" json:"modelsPath"`
+    PreferredQuantizations []string `yaml:"preferredQuantizations" mapstructure:"preferredQuantizations" json:"preferredQuantizations,omitempty"`
+    IncludePatterns        []string `yaml:"includePatterns" mapstructure:"includePatterns" json:"includePatterns,omitempty"`
+    ExcludePatterns        []string `yaml:"excludePatterns" mapstructure:"excludePatterns" json:"excludePatterns,omitempty"`
+    AvailableRAM           string   `yaml:"availableRAM" mapstructure:"availableRAM" json:"availableRAM,omitempty"`
+    AvailableVRAM          string   `yaml:"availableVRAM" mapstructure:"availableVRAM" json:"availableVRAM,omitempty"`
+    HuggingFaceToken       string   `yaml:"huggingFaceToken" mapstructure:"huggingFaceToken" json:"-"`
 }
 ```
 
 <a name="ModelManagerConfig.NormalizeAndValidate"></a>
-### func \(\*ModelManagerConfig\) [NormalizeAndValidate](<https://github.com/mwiater/induction/blob/main/config.go#L194>)
+### func \(\*ModelManagerConfig\) [NormalizeAndValidate](<https://github.com/mwiater/induction/blob/main/config.go#L206>)
 
 ```go
 func (c *ModelManagerConfig) NormalizeAndValidate() error
@@ -2298,7 +2348,7 @@ const (
 ```
 
 <a name="ModelSnapshot"></a>
-## type [ModelSnapshot](<https://github.com/mwiater/induction/blob/main/models.go#L292-L329>)
+## type [ModelSnapshot](<https://github.com/mwiater/induction/blob/main/models.go#L297-L338>)
 
 ModelSnapshot aggregates all telemetry and inference data for a request.
 
@@ -2332,6 +2382,10 @@ type ModelSnapshot struct {
     CollectedAt time.Time
     // Interaction stores the inference responses represented by this snapshot.
     Interaction []Interaction
+    // ReasoningCutoff contains optional runtime cutoff telemetry.
+    ReasoningCutoff *ReasoningCutoffSnapshot `json:"reasoning_cutoff,omitempty"`
+    ReasoningTokens *int                     `json:"reasoning_tokens,omitempty"`
+    ResponseTokens  *int                     `json:"response_tokens,omitempty"`
     // Messages stores the complete chat history represented by this snapshot.
     Messages []Message `json:"messages"`
     // Props stores the /props response when available.
@@ -2452,7 +2506,7 @@ type PipelineStep struct {
 ```
 
 <a name="PropsData"></a>
-## type [PropsData](<https://github.com/mwiater/induction/blob/main/models.go#L271-L278>)
+## type [PropsData](<https://github.com/mwiater/induction/blob/main/models.go#L276-L283>)
 
 PropsData represents the server's /props response payload.
 
@@ -2467,8 +2521,87 @@ type PropsData struct {
 }
 ```
 
+<a name="ReasoningConfig"></a>
+## type [ReasoningConfig](<https://github.com/mwiater/induction/blob/main/reasoning_cutoff.go#L16-L18>)
+
+ReasoningConfig contains per\-request reasoning policy.
+
+```go
+type ReasoningConfig struct {
+    Cutoff *ReasoningCutoffConfig `yaml:"cutoff,omitempty" json:"cutoff,omitempty"`
+}
+```
+
+<a name="ReasoningCutoffConfig"></a>
+## type [ReasoningCutoffConfig](<https://github.com/mwiater/induction/blob/main/reasoning_cutoff.go#L22-L27>)
+
+ReasoningCutoffConfig limits the model's reasoning phase. Numeric pointers deliberately distinguish an omitted threshold from a configured zero.
+
+```go
+type ReasoningCutoffConfig struct {
+    Enabled           bool     `yaml:"enabled" json:"enabled"`
+    MaxTokens         *int     `yaml:"maxTokens,omitempty" json:"maxTokens,omitempty"`
+    MaxSeconds        *float64 `yaml:"maxSeconds,omitempty" json:"maxSeconds,omitempty"`
+    MaxContextPercent *float64 `yaml:"maxContextPercent,omitempty" json:"maxContextPercent,omitempty"`
+}
+```
+
+<a name="ReasoningCutoffReason"></a>
+## type [ReasoningCutoffReason](<https://github.com/mwiater/induction/blob/main/reasoning_cutoff.go#L96>)
+
+
+
+```go
+type ReasoningCutoffReason string
+```
+
+<a name="ReasoningCutoffReasonMaxTokens"></a>
+
+```go
+const (
+    ReasoningCutoffReasonMaxTokens  ReasoningCutoffReason = "max_tokens"
+    ReasoningCutoffReasonMaxSeconds ReasoningCutoffReason = "max_seconds"
+    ReasoningCutoffReasonMaxContext ReasoningCutoffReason = "max_context_percent"
+)
+```
+
+<a name="ReasoningCutoffSnapshot"></a>
+## type [ReasoningCutoffSnapshot](<https://github.com/mwiater/induction/blob/main/reasoning_cutoff.go#L125-L140>)
+
+ReasoningCutoffSnapshot is safe to copy and is suitable for persistence.
+
+```go
+type ReasoningCutoffSnapshot struct {
+    Enabled            bool                  `json:"enabled"`
+    Triggered          bool                  `json:"triggered"`
+    Reason             ReasoningCutoffReason `json:"trigger_reason,omitempty"`
+    CompletionID       string                `json:"completion_id,omitempty"`
+    ReasoningStartedAt *time.Time            `json:"reasoning_started_at,omitempty"`
+    TriggeredAt        *time.Time            `json:"triggered_at,omitempty"`
+    ReasoningTokens    int                   `json:"reasoning_tokens,omitempty"`
+    ReasoningSeconds   *float64              `json:"reasoning_seconds,omitempty"`
+    ContextTokens      *int                  `json:"context_tokens,omitempty"`
+    ContextSize        *int                  `json:"context_size,omitempty"`
+    ContextPercent     *float64              `json:"context_percent,omitempty"`
+    ControlSent        bool                  `json:"control_sent"`
+    ControlSuccess     bool                  `json:"control_success"`
+    ControlMessage     string                `json:"control_message,omitempty"`
+}
+```
+
+<a name="ResourceBudgetConfig"></a>
+## type [ResourceBudgetConfig](<https://github.com/mwiater/induction/blob/main/config.go#L68-L70>)
+
+ResourceBudgetConfig contains global inference resource policies.
+
+```go
+type ResourceBudgetConfig struct {
+    Reasoning *ReasoningConfig `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
+}
+```
+
 <a name="ResponseFormat"></a>
-## type [ResponseFormat](<https://github.com/mwiater/induction/blob/main/models.go#L132-L135>)
+## type [ResponseFormat](<https://github.com/mwiater/induction/blob/main/models.go#L133-L136>)
 
 ResponseFormat configures JSON\-object or JSON\-schema constrained output.
 
@@ -2620,7 +2753,7 @@ func CleanSessions(directory string) (SessionCleanupResult, error)
 CleanSessions removes invalid session JSON files and valid sessions whose snapshots field is explicitly null. Sessions with an empty snapshots array are retained.
 
 <a name="SlotsData"></a>
-## type [SlotsData](<https://github.com/mwiater/induction/blob/main/models.go#L281>)
+## type [SlotsData](<https://github.com/mwiater/induction/blob/main/models.go#L286>)
 
 SlotsData is a slice alias for slot telemetry records.
 
@@ -2684,7 +2817,7 @@ type SwitchResult struct {
 ```
 
 <a name="TokenLogprob"></a>
-## type [TokenLogprob](<https://github.com/mwiater/induction/blob/main/models.go#L177-L181>)
+## type [TokenLogprob](<https://github.com/mwiater/induction/blob/main/models.go#L178-L182>)
 
 
 
@@ -2697,7 +2830,7 @@ type TokenLogprob struct {
 ```
 
 <a name="TokenLogprobPosition"></a>
-## type [TokenLogprobPosition](<https://github.com/mwiater/induction/blob/main/models.go#L183-L188>)
+## type [TokenLogprobPosition](<https://github.com/mwiater/induction/blob/main/models.go#L184-L189>)
 
 
 
@@ -2711,7 +2844,7 @@ type TokenLogprobPosition struct {
 ```
 
 <a name="Tool"></a>
-## type [Tool](<https://github.com/mwiater/induction/blob/main/models.go#L138-L141>)
+## type [Tool](<https://github.com/mwiater/induction/blob/main/models.go#L139-L142>)
 
 Tool describes a tool available to the model.
 
@@ -2723,7 +2856,7 @@ type Tool struct {
 ```
 
 <a name="ToolFunction"></a>
-## type [ToolFunction](<https://github.com/mwiater/induction/blob/main/models.go#L144-L148>)
+## type [ToolFunction](<https://github.com/mwiater/induction/blob/main/models.go#L145-L149>)
 
 ToolFunction describes a callable function and its JSON Schema parameters.
 
@@ -2794,7 +2927,7 @@ Package cli implements the induction command\-line interface.
 
 
 <a name="Execute"></a>
-## func [Execute](<https://github.com/mwiater/induction/blob/main/internal/cli/root.go#L961>)
+## func [Execute](<https://github.com/mwiater/induction/blob/main/internal/cli/root.go#L964>)
 
 ```go
 func Execute() int
