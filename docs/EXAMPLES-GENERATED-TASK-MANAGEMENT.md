@@ -1,12 +1,74 @@
 # Generated / Task Management Pipeline Examples
 
-## Generated task-management API design pipeline
+This example shows the complete lifecycle of a generated pipeline: start with a
+natural-language request, generate and validate a pipeline definition, then run
+the generated pipeline to produce the requested result.
 
-### 1. Overview
+## 1. Generate the pipeline
+
+The source request is kept in
+[`data/fixtures/pipelinegen/task-management-api-prompt.txt`](../data/fixtures/pipelinegen/task-management-api-prompt.txt).
+It describes the desired task-management API and leaves the pipeline structure
+to the generator.
+
+From the repository root, generate the YAML with:
+
+```bash
+go run ./cmd/induction pipeline generate \
+  --model "Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL" \
+  --prompt-file data/fixtures/pipelinegen/task-management-api-prompt.txt \
+  --output pipelines/generated/task-management-api.yaml \
+  --validate
+```
+
+The installed CLI is equivalent; replace `go run ./cmd/induction` with
+`induction` when it is on your `PATH`:
+
+```bash
+induction pipeline generate \
+  --model "Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL" \
+  --prompt-file data/fixtures/pipelinegen/task-management-api-prompt.txt \
+  --output pipelines/generated/task-management-api.yaml \
+  --validate
+```
+
+Generation asks the selected model to turn the request into an executable
+pipeline. The resulting YAML contains the ordered task steps, their prompts and
+models, a synthesis step, and—because `--validate` was supplied—a final
+read-only validation step. The command also checks the generated pipeline
+definition as part of generation before writing it to the output path.
+
+## 2. Run the generated pipeline
+
+After generation, execute the YAML like any other pipeline:
+
+```bash
+induction --pipeline pipelines/generated/task-management-api.yaml
+```
+
+The run proceeds in order:
+
+1. `task-1` analyzes functional and non-functional requirements and assumptions.
+2. `task-2` designs the core data model.
+3. `task-3` specifies the HTTP API.
+4. `task-4` defines authentication and authorization.
+5. `task-5` creates the testing strategy.
+6. `task-6` describes deployment and observability.
+7. `synthesize` combines the intermediate artifacts into the final API specification.
+8. `validate` checks that synthesis against the original request and acceptance criteria.
+
+Each later step can use relevant completed work from earlier steps. The
+intermediate artifacts are therefore passed through a designed sequence rather
+than asking one model call to produce the entire answer at once. Pipeline run
+artifacts are stored under `.pipeline-artifacts/<run-id>/`.
+
+## 3. Generated task-management API design pipeline
+
+### Overview
 
 Decomposes a production-ready, technology-neutral task-management REST API request into intermediate artifacts, synthesis, and validation. It is useful as a reference for generated pipelines that carry requirements through a multi-stage design process.
 
-### 2. Steps
+### Steps
 
 - **task-1:** Identifies functional and non-functional requirements and explicit assumptions.
 - **task-2:** Defines the core data model, attributes, relationships, and constraints.
@@ -17,15 +79,15 @@ Decomposes a production-ready, technology-neutral task-management REST API reque
 - **synthesize:** Combines intermediate artifacts into the final implementation specification.
 - **validate:** Checks the synthesis against the original request, constraints, deliverables, and acceptance criteria.
 
-### 3. Expected final output
+### Expected final output
 
 A coherent production-ready REST API specification covering requirements and assumptions, data model, endpoints and payloads, status codes, pagination/filtering, errors, authentication/authorization, testing, deployment, and observability, followed by a PASS/FAIL validation report.
 
-### 4. Example YAML
+### Example YAML
 
 [Open pipelines/generated/task-management-api.yaml in the repository](../pipelines/generated/task-management-api.yaml)
 
-### 5. YAML source
+### YAML source
 
 ```yaml
 name: generated-design-a-production-ready-rest-api-for-a-task-management-service
@@ -423,4 +485,3 @@ steps:
         Return a concise validation report with Status: PASS or FAIL, Missing requirements, Material problems, and Suggested corrections.
         If there are no material problems, use PASS.
 ```
-
