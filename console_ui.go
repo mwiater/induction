@@ -144,6 +144,7 @@ type consoleModel struct {
 	pipelineOutputs          map[string]json.RawMessage
 	pipelineInputs           map[string]any
 	pipelineRunID            string
+	artifactPathContext      ArtifactPathContext
 	pipelineFanoutItems      []any
 	pipelineFanoutOutputs    []json.RawMessage
 	pipelineFanoutIndex      int
@@ -224,6 +225,10 @@ func newConsoleModel(ctx context.Context, client *Client, request ChatRequest, t
 		m.pipelineRunning = m.pipeline != nil
 		m.pipelineOutputs = make(map[string]json.RawMessage)
 		m.pipelineInputs = make(map[string]any)
+		m.artifactPathContext = defaultArtifactPathContext(m.pipeline)
+		if client.opts.artifactPathContext != nil {
+			m.artifactPathContext = *client.opts.artifactPathContext
+		}
 	}
 	return m
 }
@@ -424,7 +429,11 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if step.ForEach != "" {
 						artifactData = []byte(m.pipelineOutputs[step.Name])
 					}
-					if _, err := persistPipelineArtifact(m.pipelineRunID, step.Name, step.Output.Artifact, "application/json", artifactData); err != nil {
+					artifactPath, err := ResolveArtifactPath(step.Output.Artifact, m.artifactPathContext)
+					if err == nil {
+						_, err = persistPipelineArtifact(m.pipelineRunID, step.Name, artifactPath, "application/json", artifactData)
+					}
+					if err != nil {
 						m.pipelineRunning = false
 						m.err = fmt.Errorf("pipeline step %q: persist artifact: %w", step.Name, err)
 						m.refreshTranscript()
@@ -881,7 +890,15 @@ func (m *consoleModel) startPipelineStep(index int) tea.Cmd {
 		if len(items) == 0 {
 			m.pipelineOutputs[step.Name] = json.RawMessage("[]")
 			if step.Output != nil && step.Output.Artifact != "" && m.pipelineRunID != "" {
-				_, _ = persistPipelineArtifact(m.pipelineRunID, step.Name, step.Output.Artifact, "application/json", []byte("[]"))
+				artifactPath, err := ResolveArtifactPath(step.Output.Artifact, m.artifactPathContext)
+				if err != nil {
+					return func() tea.Msg { return consoleTurnResult{err: fmt.Errorf("pipeline step %q: %w", step.Name, err)} }
+				}
+				if _, err := persistPipelineArtifact(m.pipelineRunID, step.Name, artifactPath, "application/json", []byte("[]")); err != nil {
+					return func() tea.Msg {
+						return consoleTurnResult{err: fmt.Errorf("pipeline step %q: persist artifact: %w", step.Name, err)}
+					}
+				}
 			}
 			return func() tea.Msg { return consoleTurnResult{content: "[]", model: ""} }
 		}
@@ -998,6 +1015,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	if index == 0 && m.pipeline.Inputs != nil {
 		inputContent, imageName, documentName, err := inputContent(*m.pipeline.Inputs, step)
 		if err != nil {
+			m.client.logf("pipeline: step %q prepare inputs failed: %v", step.Name, err)
 			m.err = fmt.Errorf("pipeline step %q: prepare inputs: %w", step.Name, err)
 			m.pipelineRunning = false
 			m.refreshTranscript()
@@ -1010,6 +1028,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		m.request.ImageFilename = filepath.Base(step.Image)
 		dataURL, err := ImageDataURL(step.Image, DefaultAttachmentMaxBytes)
 		if err != nil {
+			m.client.logf("pipeline: step %q prepare image %q failed: %v", step.Name, step.Image, err)
 			m.err = fmt.Errorf("pipeline step %q: prepare image: %w", step.Name, err)
 			m.pipelineRunning = false
 			m.refreshTranscript()
@@ -1020,6 +1039,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		m.request.DocumentFilename = filepath.Base(step.Document)
 		documentText, err := ExtractPDFText(step.Document, DefaultAttachmentMaxBytes)
 		if err != nil {
+			m.client.logf("pipeline: step %q extract document %q failed: %v", step.Name, step.Document, err)
 			m.err = fmt.Errorf("pipeline step %q: extract document: %w", step.Name, err)
 			m.pipelineRunning = false
 			m.refreshTranscript()
@@ -1027,6 +1047,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		}
 		_, filename, err := FileDataURL(step.Document, DefaultAttachmentMaxBytes)
 		if err != nil {
+			m.client.logf("pipeline: step %q prepare document %q failed: %v", step.Name, step.Document, err)
 			m.err = fmt.Errorf("pipeline step %q: prepare document: %w", step.Name, err)
 			m.pipelineRunning = false
 			m.refreshTranscript()
@@ -1912,10 +1933,13 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 	if monitor != nil {
 		monitor.Stop()
 	}
+	result, ok := final.(consoleModel)
 	if runErr != nil {
+		if ok && result.err != nil {
+			return nil, result.err
+		}
 		return nil, runErr
 	}
-	result, ok := final.(consoleModel)
 	if !ok {
 		return nil, nil
 	}
@@ -2073,10 +2097,13 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 	if monitor != nil {
 		monitor.Stop()
 	}
+	result, ok := final.(consoleModel)
 	if runErr != nil {
+		if ok && result.err != nil {
+			return result.err
+		}
 		return runErr
 	}
-	result, ok := final.(consoleModel)
 	if ok {
 		if result.modelMonitor != nil && result.modelMonitor != monitor {
 			result.modelMonitor.Stop()

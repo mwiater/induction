@@ -128,8 +128,14 @@ Processes two images as separate batch items. Each item runs an independent desc
 
 ### 2. Steps
 
-- **describe:** Describes the current image and identifies its primary subjects.
-- **summarize:** Returns a concise structured analysis for that image.
+- **analyze-image-subjects:** Describes visually supported subjects, actions,
+  appearance, spatial relationships, and salient background elements.
+- **analyze-image-composition:** Examines framing, balance, focal points,
+  perspective, depth, negative space, color, contrast, and lighting.
+- **analyze-image-environmental:** Describes the visible setting and labels
+  cautious interpretations about terrain, weather, season, and activity.
+- **return-json:** Converts the accumulated analyses into schema-valid JSON and
+  saves the per-image artifact.
 
 ### 3. Expected final output
 
@@ -152,13 +158,50 @@ batch:
     - id: image-002
       images: [../data/fixtures/images/fixture-02.jpg]
 steps:
-  - name: describe
+  - name: analyze-image-subjects
     model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
-    userPrompt: Describe the provided image and identify its primary subjects.
-  - name: summarize
+    nomcp: true
+    systemPrompt: Describe only what is visually supported by the image. Distinguish observations from uncertainty and do not invent identities, locations, or causes.
+    userPrompt: Analyze the provided image and describe its primary subjects in detail, including visual evidence and uncertainty.
+  - name: analyze-image-composition
     model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
-    userPrompt: Return a concise structured analysis.
+    nomcp: true
+    systemPrompt: Analyze formal visual structure using only observable evidence and precise spatial language.
+    userPrompt: Analyze the image's composition, including framing, visual weight, balance, focal points, perspective, depth, negative space, color, contrast, lighting, and reflections when visible.
+  - name: analyze-image-environmental
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    nomcp: true
+    systemPrompt: Separate direct visual observations from cautious interpretations and never present unsupported context as fact.
+    userPrompt: Analyze the image's environmental context, describing the visible setting first and then cautious interpretations about geography, climate, weather, or activity.
+  - name: return-json
+    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    nomcp: true
+    systemPrompt: Return exactly one JSON object matching the supplied schema. Return JSON only, without Markdown or commentary.
+    userPrompt: Synthesize all accumulated image analyses into one concise JSON object, preserving uncertainty and unsupported-claim cautions.
+    responseFormat:
+      type: json_object
+    jsonSchema:
+      type: object
+      properties:
+        subjects:
+          type: string
+        composition:
+          type: string
+        environmental_context:
+          type: string
+      required:
+        - subjects
+        - composition
+        - environmental_context
+      additionalProperties: false
+    output:
+      type: json
+      artifact: "{{source.basename}}.{{source.extension}}.json"
 ```
+
+The URL/LAN variant is [pipeline.batch-image-analysis-02.local.yaml](../pipelines/pipeline.batch-image-analysis-02.local.yaml).
+It demonstrates HTTPS image sources; replace its example URLs with addresses
+reachable from the machine running Induction.
 
 ## Combined multi-image comparison
 

@@ -23,3 +23,16 @@ are excluded.
 
 See the [CLI reference](CLI-REFERENCE.md#server-and-runtime-json-output) for
 related command options.
+
+The generated dashboard includes a **Fingerprints** view. It derives model-level
+telemetry from saved observations, including median load, prompt, and generation
+metrics; mean response-content metrics; thought density; output yield; cold-start
+sprint; throughput blend; and observed image/structured-output workload mix. It
+also includes interactive constellation charts, compound metric definitions,
+deterministic narrative insights, and a model lineup table.
+
+Fingerprint values are workload observations rather than controlled benchmarks.
+Missing telemetry is omitted from calculations. Models with fewer than five
+snapshots are marked as small-sample results; comparisons with at least ten
+snapshots receive the high-sample label. The model search field filters this view
+along with the rest of the dashboard.

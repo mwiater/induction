@@ -112,6 +112,18 @@ func RunBatch(ctx context.Context, pipeline *Pipeline, directory string, executo
 		}
 	} else if batch.ConfigIdentity != identity || batch.Pipeline != pipeline.Name {
 		return nil, fmt.Errorf("persisted batch %q does not match the current pipeline configuration", batch.ID)
+	} else if batch.Status == BatchCompletedWithErrors {
+		// A failed batch is an explicit retry boundary. Recreate every item so
+		// a rerun regenerates all pipeline artifacts, including artifacts from
+		// items that happened to succeed during the previous attempt.
+		now := time.Now().UTC()
+		batch.Status = BatchPending
+		batch.StartedAt = time.Time{}
+		batch.CompletedAt = time.Time{}
+		batch.Items = batch.Items[:0]
+		for _, config := range pipeline.Batch.Items {
+			batch.Items = append(batch.Items, BatchItem{ID: config.ID, BatchID: identity, Status: BatchItemPending, InputSet: config.InputSet, CreatedAt: now})
+		}
 	}
 
 	batch.Status = BatchValidating

@@ -69,8 +69,12 @@ type PipelineStep struct {
 // StepOutputConfig describes a persisted structured result. The legacy
 // responseFormat/jsonSchema fields remain supported for existing pipelines.
 type StepOutputConfig struct {
-	Type       string         `yaml:"type,omitempty" json:"type,omitempty"`
-	Artifact   string         `yaml:"artifact,omitempty" json:"artifact,omitempty"`
+	Type     string `yaml:"type,omitempty" json:"type,omitempty"`
+	Artifact string `yaml:"artifact,omitempty" json:"artifact,omitempty"`
+	// Path is an accepted alias for Artifact, matching the source-aware
+	// artifact path terminology. Artifact remains the canonical field used by
+	// the runtime and existing pipeline files.
+	Path       string         `yaml:"path,omitempty" json:"path,omitempty"`
 	Grammar    string         `yaml:"grammar,omitempty" json:"grammar,omitempty"`
 	JSONSchema map[string]any `yaml:"jsonSchema,omitempty" json:"jsonSchema,omitempty"`
 }
@@ -169,10 +173,10 @@ func LoadPipeline(path string) (*Pipeline, error) {
 		}
 	}
 	for i := range result.Steps {
-		if result.Steps[i].Image != "" && !filepath.IsAbs(result.Steps[i].Image) {
+		if result.Steps[i].Image != "" && !filepath.IsAbs(result.Steps[i].Image) && !IsRemoteSource(result.Steps[i].Image) {
 			result.Steps[i].Image = filepath.Join(base, result.Steps[i].Image)
 		}
-		if result.Steps[i].Document != "" && !filepath.IsAbs(result.Steps[i].Document) {
+		if result.Steps[i].Document != "" && !filepath.IsAbs(result.Steps[i].Document) && !IsRemoteSource(result.Steps[i].Document) {
 			result.Steps[i].Document = filepath.Join(base, result.Steps[i].Document)
 		}
 	}
@@ -258,6 +262,12 @@ func (p *Pipeline) Validate() error {
 			p.Steps[i].As = step.As
 		}
 		if step.Output != nil {
+			if step.Output.Artifact == "" {
+				step.Output.Artifact = step.Output.Path
+				p.Steps[i].Output = step.Output
+			} else if step.Output.Path != "" && step.Output.Path != step.Output.Artifact {
+				return fmt.Errorf("steps[%d].output.artifact and output.path must match when both are set", i)
+			}
 			typeName := strings.ToLower(strings.TrimSpace(step.Output.Type))
 			if typeName == "" {
 				typeName = "text"
@@ -380,7 +390,7 @@ func (p *Pipeline) Validate() error {
 			return fmt.Errorf("steps[%d].document is only allowed on the first pipeline step", i)
 		}
 		for label, path := range map[string]string{"image": step.Image, "document": step.Document} {
-			if path != "" {
+			if path != "" && !IsRemoteSource(path) {
 				if _, err := os.Stat(path); err != nil {
 					return fmt.Errorf("steps[%d].%s %q: %w", i, label, path, err)
 				}
@@ -401,7 +411,7 @@ func resolveInputSetPaths(input *InputSet, base string) {
 	set := input
 	for _, values := range [][]string{set.Files, set.Images, set.Documents} {
 		for i, value := range values {
-			if value != "" && !filepath.IsAbs(value) {
+			if value != "" && !filepath.IsAbs(value) && !IsRemoteSource(value) {
 				values[i] = filepath.Join(base, value)
 			}
 		}
@@ -464,6 +474,11 @@ func (s InputSet) Validate(label string) error {
 	for _, path := range append(append(append([]string{}, s.Files...), s.Images...), s.Documents...) {
 		if strings.TrimSpace(path) == "" {
 			return fmt.Errorf("%s contains an empty input path", label)
+		}
+		// HTTP(S) sources are validated when they are fetched by the
+		// attachment processor. They cannot be checked with os.Stat.
+		if IsRemoteSource(path) {
+			continue
 		}
 		info, err := os.Stat(path)
 		if err != nil {

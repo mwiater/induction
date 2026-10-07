@@ -153,6 +153,27 @@ func TestWriteDashboardHTMLEmbedsMetricsInTemplate(t *testing.T) {
 	}
 }
 
+func TestDashboardTemplateIncludesModelFingerprintsView(t *testing.T) {
+	contents, err := os.ReadFile(DefaultDashboardTemplatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := string(contents)
+	for _, marker := range []string{
+		`data-view="fingerprints"`,
+		`id="fingerprints"`,
+		`id="fingerprintConstellation"`,
+		`id="fingerprintStartupPrompt"`,
+		`buildFingerprintModelStats`,
+		`FINGERPRINT_SMALL_SAMPLE_THRESHOLD`,
+		`FINGERPRINT_HIGH_SAMPLE_THRESHOLD`,
+	} {
+		if !strings.Contains(output, marker) {
+			t.Fatalf("dashboard template is missing fingerprint marker %q", marker)
+		}
+	}
+}
+
 func TestDashboardMetricNormalizationAndConservativeCounters(t *testing.T) {
 	session := &ChatSession{ID: "00000000-0000-0000-0000-000000000003", Type: sessionTypeDirect, Model: "model", Snapshots: []*ModelSnapshot{{
 		ModelID:     "model",

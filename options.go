@@ -85,6 +85,12 @@ func WithPipeline(pipeline *Pipeline) ClientOption {
 	return func(o *ClientOptions) { o.pipeline = pipeline }
 }
 
+// WithArtifactPathContext supplies runtime source and batch metadata for
+// artifact path interpolation.
+func WithArtifactPathContext(context ArtifactPathContext) ClientOption {
+	return func(o *ClientOptions) { o.artifactPathContext = &context }
+}
+
 func withMCPTools(names ...string) ClientOption {
 	return func(o *ClientOptions) {
 		o.mcpTools = true

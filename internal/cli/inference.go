@@ -90,6 +90,14 @@ func runInference(ctx context.Context, f inferenceFlags, in io.Reader, out io.Wr
 						item.PipelineRunID = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 					}),
 				}
+				batchIndex := 0
+				for i := range pipeline.Batch.Items {
+					if pipeline.Batch.Items[i].ID == item.ID {
+						batchIndex = i
+						break
+					}
+				}
+				childOptions = append(childOptions, induction.WithArtifactPathContext(induction.ArtifactPathContext{InputSet: input, BatchID: item.ID, BatchIndex: batchIndex, IsBatch: true}))
 				pipelineReq := &induction.ChatRequest{Model: child.Steps[0].Model}
 				if pipelineUsesMCP(&child) && len(cfg.MCPServers) > 0 {
 					return runMCP(runCtx, pipelineReq, in, out, childOptions...)

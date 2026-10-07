@@ -10,9 +10,12 @@ induction --pipeline pipelines/pipeline.prompt-optimization-01.yaml
 Reusable fields include `output`, `transform`, `input`, `forEach`, and `as`.
 References support `{{ steps.name.output }}`, nested output fields,
 `{{ steps.name.items }}`, `{{ inputs.documents.chunks }}`, and the active
-fan-out item. Fan-out runs sequentially and preserves input order. Attachment
-paths are resolved relative to the pipeline file. Pipeline artifacts are stored
-under `.pipeline-artifacts/<run-id>/`.
+fan-out item. Fan-out runs sequentially and preserves input order. Local
+attachment paths are resolved relative to the pipeline file; image and PDF
+sources may also be HTTP or HTTPS URLs. Remote sources are downloaded with
+bounded size and timeout checks, then passed through the same validation and
+processing path as local files. Pipeline artifacts are stored under
+`.pipeline-artifacts/<run-id>/`.
 
 ## Authoring
 
@@ -27,8 +30,11 @@ steps:
     userPrompt: Summarize the supplied documents.
 ```
 
-Structured output uses `output.type: json` and requires an artifact path. Model
-steps may use `responseFormat`, `jsonSchema`, or a grammar. Transform steps use
+Structured output uses `output.type: json` and requires an artifact path. For a
+multi-step analysis whose intermediate summary is text, add a final formatter
+step with `responseFormat.type: json_object` and `output.type: json`; the final
+step can serialize the accumulated conversation into the artifact. Model steps
+may use `responseFormat`, `jsonSchema`, or a grammar. Transform steps use
 registered deterministic operations and receive values through `input`.
 
 ## Decision steps and conditional routing
@@ -141,8 +147,12 @@ steps:
 ```
 
 Batch state is persisted under `.batches/`, with child sessions under
-`.sessions/`. Completed items are skipped when a batch is resumed; invalid
-items are recorded while valid items continue by default.
+`.sessions/`. Completed items are skipped when an incomplete batch is resumed.
+Invalid and failed items are recorded while valid items continue by default. If
+the batch finishes with errors, rerunning the same pipeline starts a fresh
+attempt for every item, overwrites the persisted batch record, and regenerates
+all pipeline artifacts. A fully completed batch remains resumable without
+rerunning its completed items.
 
 ## Knowledge graph pipelines
 

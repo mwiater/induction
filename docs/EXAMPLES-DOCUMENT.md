@@ -72,7 +72,9 @@ Defines two independent batch items, each containing one PDF. Every item receive
 ### 2. Steps
 
 - **extract:** Identifies the subject, purpose, and key facts in the current batch document.
-- **summarize:** Produces a concise structured analysis for that same document.
+- **summarize:** Produces a concise analysis for that same document.
+- **return-json:** Converts the accumulated summary into valid JSON and saves
+  the per-document artifact.
 
 ### 3. Expected final output
 
@@ -101,7 +103,20 @@ steps:
   - name: summarize
     model: Qwen-3.5-9B-MTP-General-Q8_0
     userPrompt: Produce a concise structured analysis.
+  - name: return-json
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    systemPrompt: Return exactly one valid JSON object and no Markdown, commentary, or code fences.
+    userPrompt: Convert the preceding document summary into a concise valid JSON object. Preserve the summary data without adding unsupported claims.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: "{{source.basename}}.{{source.extension}}.json"
 ```
+
+The URL variant is [pipeline.batch-document-analysis-02.local.yaml](../pipelines/pipeline.batch-document-analysis-02.local.yaml).
+Replace its example HTTPS sources with URLs reachable from the machine running
+Induction.
 
 ## Combined multi-document analysis
 

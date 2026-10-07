@@ -10,18 +10,105 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // DefaultAttachmentMaxBytes is the default maximum attachment size, in bytes,
 // used by applications that need a conservative 10 MiB upload limit.
 const DefaultAttachmentMaxBytes int64 = 10 << 20
 
+const (
+	// RemoteImageMaxBytes and RemotePDFMaxBytes are deliberately separate so
+	// callers can use a larger limit for documents without weakening image
+	// validation.
+	RemoteImageMaxBytes int64 = 32 << 20
+	RemotePDFMaxBytes   int64 = 128 << 20
+	RemoteFetchTimeout        = 30 * time.Second
+)
+
+// DownloadedResource is the result of resolving an HTTP(S) attachment.
+// Bytes are bounded by the limit supplied to FetchRemoteSource.
+type DownloadedResource struct {
+	Bytes       []byte
+	ContentType string
+	FinalURL    string
+	Size        int64
+}
+
+// IsRemoteSource reports whether source is an HTTP or HTTPS URL. Other URL
+// schemes are intentionally left to the existing local-file behavior.
+func IsRemoteSource(source string) bool {
+	u, err := url.Parse(strings.TrimSpace(source))
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
+// FetchRemoteSource downloads one bounded HTTP(S) resource. It follows the
+// standard client redirect policy and permits private/LAN destinations.
+func FetchRemoteSource(source string, maxBytes int64) (*DownloadedResource, error) {
+	return fetchRemoteSource(source, maxBytes, RemoteFetchTimeout, nil)
+}
+
+func fetchRemoteSource(source string, maxBytes int64, timeout time.Duration, client *http.Client) (*DownloadedResource, error) {
+	if maxBytes <= 0 {
+		return nil, errors.New("remote attachment size limit must be positive")
+	}
+	if !IsRemoteSource(source) {
+		return nil, fmt.Errorf("unsupported remote source %q", source)
+	}
+	if timeout <= 0 {
+		timeout = RemoteFetchTimeout
+	}
+	if client == nil {
+		client = &http.Client{Timeout: timeout}
+	} else {
+		copy := *client
+		if copy.Timeout <= 0 {
+			copy.Timeout = timeout
+		}
+		client = &copy
+	}
+	req, err := http.NewRequest(http.MethodGet, source, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request for remote attachment %q: %w", source, err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch remote attachment %q: %w", source, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("fetch remote attachment %q returned HTTP %d", source, resp.StatusCode)
+	}
+	if resp.ContentLength > maxBytes {
+		return nil, fmt.Errorf("remote attachment %q exceeds maximum size of %d MiB", source, maxBytes/(1<<20))
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read remote attachment %q: %w", source, err)
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, fmt.Errorf("remote attachment %q exceeds maximum size of %d MiB", source, maxBytes/(1<<20))
+	}
+	if len(data) == 0 {
+		return nil, fmt.Errorf("remote attachment %q is empty", source)
+	}
+	return &DownloadedResource{Bytes: data, ContentType: resp.Header.Get("Content-Type"), FinalURL: resp.Request.URL.String(), Size: int64(len(data))}, nil
+}
+
 // ImageDataURL reads a local image and returns an OpenAI-compatible data URL.
 // Empty, unsupported, and oversized files are rejected before they are sent.
 func ImageDataURL(path string, maxBytes int64) (string, error) {
+	if IsRemoteSource(path) {
+		resource, err := FetchRemoteSource(path, maxBytes)
+		if err != nil {
+			return "", fmt.Errorf("fetch image %q: %w", path, err)
+		}
+		return attachmentBytesDataURL(resource.Bytes, imageFilename(path), maxBytes, true)
+	}
 	return attachmentDataURL(path, maxBytes, true)
 }
 
@@ -29,6 +116,14 @@ func ImageDataURL(path string, maxBytes int64) (string, error) {
 // filename is retained separately because some servers require it in the file
 // content part.
 func FileDataURL(path string, maxBytes int64) (dataURL string, filename string, err error) {
+	if IsRemoteSource(path) {
+		resource, fetchErr := FetchRemoteSource(path, maxBytes)
+		if fetchErr != nil {
+			return "", "", fmt.Errorf("fetch document %q: %w", path, fetchErr)
+		}
+		dataURL, err = attachmentBytesDataURL(resource.Bytes, imageFilename(path), maxBytes, false)
+		return dataURL, imageFilename(path), err
+	}
 	dataURL, err = attachmentDataURL(path, maxBytes, false)
 	if err != nil {
 		return "", "", err
@@ -59,10 +154,23 @@ func attachmentDataURL(path string, maxBytes int64, imageOnly bool) (string, err
 	if err != nil {
 		return "", fmt.Errorf("read attachment: %w", err)
 	}
+	return attachmentBytesDataURL(data, path, maxBytes, imageOnly)
+}
+
+func attachmentBytesDataURL(data []byte, name string, maxBytes int64, imageOnly bool) (string, error) {
+	if maxBytes <= 0 {
+		return "", errors.New("attachment size limit must be positive")
+	}
+	if len(data) == 0 {
+		return "", errors.New("attachment is empty")
+	}
+	if int64(len(data)) > maxBytes {
+		return "", fmt.Errorf("attachment is too large: %d bytes exceeds %d-byte limit", len(data), maxBytes)
+	}
 	mimeType := http.DetectContentType(data)
 	// DetectContentType reports SVG as text/xml; the extension is safe to use
 	// here because SVG is an explicitly supported image format.
-	if strings.EqualFold(filepath.Ext(path), ".svg") && strings.Contains(strings.ToLower(string(data)), "<svg") {
+	if strings.EqualFold(filepath.Ext(name), ".svg") && strings.Contains(strings.ToLower(string(data)), "<svg") {
 		mimeType = "image/svg+xml"
 	}
 	if imageOnly && !strings.HasPrefix(mimeType, "image/") {
@@ -72,6 +180,52 @@ func attachmentDataURL(path string, maxBytes int64, imageOnly bool) (string, err
 		return "", fmt.Errorf("unsupported document MIME type %q", mimeType)
 	}
 	return "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(data), nil
+}
+
+func imageFilename(source string) string {
+	if IsRemoteSource(source) {
+		if parsed, err := url.Parse(source); err == nil {
+			name := filepath.Base(parsed.Path)
+			if name != "." && name != "/" && name != "" {
+				return name
+			}
+		}
+		return "attachment"
+	}
+	return filepath.Base(source)
+}
+
+func attachmentBytes(source string, maxBytes int64) ([]byte, error) {
+	if IsRemoteSource(source) {
+		resource, err := FetchRemoteSource(source, maxBytes)
+		if err != nil {
+			return nil, err
+		}
+		return resource.Bytes, nil
+	}
+	if maxBytes <= 0 {
+		return nil, errors.New("attachment size limit must be positive")
+	}
+	file, err := os.Open(source)
+	if err != nil {
+		return nil, fmt.Errorf("open attachment: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat attachment: %w", err)
+	}
+	if info.Size() == 0 {
+		return nil, errors.New("attachment is empty")
+	}
+	if info.Size() > maxBytes {
+		return nil, fmt.Errorf("attachment is too large: %d bytes exceeds %d-byte limit", info.Size(), maxBytes)
+	}
+	data, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read attachment: %w", err)
+	}
+	return data, nil
 }
 
 // UploadFile uploads a document through the OpenAI-compatible /v1/files API.

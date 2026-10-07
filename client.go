@@ -44,9 +44,10 @@ type ClientOptions struct {
 	// inferenceCompleted receives the completed UI turn and visible content.
 	inferenceCompleted func(*ModelSnapshot, string)
 	// pipeline drives sequential turns through the console UI.
-	pipeline        *Pipeline
-	resourceBudget  *ResourceBudgetConfig
-	progressOverlay *liveMetricsOverlay
+	pipeline            *Pipeline
+	artifactPathContext *ArtifactPathContext
+	resourceBudget      *ResourceBudgetConfig
+	progressOverlay     *liveMetricsOverlay
 	// mcpTools marks snapshots produced by the configured MCP tool loop.
 	mcpTools               bool
 	mcpToolNames           []string

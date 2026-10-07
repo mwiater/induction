@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -21,7 +20,7 @@ func preparePipelineRuntimeInputs(input *InputSet) (map[string]any, error) {
 	}
 	chunks := make([]any, 0)
 	for _, path := range input.Documents {
-		data, err := os.ReadFile(path)
+		data, err := attachmentBytes(path, DefaultAttachmentMaxBytes)
 		if err != nil {
 			return nil, fmt.Errorf("read document %q: %w", path, err)
 		}

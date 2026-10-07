@@ -14,3 +14,12 @@ steps:
   - name: summarize
     model: Qwen-3.5-9B-MTP-General-Q8_0
     userPrompt: Produce a concise structured analysis.
+  - name: return-json
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    systemPrompt: Return exactly one valid JSON object and no Markdown, commentary, or code fences.
+    userPrompt: Convert the preceding document summary into a concise valid JSON object. Preserve the summary data without adding unsupported claims.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: "{{source.basename}}.{{source.extension}}.json"

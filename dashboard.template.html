@@ -681,6 +681,37 @@
     .ex1-stage svg:hover [data-ex1-model] { opacity:.45; }
     .ex1-stage svg [data-ex1-model]:hover { opacity:1; filter:drop-shadow(0 0 11px rgba(190,158,255,.55)); }
     .ex1-insight { color:var(--pastel-gold); font-weight:750; }
+
+    .fingerprint-dataset-strip { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; padding:.85rem 1rem; border:1px solid color-mix(in srgb, var(--pastel-teal) 35%, var(--border)); border-radius:14px; background:linear-gradient(110deg, color-mix(in srgb, var(--pastel-teal) 10%, transparent), color-mix(in srgb, var(--pastel-purple) 8%, transparent)); }
+    .fingerprint-strip-label { color:var(--pastel-teal); font-size:.7rem; font-weight:800; letter-spacing:.12em; }
+    .fingerprint-strip-meta { color:var(--text); font-size:.82rem; font-weight:700; }
+    .fingerprint-strip-badges { display:flex; flex-wrap:wrap; gap:.35rem; }
+    .fingerprint-tag { display:inline-flex; align-items:center; gap:.3rem; padding:.25rem .5rem; border-radius:999px; color:var(--muted); background:color-mix(in srgb, var(--pastel-purple) 10%, transparent); border:1px solid var(--border); font-size:.68rem; font-weight:800; }
+    .fingerprint-insight-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.75rem; }
+    .fingerprint-insight-card, .fingerprint-compound-card, .fingerprint-story-card { min-width:0; padding:1rem; border:1px solid var(--border); border-radius:14px; background:linear-gradient(145deg, color-mix(in srgb, var(--fingerprint-accent, var(--pastel-purple)) 13%, var(--panel)), var(--panel)); box-shadow:0 10px 30px color-mix(in srgb, var(--fingerprint-accent, var(--pastel-purple)) 10%, transparent); }
+    .fingerprint-card-icon { color:var(--fingerprint-accent,var(--pastel-purple)); font-size:1.35rem; margin-bottom:.65rem; }
+    .fingerprint-card-title { color:var(--fingerprint-accent,var(--text)); font-size:.76rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+    .fingerprint-card-model { margin-top:.35rem; color:var(--text); font-weight:800; line-height:1.2; overflow-wrap:anywhere; }
+    .fingerprint-card-value { margin-top:.75rem; color:var(--text); font:700 1rem "JetBrains Mono",monospace; }
+    .fingerprint-card-meta, .fingerprint-card-sub { color:var(--muted); font-size:.73rem; line-height:1.45; }
+    .fingerprint-warning { display:inline-block; margin-top:.5rem; padding:.18rem .4rem; border:1px solid color-mix(in srgb, var(--pastel-gold) 55%, transparent); border-radius:999px; color:var(--pastel-gold); font-size:.68rem; font-weight:800; }
+    .fingerprint-chart-card { padding:1rem; height:100%; }
+    .fingerprint-canvas-wrap { position:relative; height:440px; }
+    .fingerprint-canvas { display:block; width:100%; height:100%; border-radius:12px; background:color-mix(in srgb, var(--pastel-purple) 3%, transparent); outline:none; }
+    .fingerprint-canvas:focus-visible { box-shadow:0 0 0 3px color-mix(in srgb, var(--pastel-gold) 65%, transparent); }
+    .fingerprint-compound-grid, .fingerprint-insight-story-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.75rem; }
+    .fingerprint-formula { margin-top:.75rem; padding:.55rem; border:1px solid color-mix(in srgb, var(--fingerprint-accent,var(--pastel-purple)) 35%, var(--border)); border-radius:10px; color:var(--text); background:color-mix(in srgb, var(--fingerprint-accent,var(--pastel-purple)) 8%, transparent); font:600 .75rem "JetBrains Mono",monospace; text-align:center; }
+    .fingerprint-story-card { font-size:.8rem; line-height:1.45; }
+    .fingerprint-story-number { color:var(--fingerprint-accent,var(--pastel-purple)); font:800 1.5rem "JetBrains Mono",monospace; }
+    .fingerprint-table-wrap { overflow-x:auto; }
+    .fingerprint-table { min-width:1080px; }
+    .fingerprint-table th { cursor:default; }
+    .fingerprint-mini-metric { min-width:100px; }
+    .fingerprint-mini-track { display:block; height:5px; margin-top:.28rem; overflow:hidden; border-radius:999px; background:color-mix(in srgb, var(--muted) 18%, transparent); }
+    .fingerprint-mini-fill { display:block; height:100%; border-radius:inherit; background:var(--fingerprint-accent,var(--pastel-purple)); }
+    .fingerprint-methodology { padding:.8rem 0 1.2rem; color:var(--muted); font-size:.75rem; line-height:1.55; }
+    @media (max-width:1200px) { .fingerprint-insight-grid,.fingerprint-compound-grid,.fingerprint-insight-story-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    @media (max-width:700px) { .fingerprint-insight-grid,.fingerprint-compound-grid,.fingerprint-insight-story-grid { grid-template-columns:1fr; } .fingerprint-canvas-wrap { height:330px; } }
   </style>
 </head>
 <body>
@@ -709,6 +740,7 @@
           <a class="nav-link" href="#performance" data-view="performance"><i class="fa-solid fa-gauge-high"></i> Performance</a>
           <a class="nav-link" href="#behavior" data-view="behavior"><i class="fa-solid fa-brain"></i> Response behavior</a>
           <a class="nav-link" href="#models" data-view="models"><i class="fa-solid fa-table-list"></i> Models</a>
+          <a class="nav-link" href="#fingerprints" data-view="fingerprints"><i class="fa-solid fa-fingerprint"></i> Fingerprints</a>
           <a class="nav-link" href="#experimental-01" data-view="experimental-01"><i class="fa-solid fa-wand-magic-sparkles"></i> Experimental 01</a>
           <a class="nav-link" href="#variables" data-view="variables"><i class="fa-solid fa-list"></i> Variables</a>
         </div>
@@ -1046,6 +1078,29 @@
           <div id="experimental01Selection" class="small-note mt-2" aria-live="polite"></div>
         </div>
         <div class="panel experimental01-creative-card p-3 p-lg-4"><div class="section-title mb-1">The Capability Genome</div><div class="experiment-caption mb-2">A double helix turns context configuration, reasoning, modality, tools, and multi-turn behavior into a readable operating genome.</div><canvas id="experimental01Genome" class="experimental01-creative-canvas" tabindex="0"></canvas></div>
+      </section>
+
+      <section id="fingerprints" class="dashboard-view mb-4">
+        <div class="panel view-header p-3 p-lg-4 mb-3">
+          <div class="d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3">
+            <div>
+              <div class="eyebrow mb-2">Model telemetry</div>
+              <h1 class="hero-title mb-2">Model Fingerprints</h1>
+              <p class="text-muted-custom mb-0" style="max-width:850px">Compound metrics reveal how each model behaves across startup cost, prompt ingestion, generation speed, reasoning density, output yield, and workload mix.</p>
+            </div>
+            <div id="fingerprintHeaderMeta" class="text-end small-note"></div>
+          </div>
+        </div>
+        <div id="fingerprintDatasetStrip" class="fingerprint-dataset-strip mb-3"></div>
+        <div id="fingerprintInsightCards" class="fingerprint-insight-grid mb-3"></div>
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-xxl-8"><div class="panel fingerprint-chart-card"><div class="section-title mb-1"><i class="fa-solid fa-atom me-2" style="color:var(--pastel-teal)"></i>Fingerprint Constellation</div><div class="section-sub mb-2">Generation speed vs. thought density · bubble size = snapshot count</div><div class="fingerprint-canvas-wrap"><canvas id="fingerprintConstellation" class="fingerprint-canvas" tabindex="0" aria-label="Model fingerprint constellation comparing generation throughput and reasoning density."></canvas></div><p id="fingerprintConstellationSummary" class="visually-hidden" aria-live="polite"></p></div></div>
+          <div class="col-12 col-xxl-4"><div class="panel fingerprint-chart-card"><div class="section-title mb-1"><i class="fa-solid fa-rocket me-2" style="color:var(--pastel-gold)"></i>Startup vs Prompt Ingestion</div><div class="section-sub mb-2">Cold-start load time vs. prompt throughput</div><div class="fingerprint-canvas-wrap"><canvas id="fingerprintStartupPrompt" class="fingerprint-canvas" tabindex="0" aria-label="Scatter plot comparing model cold-start load time and prompt ingestion throughput."></canvas></div><p id="fingerprintStartupPromptSummary" class="visually-hidden" aria-live="polite"></p><div class="small-note mt-2">Models that feel fast once loaded may still impose large startup penalties in bursty workflows.</div></div></div>
+        </div>
+        <div class="panel p-3 p-lg-4 mb-3"><div class="d-flex align-items-baseline gap-2 mb-3"><div class="section-title">Compound Metrics</div><div class="section-sub">Derived measures that reveal different strengths</div></div><div id="fingerprintCompoundMetrics" class="fingerprint-compound-grid"></div></div>
+        <div class="panel p-3 p-lg-4 mb-3"><div class="d-flex align-items-baseline gap-2 mb-3"><div class="section-title">Unexpected Insights</div><div class="section-sub">Deterministic takeaways from observed telemetry</div></div><div id="fingerprintUnexpectedInsights" class="fingerprint-insight-story-grid"></div></div>
+        <div class="panel p-3 p-lg-4 mb-3"><div class="d-flex align-items-baseline gap-2 mb-3"><div class="section-title">Model Lineup</div><div class="section-sub">All currently filtered models at a glance</div></div><div id="fingerprintModelLineup" class="fingerprint-table-wrap"></div></div>
+        <div class="fingerprint-methodology">Observed workload telemetry, not a controlled benchmark. Workload mix, prompt size, response format, tool use, modality, and session structure may differ between models. Compound metrics are derived by Induction from saved dashboard observations.</div>
       </section>
 
       <section id="experimental-01" class="dashboard-view mb-4">
@@ -2380,6 +2435,7 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
     });
 
     renderTable();
+    renderFingerprintView();
   }
 
   function outcomeBadge(o) {
@@ -2450,6 +2506,149 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
     $("#modelTableBody").html(rows);
     $("#emptyState").toggleClass("d-none", filteredModels.length > 0);
   }
+
+  const FINGERPRINT_SMALL_SAMPLE_THRESHOLD = 5;
+  const FINGERPRINT_HIGH_SAMPLE_THRESHOLD = 10;
+  const FINGERPRINT_STRUCTURED_OUTPUT_TYPES = new Set(["json", "json_schema", "grammar"]);
+  const fingerprintState = {stats: [], selectedModelId: null, points: {constellation: [], startup: []}, bound: false};
+
+  function fingerprintFinite(value) {
+    const number = Number(value);
+    return value !== null && value !== undefined && value !== "" && Number.isFinite(number) ? number : null;
+  }
+
+  function fingerprintMean(values) {
+    const clean = values.map(fingerprintFinite).filter(value => value !== null);
+    return clean.length ? clean.reduce((sum, value) => sum + value, 0) / clean.length : null;
+  }
+
+  function fingerprintMedian(values) {
+    const clean = values.map(fingerprintFinite).filter(value => value !== null).sort((a, b) => a - b);
+    if (!clean.length) return null;
+    const middle = Math.floor(clean.length / 2);
+    return clean.length % 2 ? clean[middle] : (clean[middle - 1] + clean[middle]) / 2;
+  }
+
+  function fingerprintDisplayName(modelId) {
+    const value = String(modelId || "—");
+    const compact = fmt.shortModel(value);
+    return compact.length > 25 ? `${compact.slice(0, 22)}…` : compact;
+  }
+
+  function fingerprintColorForModel(modelId, index) {
+    const palette = ["#91d4cf", "#a79be0", "#e5c78f", "#dda8b5", "#a6bde0", "#a9d4bc", "#d7b3cb"];
+    let hash = 0;
+    String(modelId || index).split("").forEach(character => { hash = (hash * 31 + character.charCodeAt(0)) >>> 0; });
+    return palette[(hash + index) % palette.length];
+  }
+
+  function buildFingerprintModelStats(selectedModels) {
+    const rawById = new Map((DASHBOARD_DATA.models || []).map(model => [model.model_id, model]));
+    const stats = selectedModels.map((model, index) => {
+      const sourceModel = rawById.get(model.model_id) || model;
+      const observations = Array.isArray(sourceModel.observations) ? sourceModel.observations : [];
+      const loads = [], promptRates = [], generationRates = [], visibleWords = [], reasoningWords = [], promptTokens = [], thoughtRatios = [];
+      let imageInputs = 0, structuredOutputs = 0;
+      observations.forEach(observation => {
+        const load = fingerprintFinite(observation.load_time_ms); if (load !== null) loads.push(load / 1000);
+        const promptRate = fingerprintFinite(observation.performance?.prompt_tokens_per_second); if (promptRate !== null) promptRates.push(promptRate);
+        const generationRate = fingerprintFinite(observation.performance?.generation_tokens_per_second); if (generationRate !== null) generationRates.push(generationRate);
+        const visible = fingerprintFinite(observation.response?.visible_words); if (visible !== null) visibleWords.push(visible);
+        const reasoning = fingerprintFinite(observation.response?.reasoning_words); if (reasoning !== null) reasoningWords.push(reasoning);
+        const prompt = fingerprintFinite(observation.tokens?.prompt); if (prompt !== null) promptTokens.push(prompt);
+        const visibleChars = fingerprintFinite(observation.response?.visible_characters);
+        const reasoningChars = fingerprintFinite(observation.response?.reasoning_characters);
+        if (visibleChars !== null && reasoningChars !== null && visibleChars + reasoningChars > 0) thoughtRatios.push(reasoningChars / (visibleChars + reasoningChars));
+        if (observation.input_type === "image") imageInputs++;
+        if (FINGERPRINT_STRUCTURED_OUTPUT_TYPES.has(String(observation.output_type || "").toLowerCase())) structuredOutputs++;
+      });
+      const medianLoadSeconds = fingerprintMedian(loads);
+      const medianPromptTokensPerSecond = fingerprintMedian(promptRates);
+      const medianGenerationTokensPerSecond = fingerprintMedian(generationRates);
+      const averageVisibleWords = fingerprintMean(visibleWords);
+      const averageReasoningWords = fingerprintMean(reasoningWords);
+      const averagePromptTokens = fingerprintMean(promptTokens);
+      const thoughtDensity = fingerprintMean(thoughtRatios);
+      const outputYield = averageVisibleWords !== null && averagePromptTokens > 0 ? averageVisibleWords / (averagePromptTokens / 1000) : null;
+      const coldStartSprint = medianGenerationTokensPerSecond !== null && medianLoadSeconds > 0 ? medianGenerationTokensPerSecond / medianLoadSeconds : null;
+      const throughputBlend = medianPromptTokensPerSecond !== null && medianGenerationTokensPerSecond !== null && medianPromptTokensPerSecond >= 0 && medianGenerationTokensPerSecond >= 0 ? Math.sqrt(medianPromptTokensPerSecond * medianGenerationTokensPerSecond) : null;
+      const snapshotCount = fingerprintFinite(model.snapshot_count) ?? observations.length;
+      return {modelId: model.model_id, displayName: fingerprintDisplayName(model.model_id), sessionCount: fingerprintFinite(model.session_count) ?? 0, snapshotCount, medianLoadSeconds, medianPromptTokensPerSecond, medianGenerationTokensPerSecond, averageVisibleWords, averageReasoningWords, averagePromptTokens, thoughtDensity, outputYield, coldStartSprint, throughputBlend, imageWorkloadPercent: observations.length ? imageInputs / observations.length * 100 : null, structuredOutputPercent: observations.length ? structuredOutputs / observations.length * 100 : null, smallSample: snapshotCount < FINGERPRINT_SMALL_SAMPLE_THRESHOLD, color: fingerprintColorForModel(model.model_id, index), sourceModel};
+    });
+    const names = new Map();
+    stats.forEach(stat => { const count = names.get(stat.displayName) || 0; names.set(stat.displayName, count + 1); if (count) stat.displayName = `${stat.displayName} · ${stat.modelId.slice(-Math.min(12, stat.modelId.length))}`; });
+    return stats;
+  }
+
+  function fingerprintFormat(value, digits = 1, suffix = "") { return value === null || !Number.isFinite(Number(value)) ? "—" : `${Number(value).toLocaleString(undefined, {maximumFractionDigits: digits})}${suffix}`; }
+  function fingerprintPercent(value) { return fingerprintFormat(value !== null && Math.abs(Number(value)) <= 1 ? Number(value) * 100 : value, 1, "%"); }
+  function fingerprintSeconds(value) { return fingerprintFormat(value, 1, "s"); }
+  function fingerprintRate(value) { return fingerprintFormat(value, 1, " tok/s"); }
+  function fingerprintNormalize(value, values, inverse = false) { const clean = values.filter(value => value !== null && Number.isFinite(value)); if (value === null || !clean.length) return null; const min = Math.min(...clean), max = Math.max(...clean); if (min === max) return 1; const normalized = (value - min) / (max - min); return inverse ? 1 - normalized : normalized; }
+  function fingerprintFleetMedian(stats, accessor) { return fingerprintMedian(stats.map(accessor)); }
+  function fingerprintTags(stat, fleet) { const tags = []; if (stat.thoughtDensity !== null && stat.thoughtDensity >= .65 && stat.structuredOutputPercent >= 20) tags.push("Structured Deliberator"); if (stat.imageWorkloadPercent >= 50) tags.push("Vision-Heavy"); if (stat.thoughtDensity !== null && stat.thoughtDensity <= .15) tags.push("Direct Responder"); if (stat.medianGenerationTokensPerSecond >= fingerprintFleetMedian(fleet, item => item.medianGenerationTokensPerSecond) && stat.medianPromptTokensPerSecond >= fingerprintFleetMedian(fleet, item => item.medianPromptTokensPerSecond) && stat.medianLoadSeconds <= fingerprintFleetMedian(fleet, item => item.medianLoadSeconds)) tags.push("Balanced Speed"); return tags; }
+
+  function buildFingerprintHeroInsights(stats) {
+    const cards = [];
+    const complete = stats.filter(stat => stat.medianLoadSeconds !== null && stat.medianPromptTokensPerSecond !== null && stat.medianGenerationTokensPerSecond !== null && stat.outputYield !== null);
+    if (complete.length) {
+      const loads = complete.map(stat => stat.medianLoadSeconds), prompts = complete.map(stat => stat.medianPromptTokensPerSecond), generations = complete.map(stat => stat.medianGenerationTokensPerSecond), yields = complete.map(stat => stat.outputYield);
+      const winner = complete.map(stat => ({stat, score: [fingerprintNormalize(stat.medianLoadSeconds, loads, true), fingerprintNormalize(stat.medianPromptTokensPerSecond, prompts), fingerprintNormalize(stat.medianGenerationTokensPerSecond, generations), fingerprintNormalize(stat.outputYield, yields)].reduce((sum, value) => sum + value, 0) / 4})).sort((a, b) => b.score - a.score || a.stat.modelId.localeCompare(b.stat.modelId))[0].stat;
+      cards.push({title:"Balanced Throughput", icon:"fa-scale-balanced", accent:"#e5c78f", stat:winner, value:`${fingerprintSeconds(winner.medianLoadSeconds)} load`, meta:`${fingerprintRate(winner.medianPromptTokensPerSecond)} prompt · ${fingerprintRate(winner.medianGenerationTokensPerSecond)} generation`, sub:`${fingerprintPercent(winner.thoughtDensity)} thought density`});
+    }
+    const addMax = (title, icon, accent, accessor, value, meta) => { const eligible = stats.filter(stat => accessor(stat) !== null).sort((a, b) => accessor(b) - accessor(a) || a.modelId.localeCompare(b.modelId)); if (eligible.length) { const stat = eligible[0]; cards.push({title, icon, accent, stat, value:value(stat), meta:meta(stat), sub:`${fmt.n(stat.snapshotCount,0)} snapshots`}); } };
+    addMax("Cold-Start Sprinter", "fa-bolt", "#91d4cf", stat => stat.coldStartSprint, stat => `${fingerprintSeconds(stat.medianLoadSeconds)} load`, stat => `${fingerprintFormat(stat.coldStartSprint,1)} sprint index`);
+    addMax("Deepest Deliberator", "fa-brain", "#a79be0", stat => stat.thoughtDensity, stat => fingerprintPercent(stat.thoughtDensity === null ? null : stat.thoughtDensity * 100), stat => `${fingerprintPercent(stat.structuredOutputPercent)} structured output`);
+    addMax("Highest Answer Yield", "fa-comment-dots", "#a9d4bc", stat => stat.outputYield, stat => `${fingerprintFormat(stat.outputYield,1)} words / 1k`, stat => stat.smallSample ? `Small sample · n=${stat.snapshotCount}` : `${fmt.n(stat.snapshotCount,0)} snapshots`);
+    const highSample = stats.filter(stat => stat.snapshotCount >= FINGERPRINT_HIGH_SAMPLE_THRESHOLD && stat.outputYield !== null).sort((a, b) => b.outputYield - a.outputYield || a.modelId.localeCompare(b.modelId));
+    if (highSample.length) { const stat = highSample[0]; cards.push({title:"High-Sample Answer Yield", icon:"fa-star", accent:"#dda8b5", stat, value:`${fingerprintFormat(stat.outputYield,1)} words / 1k`, meta:`${fmt.n(stat.snapshotCount,0)} snapshots`, sub:"high-sample comparison"}); }
+    return cards;
+  }
+
+  function renderFingerprintInsightCards(stats) {
+    const container = document.getElementById("fingerprintInsightCards"); if (!container) return;
+    const cards = buildFingerprintHeroInsights(stats);
+    container.innerHTML = cards.length ? cards.map(card => `<article class="fingerprint-insight-card" style="--fingerprint-accent:${card.accent}" title="${fmt.esc(card.stat.modelId)}"><div class="fingerprint-card-icon"><i class="fa-solid ${card.icon}"></i></div><div class="fingerprint-card-title">${card.title}</div><div class="fingerprint-card-model">${fmt.esc(card.stat.displayName)}</div><div class="fingerprint-card-value">${card.value}</div><div class="fingerprint-card-meta">${card.meta}</div><div class="fingerprint-card-sub">${card.sub}</div>${card.stat.smallSample ? `<span class="fingerprint-warning">Small sample · n=${card.stat.snapshotCount}</span>` : ""}</article>`).join("") : `<div class="small-note">No fingerprint metrics are available for the current selection.</div>`;
+  }
+
+  function renderFingerprintDatasetStrip(stats) {
+    const source = DASHBOARD_DATA.source || {}, observations = stats.flatMap(stat => Array.isArray(stat.sourceModel.observations) ? stat.sourceModel.observations : []);
+    const tags = []; if (observations.some(observation => observation.input_type === "text")) tags.push("Text"); if (observations.some(observation => observation.input_type === "image")) tags.push("Vision"); if (observations.some(observation => FINGERPRINT_STRUCTURED_OUTPUT_TYPES.has(String(observation.output_type || "").toLowerCase()))) tags.push("Structured"); if (observations.some(observation => observation.conversation?.has_tool_calls || observation.tools?.mcp_tools_used || observation.tools?.application_tools_used)) tags.push("Tools"); if (observations.some(observation => observation.session_type === "pipeline")) tags.push("Pipelines"); if (observations.some(observation => observation.session_type && observation.session_type !== "pipeline")) tags.push("Direct");
+    $("#fingerprintHeaderMeta").html(`${fmt.n(source.sessions_loaded,0)} sessions<br>${fmt.n(source.snapshots_included,0)} snapshots · ${fmt.n(source.models,0)} models`);
+    $("#fingerprintDatasetStrip").html(`<div><div class="fingerprint-strip-label">REAL-WORLD TRACE DATA</div><div class="fingerprint-strip-meta">${fmt.n(source.sessions_loaded,0)} sessions · ${fmt.n(source.snapshots_included,0)} snapshots · ${fmt.n(source.models,0)} models</div></div><div class="fingerprint-strip-badges">${tags.map(tag => `<span class="fingerprint-tag">${fmt.esc(tag)}</span>`).join("")}</div>`);
+  }
+
+  function fingerprintPrepareCanvas(canvas) { const rect = canvas.getBoundingClientRect(), ratio = window.devicePixelRatio || 1; canvas.width = Math.max(1, Math.round(rect.width * ratio)); canvas.height = Math.max(1, Math.round(rect.height * ratio)); const context = canvas.getContext("2d"); context.setTransform(ratio, 0, 0, ratio, 0, 0); return {context, width:rect.width, height:rect.height}; }
+  function fingerprintTheme() { const styles = getComputedStyle(document.documentElement); return {text:styles.getPropertyValue("--text").trim() || "#f2f5f8", muted:styles.getPropertyValue("--muted").trim() || "#8e9aaa", border:styles.getPropertyValue("--border").trim() || "rgba(255,255,255,.08)"}; }
+  function fingerprintScatter(canvas, stats, kind) {
+    if (!canvas) return;
+    const eligible = kind === "constellation" ? stats.filter(stat => stat.medianGenerationTokensPerSecond !== null && stat.thoughtDensity !== null) : stats.filter(stat => stat.medianLoadSeconds !== null && stat.medianPromptTokensPerSecond !== null);
+    const {context, width, height} = fingerprintPrepareCanvas(canvas), theme = fingerprintTheme(), margin = {top:24,right:22,bottom:48,left:58};
+    context.clearRect(0,0,width,height); context.fillStyle = "rgba(140,123,255,.025)"; context.fillRect(0,0,width,height);
+    const xValues = eligible.map(stat => kind === "constellation" ? stat.medianGenerationTokensPerSecond : stat.medianLoadSeconds), yValues = eligible.map(stat => kind === "constellation" ? stat.thoughtDensity * 100 : stat.medianPromptTokensPerSecond);
+    const xMax = Math.max(1, ...xValues) * 1.12, yMax = kind === "constellation" ? 100 : Math.max(1, ...yValues) * 1.12, plotWidth = Math.max(1,width-margin.left-margin.right), plotHeight = Math.max(1,height-margin.top-margin.bottom);
+    const xAt = value => margin.left + value / xMax * plotWidth, yAt = value => margin.top + plotHeight - value / yMax * plotHeight;
+    context.strokeStyle = theme.border; context.fillStyle = theme.muted; context.font = "10px Inter, sans-serif"; context.textAlign = "center";
+    for (let tick=0; tick<=4; tick++) { const x=margin.left+plotWidth*tick/4, y=margin.top+plotHeight*tick/4; context.beginPath(); context.moveTo(x,margin.top); context.lineTo(x,margin.top+plotHeight); context.moveTo(margin.left,y); context.lineTo(margin.left+plotWidth,y); context.stroke(); context.fillText(fingerprintFormat(xMax*tick/4, kind === "constellation" ? 0 : 0), x, height-20); context.textAlign="right"; context.fillText(fingerprintFormat(yMax*(4-tick)/4, kind === "constellation" ? 0 : 0), margin.left-8, y+3); context.textAlign="center"; }
+    context.strokeStyle = theme.muted; context.beginPath(); context.moveTo(margin.left,margin.top); context.lineTo(margin.left,margin.top+plotHeight); context.lineTo(margin.left+plotWidth,margin.top+plotHeight); context.stroke();
+    context.save(); context.translate(15, margin.top+plotHeight/2); context.rotate(-Math.PI/2); context.fillStyle=theme.text; context.fillText(kind === "constellation" ? "Thought density (% of output)" : "Prompt throughput (tok/s)",0,0); context.restore(); context.fillStyle=theme.text; context.fillText(kind === "constellation" ? "Median generation speed (tok/s)" : "Median cold-start load time (sec)", margin.left+plotWidth/2, height-2);
+    const points = eligible.map(stat => { const x=xAt(kind === "constellation" ? stat.medianGenerationTokensPerSecond : stat.medianLoadSeconds), y=yAt(kind === "constellation" ? stat.thoughtDensity*100 : stat.medianPromptTokensPerSecond), radius=Math.max(5,Math.min(18,5+Math.sqrt(Math.max(0,stat.snapshotCount))*1.5)); const selected=fingerprintState.selectedModelId===stat.modelId; context.globalAlpha=selected?.95:.82; context.fillStyle=stat.color; context.beginPath(); context.arc(x,y,radius,0,Math.PI*2); context.fill(); context.globalAlpha=1; if(selected){context.strokeStyle=theme.text;context.lineWidth=2;context.stroke();} if(selected || eligible.length<=12){context.fillStyle=theme.text;context.font="10px Inter, sans-serif";context.textAlign="left";context.fillText(stat.displayName,x+radius+4,y+3);} return {modelId:stat.modelId,x,y,radius,stat}; });
+    fingerprintState.points[kind]=points;
+    if(kind === "constellation") $("#fingerprintConstellationSummary").text(fingerprintState.selectedModelId ? fingerprintPointSummary(points.find(point => point.modelId===fingerprintState.selectedModelId)?.stat) : "Use arrow keys or click a model point to inspect its fingerprint."); else $("#fingerprintStartupPromptSummary").text(fingerprintState.selectedModelId ? fingerprintPointSummary(points.find(point => point.modelId===fingerprintState.selectedModelId)?.stat) : "Use arrow keys or click a model point to inspect startup and prompt throughput.");
+  }
+  function fingerprintPointSummary(stat) { return stat ? `${stat.modelId}. Generation ${fingerprintRate(stat.medianGenerationTokensPerSecond)}, thought density ${fingerprintPercent(stat.thoughtDensity === null ? null : stat.thoughtDensity * 100)}, snapshots ${stat.snapshotCount}, load ${fingerprintSeconds(stat.medianLoadSeconds)}, prompt ${fingerprintRate(stat.medianPromptTokensPerSecond)}, image workload ${fingerprintPercent(stat.imageWorkloadPercent)}, structured output ${fingerprintPercent(stat.structuredOutputPercent)}.` : "No model is selected."; }
+  function renderFingerprintCanvases() { fingerprintScatter(document.getElementById("fingerprintConstellation"), fingerprintState.stats, "constellation"); fingerprintScatter(document.getElementById("fingerprintStartupPrompt"), fingerprintState.stats, "startup"); }
+  function fingerprintBindCanvases() { if (fingerprintState.bound) return; fingerprintState.bound=true; ["fingerprintConstellation","fingerprintStartupPrompt"].forEach(id => { const canvas=document.getElementById(id); if(!canvas)return; const kind=id.includes("Constellation")?"constellation":"startup"; canvas.addEventListener("pointermove",event=>{const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,hit=fingerprintState.points[kind].find(point=>Math.hypot(point.x-x,point.y-y)<=point.radius+6); if(hit){fingerprintState.selectedModelId=hit.modelId;renderFingerprintCanvases();}}); canvas.addEventListener("keydown",event=>{const points=fingerprintState.points[kind];if(!points.length)return;let index=points.findIndex(point=>point.modelId===fingerprintState.selectedModelId);if(event.key==="Home")index=0;else if(event.key==="End")index=points.length-1;else if(["ArrowLeft","ArrowUp"].includes(event.key))index=(index<=0?points.length:index)-1;else if(["ArrowRight","ArrowDown"].includes(event.key))index=(index+1)%points.length;else if(event.key==="Escape"){fingerprintState.selectedModelId=null;renderFingerprintCanvases();return;}else return;event.preventDefault();fingerprintState.selectedModelId=points[index].modelId;renderFingerprintCanvases();}); }); }
+
+  function renderFingerprintCompoundMetrics() { const cards = [["Cold-Start Sprint","fa-bolt","generation tok/s ÷ load sec","How quickly a model combines startup cost with generation speed.","#dda8b5"],["Thought Density","fa-brain","reasoning characters ÷ total output characters","Share of generated response content devoted to reasoning.","#a79be0"],["Output Yield","fa-comment-dots","visible words ÷ 1k prompt tokens","How much user-visible answer text emerges relative to prompt volume.","#a9d4bc"],["Throughput Blend","fa-gauge-high","√(prompt tok/s × generation tok/s)","Balanced intake-and-output throughput.","#91d4cf"],["Workload Identity","fa-fingerprint","image-input % + structured-output %","The types of workloads represented in observed telemetry.","#e5c78f"]]; $("#fingerprintCompoundMetrics").html(cards.map(card=>`<article class="fingerprint-compound-card" style="--fingerprint-accent:${card[4]}"><div class="fingerprint-card-icon"><i class="fa-solid ${card[1]}"></i></div><div class="fingerprint-card-title">${card[0]}</div><div class="fingerprint-card-sub mt-2">${card[3]}</div><div class="fingerprint-formula">${card[2]}</div></article>`).join("")); }
+
+  function fingerprintPercentile(stats, accessor, quantile) { return fingerprintMedian(stats.map(accessor).filter(value=>value!==null).sort((a,b)=>a-b).slice(Math.max(0,Math.floor((stats.filter(item=>accessor(item)!==null).length-1)*quantile)))); }
+  function buildFingerprintNarrativeInsights(stats) { const candidates=[]; const medianBlend=fingerprintFleetMedian(stats,item=>item.throughputBlend), medianGeneration=fingerprintFleetMedian(stats,item=>item.medianGenerationTokensPerSecond), medianLoad=fingerprintFleetMedian(stats,item=>item.medianLoadSeconds); const add=(key,stat,text,priority)=>{if(stat)candidates.push({key,stat,text,priority});}; const blend=[...stats].filter(item=>item.throughputBlend!==null).sort((a,b)=>b.throughputBlend-a.throughputBlend)[0]; if(blend) add("blend",blend,`${blend.modelId} leads the fleet in blended throughput, combining prompt ingestion with generation speed.`,100); stats.filter(item=>item.coldStartSprint!==null&&item.thoughtDensity!==null).forEach(stat=>{if(stat.coldStartSprint>=fingerprintPercentile(stats,item=>item.coldStartSprint,.75)&&stat.thoughtDensity>=fingerprintPercentile(stats,item=>item.thoughtDensity,.75)) add("burst",stat,`${stat.modelId} is unusually burst-friendly and reasoning-heavy, pairing a high sprint index with ${fingerprintPercent(stat.thoughtDensity)} thought density.`,85);}); stats.filter(item=>item.medianGenerationTokensPerSecond!==null&&item.medianLoadSeconds!==null).forEach(stat=>{if(stat.medianGenerationTokensPerSecond>=medianGeneration&&stat.medianLoadSeconds>=fingerprintPercentile(stats,item=>item.medianLoadSeconds,.75)) add("paradox",stat,`${stat.modelId} is fast once active, but its ${fingerprintSeconds(stat.medianLoadSeconds)} median load time makes short sessions comparatively expensive.`,80); if(stat.imageWorkloadPercent>=50&&stat.medianGenerationTokensPerSecond>=medianGeneration*.8) add("multimodal",stat,`${stat.modelId} is strongly vision-oriented (${fingerprintPercent(stat.imageWorkloadPercent)} image observations) while sustaining ${fingerprintRate(stat.medianGenerationTokensPerSecond)} median generation.`,75);}); stats.filter(item=>item.outputYield!==null&&item.medianGenerationTokensPerSecond!==null).forEach(stat=>{if(stat.outputYield>=fingerprintPercentile(stats,item=>item.outputYield,.75)&&stat.medianGenerationTokensPerSecond<medianGeneration) add("yield",stat,`${stat.modelId} produces unusually high visible-answer yield despite below-median generation speed.`,70); if(stat.structuredOutputPercent>=50) add("structured",stat,`${stat.modelId}'s observed identity is dominated by structured output (${fingerprintPercent(stat.structuredOutputPercent)}), so its response profile is workload-sensitive.`,65); if(stat.imageWorkloadPercent>=80) add("vision",stat,`${stat.modelId}'s telemetry is overwhelmingly vision-based (${fingerprintPercent(stat.imageWorkloadPercent)} image inputs), making direct comparison workload-sensitive.`,60);}); const usedModels=new Set(); return candidates.sort((a,b)=>b.priority-a.priority||a.stat.modelId.localeCompare(b.stat.modelId)).filter(candidate=>{if(usedModels.has(candidate.key))return false;usedModels.add(candidate.key);return true;}).slice(0,5); }
+  function renderFingerprintUnexpectedInsights(stats) { const insights=buildFingerprintNarrativeInsights(stats); $("#fingerprintUnexpectedInsights").html(insights.length?insights.map((insight,index)=>`<article class="fingerprint-story-card" style="--fingerprint-accent:${insight.stat.color}"><div class="fingerprint-story-number">${index+1}</div><strong>${fmt.esc(fingerprintDisplayName(insight.stat.modelId))}</strong><div class="mt-2">${fmt.esc(insight.text)}</div></article>`).join(""): '<div class="small-note">Not enough varied telemetry is available to generate narrative insights.</div>'); }
+
+  function fingerprintMiniMetric(value, accent) { return `<div class="fingerprint-mini-metric"><span>${fingerprintPercent(value)}</span><span class="fingerprint-mini-track"><span class="fingerprint-mini-fill" style="width:${Math.max(0,Math.min(100,value||0))}%;--fingerprint-accent:${accent}"></span></span></div>`; }
+  function renderFingerprintModelLineup(stats) { const rows=[...stats].sort((a,b)=>a.modelId.localeCompare(b.modelId)); $("#fingerprintModelLineup").html(rows.length?`<table class="table dashboard-table fingerprint-table align-middle"><thead><tr><th>Model</th><th>Snapshots</th><th>Load</th><th>Prompt</th><th>Generation</th><th>Thought density</th><th>Sprint</th><th>Yield</th><th>Image workload</th><th>Structured output</th></tr></thead><tbody>${rows.map(stat=>`<tr title="${fmt.esc(stat.modelId)}"><td><span style="color:${stat.color}">●</span> <span class="mono">${fmt.esc(stat.displayName)}</span></td><td>n=${fmt.n(stat.snapshotCount,0)}</td><td>${fingerprintSeconds(stat.medianLoadSeconds)}</td><td>${fingerprintRate(stat.medianPromptTokensPerSecond)}</td><td>${fingerprintRate(stat.medianGenerationTokensPerSecond)}</td><td>${fingerprintMiniMetric(stat.thoughtDensity===null?null:stat.thoughtDensity*100,stat.color)}</td><td>${fingerprintFormat(stat.coldStartSprint,1)}</td><td>${fingerprintFormat(stat.outputYield,1)} words / 1k</td><td>${fingerprintMiniMetric(stat.imageWorkloadPercent,stat.color)}</td><td>${fingerprintMiniMetric(stat.structuredOutputPercent,stat.color)}</td></tr>`).join("")}</tbody></table>`:'<div class="small-note">No model telemetry is available for Model Fingerprints.</div>'); }
+  function renderFingerprintView() { const stats=buildFingerprintModelStats(filteredModels); fingerprintState.stats=stats; if (!stats.some(stat => stat.modelId === fingerprintState.selectedModelId)) fingerprintState.selectedModelId = null; renderFingerprintDatasetStrip(stats); renderFingerprintInsightCards(stats); renderFingerprintCompoundMetrics(); renderFingerprintUnexpectedInsights(stats); renderFingerprintModelLineup(stats); fingerprintBindCanvases(); renderFingerprintCanvases(); charts.fingerprints = {resize: renderFingerprintCanvases}; }
 
   function detailRow(k,v,mono=false) {
     return `<div class="detail-row"><div class="detail-key">${fmt.esc(k)}</div><div class="detail-value ${mono?"mono":""}">${v}</div></div>`;
