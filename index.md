@@ -29,14 +29,17 @@ Package induction provides clients and helpers for local LLM inference, streamin
 - [func InferStream\(ctx context.Context, req \*ChatRequest, out io.Writer, options ...ClientOption\) error](<#InferStream>)
 - [func InferStreamChat\(ctx context.Context, req \*ChatRequest, in io.Reader, out io.Writer, options ...ClientOption\) error](<#InferStreamChat>)
 - [func InferStreamChunks\(ctx context.Context, req \*ChatRequest, yield func\(InferenceStreamChunk\) error, options ...ClientOption\) error](<#InferStreamChunks>)
+- [func IsRemoteSource\(source string\) bool](<#IsRemoteSource>)
 - [func ListLoadedModels\(endpoint string, options ...ClientOption\) error](<#ListLoadedModels>)
 - [func ListModels\(endpoint string, options ...ClientOption\) error](<#ListModels>)
 - [func RenderSessionTranscript\(out io.Writer, session \*ChatSession\) error](<#RenderSessionTranscript>)
+- [func ResolveArtifactPath\(configuredPath string, ctx ArtifactPathContext\) \(string, error\)](<#ResolveArtifactPath>)
 - [func RunConsoleThemePreview\(ctx context.Context, in io.Reader, out io.Writer\) error](<#RunConsoleThemePreview>)
 - [func WriteDashboardHTML\(templatePath, path string, metrics \*DashboardMetrics\) error](<#WriteDashboardHTML>)
 - [func WriteDashboardMetrics\(path string, metrics \*DashboardMetrics\) error](<#WriteDashboardMetrics>)
 - [type ApplicationToolChain](<#ApplicationToolChain>)
 - [type ApplicationToolHandler](<#ApplicationToolHandler>)
+- [type ArtifactPathContext](<#ArtifactPathContext>)
 - [type Batch](<#Batch>)
   - [func RunBatch\(ctx context.Context, pipeline \*Pipeline, directory string, executor BatchExecutor, progress func\(\*Batch\)\) \(\*Batch, error\)](<#RunBatch>)
   - [func \(b \*Batch\) Summary\(\) BatchSummary](<#Batch.Summary>)
@@ -84,6 +87,7 @@ Package induction provides clients and helpers for local LLM inference, streamin
 - [type ClientOption](<#ClientOption>)
   - [func WithApplicationToolChain\(chain ApplicationToolChain\) ClientOption](<#WithApplicationToolChain>)
   - [func WithApplicationToolHandler\(handler ApplicationToolHandler\) ClientOption](<#WithApplicationToolHandler>)
+  - [func WithArtifactPathContext\(context ArtifactPathContext\) ClientOption](<#WithArtifactPathContext>)
   - [func WithAutoExitAfterInitialChat\(enabled bool\) ClientOption](<#WithAutoExitAfterInitialChat>)
   - [func WithConfigPath\(path string\) ClientOption](<#WithConfigPath>)
   - [func WithHTTPClient\(c \*http.Client\) ClientOption](<#WithHTTPClient>)
@@ -124,6 +128,8 @@ Package induction provides clients and helpers for local LLM inference, streamin
 - [type DecisionCandidateResult](<#DecisionCandidateResult>)
 - [type DecisionConfig](<#DecisionConfig>)
 - [type DecisionResult](<#DecisionResult>)
+- [type DownloadedResource](<#DownloadedResource>)
+  - [func FetchRemoteSource\(source string, maxBytes int64\) \(\*DownloadedResource, error\)](<#FetchRemoteSource>)
 - [type Duration](<#Duration>)
   - [func \(d \*Duration\) UnmarshalYAML\(value \*yaml.Node\) error](<#Duration.UnmarshalYAML>)
 - [type FileContentPart](<#FileContentPart>)
@@ -212,6 +218,19 @@ Package induction provides clients and helpers for local LLM inference, streamin
 
 
 ## Constants
+
+<a name="RemoteImageMaxBytes"></a>
+
+```go
+const (
+    // RemoteImageMaxBytes and RemotePDFMaxBytes are deliberately separate so
+    // callers can use a larger limit for documents without weakening image
+    // validation.
+    RemoteImageMaxBytes int64 = 32 << 20
+    RemotePDFMaxBytes   int64 = 128 << 20
+    RemoteFetchTimeout        = 30 * time.Second
+)
+```
 
 <a name="DashboardSchemaVersion"></a>
 
@@ -390,7 +409,7 @@ func Cleanup(out io.Writer)
 Cleanup removes any live metrics overlays and prints the application cleanup status. Applications should call Cleanup before fatal exits because Cleanup stops active terminal overlays and restores normal terminal output. It is safe to call even when no overlay is active.
 
 <a name="ExtractPDFText"></a>
-## func [ExtractPDFText](<https://github.com/mwiater/induction/blob/main/pdf_text.go#L19>)
+## func [ExtractPDFText](<https://github.com/mwiater/induction/blob/main/pdf_text.go#L20>)
 
 ```go
 func ExtractPDFText(path string, maxBytes int64) (string, error)
@@ -399,7 +418,7 @@ func ExtractPDFText(path string, maxBytes int64) (string, error)
 ExtractPDFText extracts selectable text from a PDF while preserving page and reading order. PDF text is not stored as a plain string: glyphs can be split across operators, encoded through a font\-specific map, and positioned with coordinates. The PDF parser handles those details and reconstructs words from glyph positions.
 
 <a name="FileDataURL"></a>
-## func [FileDataURL](<https://github.com/mwiater/induction/blob/main/attachments.go#L31>)
+## func [FileDataURL](<https://github.com/mwiater/induction/blob/main/attachments.go#L118>)
 
 ```go
 func FileDataURL(path string, maxBytes int64) (dataURL string, filename string, err error)
@@ -408,7 +427,7 @@ func FileDataURL(path string, maxBytes int64) (dataURL string, filename string, 
 FileDataURL reads a local document and returns a base64 data URL. The filename is retained separately because some servers require it in the file content part.
 
 <a name="ImageDataURL"></a>
-## func [ImageDataURL](<https://github.com/mwiater/induction/blob/main/attachments.go#L24>)
+## func [ImageDataURL](<https://github.com/mwiater/induction/blob/main/attachments.go#L104>)
 
 ```go
 func ImageDataURL(path string, maxBytes int64) (string, error)
@@ -506,6 +525,15 @@ func InferStreamChunks(ctx context.Context, req *ChatRequest, yield func(Inferen
 
 InferStreamChunks runs a streaming inference request and calls yield for each typed OpenAI\-compatible chunk object. SSE framing is consumed internally.
 
+<a name="IsRemoteSource"></a>
+## func [IsRemoteSource](<https://github.com/mwiater/induction/blob/main/attachments.go#L44>)
+
+```go
+func IsRemoteSource(source string) bool
+```
+
+IsRemoteSource reports whether source is an HTTP or HTTPS URL. Other URL schemes are intentionally left to the existing local\-file behavior.
+
 <a name="ListLoadedModels"></a>
 ## func [ListLoadedModels](<https://github.com/mwiater/induction/blob/main/utilities.go#L19>)
 
@@ -532,6 +560,15 @@ func RenderSessionTranscript(out io.Writer, session *ChatSession) error
 ```
 
 RenderSessionTranscript writes a persisted chat session using the same labels, icons, colors, and reasoning presentation as the console UI.
+
+<a name="ResolveArtifactPath"></a>
+## func [ResolveArtifactPath](<https://github.com/mwiater/induction/blob/main/pipeline_artifact_paths.go#L23>)
+
+```go
+func ResolveArtifactPath(configuredPath string, ctx ArtifactPathContext) (string, error)
+```
+
+ResolveArtifactPath resolves the small, deliberately fixed artifact path interpolation language. Filesystem safety remains the responsibility of persistPipelineArtifact.
 
 <a name="RunConsoleThemePreview"></a>
 ## func [RunConsoleThemePreview](<https://github.com/mwiater/induction/blob/main/console_ui_themes.go#L101>)
@@ -576,6 +613,20 @@ ApplicationToolHandler executes an application\-managed tool call and returns th
 
 ```go
 type ApplicationToolHandler func(context.Context, string, string) (string, error)
+```
+
+<a name="ArtifactPathContext"></a>
+## type [ArtifactPathContext](<https://github.com/mwiater/induction/blob/main/pipeline_artifact_paths.go#L13-L18>)
+
+ArtifactPathContext contains the runtime values available to artifact path interpolation. Batch metadata is deliberately explicit: it is never inferred from a filename or from the number of completed items.
+
+```go
+type ArtifactPathContext struct {
+    InputSet   InputSet
+    BatchID    string
+    BatchIndex int
+    IsBatch    bool
+}
 ```
 
 <a name="Batch"></a>
@@ -887,7 +938,7 @@ type ChoiceLogprobs struct {
 ```
 
 <a name="ClassificationConfig"></a>
-## type [ClassificationConfig](<https://github.com/mwiater/induction/blob/main/pipeline.go#L80-L83>)
+## type [ClassificationConfig](<https://github.com/mwiater/induction/blob/main/pipeline.go#L84-L87>)
 
 ClassificationConfig configures bounded next\-token classification. Each candidate key must be represented by exactly one model vocabulary token.
 
@@ -913,7 +964,7 @@ type ClassificationResult struct {
 ```
 
 <a name="Client"></a>
-## type [Client](<https://github.com/mwiater/induction/blob/main/client.go#L67-L80>)
+## type [Client](<https://github.com/mwiater/induction/blob/main/client.go#L68-L81>)
 
 Client orchestrates interactions with a local llama.cpp\-compatible server.
 
@@ -924,7 +975,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](<https://github.com/mwiater/induction/blob/main/client.go#L83>)
+### func [NewClient](<https://github.com/mwiater/induction/blob/main/client.go#L84>)
 
 ```go
 func NewClient(ctx context.Context, endpoint string, options ...ClientOption) *Client
@@ -969,7 +1020,7 @@ func (c *Client) Complete(ctx context.Context, req *ChatRequest) (*Interaction, 
 Complete runs a plain completion request against the explicit completion endpoint.
 
 <a name="Client.DeleteFile"></a>
-### func \(\*Client\) [DeleteFile](<https://github.com/mwiater/induction/blob/main/attachments.go#L137>)
+### func \(\*Client\) [DeleteFile](<https://github.com/mwiater/induction/blob/main/attachments.go#L291>)
 
 ```go
 func (c *Client) DeleteFile(ctx context.Context, id string) error
@@ -987,7 +1038,7 @@ func (c *Client) EndReasoning(ctx context.Context, model, completionID string) (
 EndReasoning asks llama.cpp to close reasoning on the active completion.
 
 <a name="Client.GenerateSnapshot"></a>
-### func \(\*Client\) [GenerateSnapshot](<https://github.com/mwiater/induction/blob/main/client.go#L112>)
+### func \(\*Client\) [GenerateSnapshot](<https://github.com/mwiater/induction/blob/main/client.go#L113>)
 
 ```go
 func (c *Client) GenerateSnapshot(ctx context.Context, req *ChatRequest) (*ModelSnapshot, error)
@@ -996,7 +1047,7 @@ func (c *Client) GenerateSnapshot(ctx context.Context, req *ChatRequest) (*Model
 GenerateSnapshot executes an inference request and collects related telemetry.
 
 <a name="Client.GenerateStreamingSnapshot"></a>
-### func \(\*Client\) [GenerateStreamingSnapshot](<https://github.com/mwiater/induction/blob/main/client.go#L192>)
+### func \(\*Client\) [GenerateStreamingSnapshot](<https://github.com/mwiater/induction/blob/main/client.go#L193>)
 
 ```go
 func (c *Client) GenerateStreamingSnapshot(ctx context.Context, req *ChatRequest, yield func(InferenceStreamChunk) error) (*ModelSnapshot, error)
@@ -1131,7 +1182,7 @@ func (c *Client) UnloadModel(ctx context.Context, model string) (*RuntimeOperati
 UnloadModel asks the server to unload model and waits for its resulting state.
 
 <a name="Client.UploadFile"></a>
-### func \(\*Client\) [UploadFile](<https://github.com/mwiater/induction/blob/main/attachments.go#L80>)
+### func \(\*Client\) [UploadFile](<https://github.com/mwiater/induction/blob/main/attachments.go#L234>)
 
 ```go
 func (c *Client) UploadFile(ctx context.Context, filename string, content io.Reader) (*UploadedFile, error)
@@ -1140,7 +1191,7 @@ func (c *Client) UploadFile(ctx context.Context, filename string, content io.Rea
 UploadFile uploads a document through the OpenAI\-compatible /v1/files API. The endpoint is optional across llama.cpp\-compatible servers; callers should treat a 404 as an unsupported file feature and may use FileDataURL instead.
 
 <a name="ClientOption"></a>
-## type [ClientOption](<https://github.com/mwiater/induction/blob/main/client.go#L64>)
+## type [ClientOption](<https://github.com/mwiater/induction/blob/main/client.go#L65>)
 
 ClientOption mutates a ClientOptions value during client construction.
 
@@ -1149,7 +1200,7 @@ type ClientOption func(*ClientOptions)
 ```
 
 <a name="WithApplicationToolChain"></a>
-### func [WithApplicationToolChain](<https://github.com/mwiater/induction/blob/main/options.go#L103>)
+### func [WithApplicationToolChain](<https://github.com/mwiater/induction/blob/main/options.go#L109>)
 
 ```go
 func WithApplicationToolChain(chain ApplicationToolChain) ClientOption
@@ -1158,13 +1209,22 @@ func WithApplicationToolChain(chain ApplicationToolChain) ClientOption
 WithApplicationToolChain adds related calls to model\-requested application tool calls before their results are returned to the model.
 
 <a name="WithApplicationToolHandler"></a>
-### func [WithApplicationToolHandler](<https://github.com/mwiater/induction/blob/main/options.go#L97>)
+### func [WithApplicationToolHandler](<https://github.com/mwiater/induction/blob/main/options.go#L103>)
 
 ```go
 func WithApplicationToolHandler(handler ApplicationToolHandler) ClientOption
 ```
 
 WithApplicationToolHandler supplies the local implementation for tools in ChatRequest.Tools when using InferApplicationToolsChat.
+
+<a name="WithArtifactPathContext"></a>
+### func [WithArtifactPathContext](<https://github.com/mwiater/induction/blob/main/options.go#L90>)
+
+```go
+func WithArtifactPathContext(context ArtifactPathContext) ClientOption
+```
+
+WithArtifactPathContext supplies runtime source and batch metadata for artifact path interpolation.
 
 <a name="WithAutoExitAfterInitialChat"></a>
 ### func [WithAutoExitAfterInitialChat](<https://github.com/mwiater/induction/blob/main/options.go#L63>)
@@ -1266,7 +1326,7 @@ func WithSessionSaved(callback func(string)) ClientOption
 WithSessionSaved registers a callback invoked with the path of a session after it has been written successfully.
 
 <a name="ClientOptions"></a>
-## type [ClientOptions](<https://github.com/mwiater/induction/blob/main/client.go#L21-L55>)
+## type [ClientOptions](<https://github.com/mwiater/induction/blob/main/client.go#L21-L56>)
 
 ClientOptions stores runtime configuration for a Client.
 
@@ -1663,7 +1723,7 @@ type DecisionCandidateResult struct {
 ```
 
 <a name="DecisionConfig"></a>
-## type [DecisionConfig](<https://github.com/mwiater/induction/blob/main/pipeline.go#L86-L89>)
+## type [DecisionConfig](<https://github.com/mwiater/induction/blob/main/pipeline.go#L90-L93>)
 
 DecisionConfig configures a bounded next\-token decision.
 
@@ -1689,6 +1749,29 @@ type DecisionResult struct {
     Candidates        []DecisionCandidateResult `json:"candidates"`
 }
 ```
+
+<a name="DownloadedResource"></a>
+## type [DownloadedResource](<https://github.com/mwiater/induction/blob/main/attachments.go#L35-L40>)
+
+DownloadedResource is the result of resolving an HTTP\(S\) attachment. Bytes are bounded by the limit supplied to FetchRemoteSource.
+
+```go
+type DownloadedResource struct {
+    Bytes       []byte
+    ContentType string
+    FinalURL    string
+    Size        int64
+}
+```
+
+<a name="FetchRemoteSource"></a>
+### func [FetchRemoteSource](<https://github.com/mwiater/induction/blob/main/attachments.go#L51>)
+
+```go
+func FetchRemoteSource(source string, maxBytes int64) (*DownloadedResource, error)
+```
+
+FetchRemoteSource downloads one bounded HTTP\(S\) resource. It follows the standard client redirect policy and permits private/LAN destinations.
 
 <a name="Duration"></a>
 ## type [Duration](<https://github.com/mwiater/induction/blob/main/config.go#L23>)
@@ -1984,7 +2067,7 @@ type InputSet struct {
 ```
 
 <a name="InputSet.DerivedID"></a>
-### func \(InputSet\) [DerivedID](<https://github.com/mwiater/induction/blob/main/pipeline.go#L482>)
+### func \(InputSet\) [DerivedID](<https://github.com/mwiater/induction/blob/main/pipeline.go#L497>)
 
 ```go
 func (s InputSet) DerivedID(index int) string
@@ -1993,7 +2076,7 @@ func (s InputSet) DerivedID(index int) string
 
 
 <a name="InputSet.String"></a>
-### func \(InputSet\) [String](<https://github.com/mwiater/induction/blob/main/batch.go#L243>)
+### func \(InputSet\) [String](<https://github.com/mwiater/induction/blob/main/batch.go#L255>)
 
 ```go
 func (s InputSet) String() string
@@ -2002,7 +2085,7 @@ func (s InputSet) String() string
 
 
 <a name="InputSet.Validate"></a>
-### func \(InputSet\) [Validate](<https://github.com/mwiater/induction/blob/main/pipeline.go#L460>)
+### func \(InputSet\) [Validate](<https://github.com/mwiater/induction/blob/main/pipeline.go#L470>)
 
 ```go
 func (s InputSet) Validate(label string) error
@@ -2078,7 +2161,7 @@ type LogConfig struct {
 ```
 
 <a name="Logger"></a>
-## type [Logger](<https://github.com/mwiater/induction/blob/main/client.go#L59-L61>)
+## type [Logger](<https://github.com/mwiater/induction/blob/main/client.go#L60-L62>)
 
 Logger is the logging contract used by Induction. The standard library's log.Logger satisfies this interface, as do many application log adapters.
 
@@ -2425,7 +2508,7 @@ type Pipeline struct {
 ```
 
 <a name="LoadPipeline"></a>
-### func [LoadPipeline](<https://github.com/mwiater/induction/blob/main/pipeline.go#L149>)
+### func [LoadPipeline](<https://github.com/mwiater/induction/blob/main/pipeline.go#L153>)
 
 ```go
 func LoadPipeline(path string) (*Pipeline, error)
@@ -2434,7 +2517,7 @@ func LoadPipeline(path string) (*Pipeline, error)
 LoadPipeline reads, validates, and normalizes a pipeline. Attachment paths are resolved relative to the pipeline file.
 
 <a name="Pipeline.Validate"></a>
-### func \(\*Pipeline\) [Validate](<https://github.com/mwiater/induction/blob/main/pipeline.go#L186>)
+### func \(\*Pipeline\) [Validate](<https://github.com/mwiater/induction/blob/main/pipeline.go#L190>)
 
 ```go
 func (p *Pipeline) Validate() error
@@ -2461,7 +2544,7 @@ type PipelineArtifact struct {
 ```
 
 <a name="PipelineParameters"></a>
-## type [PipelineParameters](<https://github.com/mwiater/induction/blob/main/pipeline.go#L138-L145>)
+## type [PipelineParameters](<https://github.com/mwiater/induction/blob/main/pipeline.go#L142-L149>)
 
 PipelineParameters contains the generation parameter overrides supported by the inference CLI. Nil fields preserve the model/server defaults.
 
@@ -2762,14 +2845,18 @@ type SlotsData []map[string]interface{}
 ```
 
 <a name="StepOutputConfig"></a>
-## type [StepOutputConfig](<https://github.com/mwiater/induction/blob/main/pipeline.go#L71-L76>)
+## type [StepOutputConfig](<https://github.com/mwiater/induction/blob/main/pipeline.go#L71-L80>)
 
 StepOutputConfig describes a persisted structured result. The legacy responseFormat/jsonSchema fields remain supported for existing pipelines.
 
 ```go
 type StepOutputConfig struct {
-    Type       string         `yaml:"type,omitempty" json:"type,omitempty"`
-    Artifact   string         `yaml:"artifact,omitempty" json:"artifact,omitempty"`
+    Type     string `yaml:"type,omitempty" json:"type,omitempty"`
+    Artifact string `yaml:"artifact,omitempty" json:"artifact,omitempty"`
+    // Path is an accepted alias for Artifact, matching the source-aware
+    // artifact path terminology. Artifact remains the canonical field used by
+    // the runtime and existing pipeline files.
+    Path       string         `yaml:"path,omitempty" json:"path,omitempty"`
     Grammar    string         `yaml:"grammar,omitempty" json:"grammar,omitempty"`
     JSONSchema map[string]any `yaml:"jsonSchema,omitempty" json:"jsonSchema,omitempty"`
 }
@@ -2869,7 +2956,7 @@ type ToolFunction struct {
 ```
 
 <a name="UploadedFile"></a>
-## type [UploadedFile](<https://github.com/mwiater/induction/blob/main/attachments.go#L88-L95>)
+## type [UploadedFile](<https://github.com/mwiater/induction/blob/main/attachments.go#L242-L249>)
 
 UploadedFile identifies a document accepted by the server's file API.
 
@@ -2885,7 +2972,7 @@ type UploadedFile struct {
 ```
 
 <a name="WhenCondition"></a>
-## type [WhenCondition](<https://github.com/mwiater/induction/blob/main/pipeline.go#L92-L97>)
+## type [WhenCondition](<https://github.com/mwiater/induction/blob/main/pipeline.go#L96-L101>)
 
 WhenCondition gates a pipeline step on an earlier decision result.
 
