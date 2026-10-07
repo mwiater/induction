@@ -10,6 +10,40 @@ Induction expects a reachable llama.cpp-compatible server with an OpenAI-style
 
 <img src=".repo/induction-mcp-pipeline-compressed.gif" alt="Induction MCP Pipeline">
 
+## Features
+
+1. **Config-driven multi-step pipelines** — Declarative YAML workflows for chaining inference, branching decisions, reusable prompts, tool calls, file inputs, artifacts, and final outputs.
+
+   A document workflow might extract text from a PDF, summarize each section, classify risks, and produce a final JSON report. Each stage remains configurable, inspectable, and reusable. [Pipeline authoring documentation](docs/PIPELINES.md#authoring)
+
+2. **Batch pipeline execution** — Run the same pipeline across many documents or images with isolated items, persisted state, retryable failures, and regenerated artifacts.
+
+   A batch image workflow can analyze hundreds of product photos independently. Each image receives its own result, while failed items can be rerun without repeating successful work. [Batch pipeline documentation](docs/PIPELINES.md#batch-pipelines)
+
+3. **MCP and application-tool orchestration** — Native MCP integration with tool availability, tool-use outcomes, structured telemetry, and pipeline-level tool workflows.
+
+   During a travel-planning workflow, a model can use an MCP weather service to check conditions at a destination. The pipeline can also record whether the tool was available, requested, and used successfully. [MCP and application tools documentation](docs/MCP.md)
+
+4. **Telemetry-driven model comparison** — A generated dashboard comparing real model behavior across throughput, startup cost, reasoning density, output yield, workload mix, and model fingerprints.
+
+   After running several models against real workloads, the dashboard can show which one is best for interactive prompts, deep reasoning, or high-volume processing. These comparisons use observed behavior rather than isolated benchmark results. [Dashboard documentation](docs/DASHBOARD.md)
+
+5. **Decision routing inside pipelines** — Bounded classification steps that conditionally route later stages without requiring custom application code.
+
+   Incoming support requests can be classified as billing, technical, or urgent. Each category can then follow a different analysis, tool-use, and response-generation path. [Decision routing examples](docs/EXAMPLES-DECISION-ROUTING.md)
+
+6. **Unified multimodal document workflows** — Images, PDFs, OCR-style processing, remote URLs, local files, and batch inputs all use the same pipeline abstraction.
+
+   A document workflow can accept invoice PDFs and product images from local paths or HTTPS URLs. It can extract their contents, compare the results, and produce a consolidated structured response. [Document pipeline examples](docs/EXAMPLES-DOCUMENT.md) · [Vision and image pipeline examples](docs/EXAMPLES-VISION-IMAGE.md)
+
+7. **Artifact-oriented execution** — Intermediate and final results are persisted as named artifacts, making pipeline runs inspectable, reusable, and suitable for downstream automation.
+
+   A research workflow can save extracted facts, evidence tables, summaries, and the final report as separate artifacts. Each stage can be reviewed independently or reused by a later workflow. [Generated pipeline example](docs/EXAMPLES-GENERATED-TASK-MANAGEMENT.md)
+
+8. **Automatic persistence and performance history** — Sessions, inferences, and workflows are saved locally with per-inference metrics, creating a durable performance history for model analysis and best-fit recommendations.
+
+   Once several models have been tested across real workloads, their historical latency, throughput, output characteristics, and workload mix can be reviewed together. This history helps identify the best model for a particular task. [Inference and session documentation](docs/INFERENCE.md) · [Dashboard documentation](docs/DASHBOARD.md)
+
 ## Dependencies
 
 - A running llama.cpp-compatible inference server started with the `--metrics`
