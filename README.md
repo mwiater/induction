@@ -24,7 +24,7 @@ Induction expects a reachable llama.cpp-compatible server with an OpenAI-style
 
    During a travel-planning workflow, a model can use an MCP weather service to check conditions at a destination. The pipeline can also record whether the tool was available, requested, and used successfully. [MCP and application tools documentation](docs/MCP.md)
 
-4. **Telemetry-driven model comparison** — A generated dashboard comparing real model behavior across throughput, startup cost, reasoning density, output yield, workload mix, and model fingerprints.
+4. **Telemetry-driven model comparison** — A generated six-view dashboard (Overview, Performance, Response behavior, Models, Model Recommendations, and Variables) comparing real model behavior across throughput, startup cost, reasoning density, output yield, workload mix, and model fingerprints.
 
    After running several models against real workloads, the dashboard can show which one is best for interactive prompts, deep reasoning, or high-volume processing. These comparisons use observed behavior rather than isolated benchmark results. [Dashboard documentation](docs/DASHBOARD.md)
 

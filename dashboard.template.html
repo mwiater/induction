@@ -7,18 +7,22 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;600;800&display=swap" rel="stylesheet">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 
   <style>
     :root {
-      --pastel-purple: #a79be0;
-      --pastel-teal: #91d4cf;
-      --pastel-gold: #e5c78f;
-      --pastel-rose: #dda8b5;
-      --pastel-blue: #a6bde0;
+      --ms-bg: #080c12; --ms-bg-elevated: #0c121b; --ms-nav: rgba(11,16,24,.94);
+      --ms-hero-top: #182332; --ms-hero-bottom: #0f1722; --ms-major-top: #192331; --ms-major-bottom: #111923;
+      --ms-panel: #171f2b; --ms-tile: #1c2734; --ms-utility: #101720;
+      --ms-stroke: rgba(170,193,224,.16); --ms-stroke-strong: rgba(183,209,244,.29); --ms-highlight: rgba(255,255,255,.065);
+      --ms-text: #f2f5fb; --ms-muted: #a3b0c2; --ms-purple: #ad9be8; --ms-teal: #8edbd4; --ms-gold: #f0d192; --ms-rose: #e0a5b9; --ms-blue: #9dbdf0;
+      --ms-shadow-hero: 0 20px 52px rgba(0,0,0,.38); --ms-shadow-major: 0 11px 30px rgba(0,0,0,.25);
+      --ms-radius-hero: 24px; --ms-radius-panel: 18px; --ms-radius-tile: 13px;
+      --ms-gap-minor: 12px; --ms-gap-related: 20px; --ms-gap-major: 32px; --ms-gap-hero: 40px;
+      --pastel-purple: var(--ms-purple); --pastel-teal: var(--ms-teal); --pastel-gold: var(--ms-gold); --pastel-rose: var(--ms-rose); --pastel-blue: var(--ms-blue);
       --pastel-green: #a9d4bc;
       --pastel-pink: #d7b3cb;
       --bg: #0a0d12;
@@ -39,11 +43,11 @@
     }
 
     html[data-theme="light"] {
-      --pastel-purple: #766bb8;
-      --pastel-teal: #4f9894;
-      --pastel-gold: #a07f3e;
-      --pastel-rose: #ae6677;
-      --pastel-blue: #6483b1;
+      --ms-bg: #f5f8fc; --ms-bg-elevated: #edf3f9; --ms-nav: rgba(248,251,255,.96); --ms-hero-top: #e5edf7; --ms-hero-bottom: #f7faff;
+      --ms-major-top: #eaf1f8; --ms-major-bottom: #f8fbfe; --ms-panel: #ffffff; --ms-tile: #f4f8fc; --ms-utility: #f1f5f9;
+      --ms-stroke: rgba(43,68,96,.18); --ms-stroke-strong: rgba(43,68,96,.30); --ms-highlight: rgba(255,255,255,.8); --ms-text: #18212b; --ms-muted: #5f6d7b;
+      --ms-purple: #7262b2; --ms-teal: #3b827e; --ms-gold: #906d23; --ms-rose: #a85f79; --ms-blue: #527eb9;
+      --pastel-purple: var(--ms-purple); --pastel-teal: var(--ms-teal); --pastel-gold: var(--ms-gold); --pastel-rose: var(--ms-rose); --pastel-blue: var(--ms-blue);
       --pastel-green: #669a7d;
       --pastel-pink: #9a6f8d;
       --bg: #f3f6fa;
@@ -128,6 +132,363 @@
     .dashboard-view.active { display: block; }
 
     .dashboard-wrap { width: 100%; max-width: none; margin: 0; }
+
+    .dashboard-view:not(#variables) { --view-accent: var(--ms-teal); --view-accent-secondary: var(--ms-gold); }
+    #performance { --view-accent: var(--ms-purple); --view-accent-secondary: var(--ms-teal); }
+    #behavior { --view-accent: var(--ms-rose); --view-accent-secondary: var(--ms-teal); }
+    #models { --view-accent: var(--ms-blue); --view-accent-secondary: var(--ms-purple); }
+    #recommendations { --view-accent: var(--ms-blue); --view-accent-secondary: var(--ms-purple); }
+    .ms-view-hero { position:relative; overflow:hidden; padding:28px; border:1px solid var(--ms-stroke-strong); border-radius:var(--ms-radius-hero); background:linear-gradient(140deg,var(--ms-hero-top),var(--ms-hero-bottom)); box-shadow:var(--ms-shadow-hero); }
+    .ms-view-hero::before { content:""; position:absolute; inset:0 auto auto 0; width:58%; height:2px; background:linear-gradient(90deg,var(--view-accent),transparent); opacity:.9; }
+    .ms-view-hero > * { position:relative; z-index:1; }
+    .ms-motif { position:absolute; z-index:0; inset:0 0 0 auto; width:58%; height:100%; color:var(--view-accent); opacity:.75; pointer-events:none; }
+    .ms-motif path,.ms-motif circle,.ms-motif line,.ms-motif polyline { vector-effect:non-scaling-stroke; }
+    .ms-chart-stage { margin-top:24px; padding:14px; border:1px solid var(--ms-stroke); border-radius:16px; background:color-mix(in srgb,var(--ms-utility) 72%,transparent); }
+    .ms-panel--major { border-radius:var(--ms-radius-panel); border:1px solid var(--ms-stroke); background:linear-gradient(145deg,var(--ms-major-top),var(--ms-major-bottom)); box-shadow:var(--ms-shadow-major); }
+    .ms-panel--support { border:1px solid var(--ms-stroke); border-radius:var(--ms-radius-panel); background:linear-gradient(145deg,var(--ms-panel),var(--ms-utility)); }
+    .ms-insight-card { border:1px solid var(--ms-stroke); border-left:3px solid var(--view-accent); border-radius:var(--ms-radius-tile); padding:16px; background:var(--ms-tile); }
+    .ms-kpi-tile { border:1px solid var(--ms-stroke); border-top:2px solid var(--view-accent); border-radius:var(--ms-radius-tile); background:linear-gradient(145deg,var(--ms-tile),var(--ms-panel)); }
+    .ms-methodology { color:var(--ms-muted); font-size:.78rem; line-height:1.55; }
+    .recommendation-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:var(--ms-gap-major); }
+    .recommendation-card { position:relative; min-width:0; padding:26px 28px; border:1px solid var(--ms-stroke-strong); border-top:2px solid var(--view-accent); border-radius:var(--ms-radius-panel); background:linear-gradient(145deg,var(--ms-major-top),var(--ms-major-bottom)); box-shadow:var(--ms-shadow-major); overflow:hidden; }
+    .recommendation-card::after { content:""; position:absolute; right:-90px; top:-110px; width:260px; height:260px; border-radius:50%; background:radial-gradient(circle,color-mix(in srgb,var(--view-accent) 13%,transparent),transparent 68%); pointer-events:none; }
+    .recommendation-card > * { position:relative; z-index:1; }
+    .recommendation-card .recommendation-head { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+    .recommendation-card .recommendation-label { color:var(--view-accent); font-size:.74rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+    .recommendation-card .recommendation-title { margin-top:7px; color:var(--ms-text); font-size:clamp(1.2rem,2vw,1.65rem); font-weight:800; }
+    .recommendation-card .recommendation-model { margin-top:8px; color:var(--ms-text); font:700 clamp(1rem,1.7vw,1.25rem) "JetBrains Mono",monospace; overflow-wrap:anywhere; }
+    .recommendation-card .recommendation-confidence { flex:0 0 auto; border:1px solid var(--ms-stroke-strong); border-radius:999px; padding:6px 10px; color:var(--view-accent); font:700 .7rem "JetBrains Mono",monospace; white-space:nowrap; }
+    .recommendation-card .recommendation-description { max-width:920px; margin-top:14px; color:var(--ms-muted); font-size:.93rem; line-height:1.55; }
+    .recommendation-card .recommendation-details { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(230px,.75fr); gap:24px; margin-top:22px; }
+    .recommendation-card .recommendation-block { min-width:0; padding-top:15px; border-top:1px solid var(--ms-stroke); }
+    .recommendation-card .recommendation-block-label { color:var(--ms-muted); font-size:.68rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+    .recommendation-card .recommendation-evidence { margin-top:9px; color:var(--ms-text); font-size:.88rem; line-height:1.6; }
+    .recommendation-card .recommendation-evidence strong { color:var(--view-accent); }
+    .recommendation-card .recommendation-sample { margin-top:11px; color:var(--view-accent); font:600 .72rem "JetBrains Mono",monospace; }
+    .recommendation-card .recommendation-runner { margin-top:9px; color:var(--ms-muted); font-size:.8rem; line-height:1.5; overflow-wrap:anywhere; }
+    .recommendation-card .recommendation-caveat { color:var(--ms-muted); }
+    .recommendation-card .recommendation-visual { display:grid; grid-template-columns:190px minmax(0,1fr); gap:30px; align-items:center; margin-top:24px; padding:20px; border:1px solid var(--ms-stroke); border-radius:16px; background:linear-gradient(120deg,color-mix(in srgb,var(--view-accent) 8%,var(--ms-utility)),color-mix(in srgb,var(--ms-panel) 88%,transparent)); }
+    .recommendation-orb { width:154px; height:154px; margin:auto; display:grid; place-items:center; border-radius:50%; background:conic-gradient(var(--view-accent) calc(var(--orb-progress) * 1%), color-mix(in srgb,var(--view-accent) 12%,var(--ms-utility)) 0); box-shadow:0 0 36px color-mix(in srgb,var(--view-accent) 18%,transparent); position:relative; }
+    .recommendation-orb::before { content:""; position:absolute; inset:9px; border-radius:50%; background:var(--ms-major-bottom); border:1px solid var(--ms-stroke-strong); }
+    .recommendation-orb-content { position:relative; z-index:1; text-align:center; max-width:120px; }
+    .recommendation-orb-score { color:var(--view-accent); font:800 2rem "JetBrains Mono",monospace; line-height:1; }
+    .recommendation-orb-label { margin-top:7px; color:var(--ms-muted); font-size:.62rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+    .recommendation-signals { display:grid; gap:13px; }
+    .recommendation-signal { display:grid; grid-template-columns:160px minmax(0,1fr) 120px; gap:12px; align-items:center; }
+    .recommendation-signal-label { color:var(--ms-muted); font-size:.72rem; font-weight:700; }
+    .recommendation-signal-track { height:7px; overflow:hidden; border-radius:99px; background:color-mix(in srgb,var(--ms-muted) 18%,transparent); }
+    .recommendation-signal-fill { height:100%; width:var(--signal-value); border-radius:inherit; background:linear-gradient(90deg,var(--view-accent-secondary),var(--view-accent)); box-shadow:0 0 12px color-mix(in srgb,var(--view-accent) 25%,transparent); }
+    .recommendation-signal-value { color:var(--ms-text); font:600 .72rem "JetBrains Mono",monospace; text-align:right; white-space:nowrap; }
+    .recommendation-card .recommendation-block-label i { color:var(--view-accent); }
+    @media (max-width:700px) { .recommendation-card { padding:20px 18px; } .recommendation-card .recommendation-head { display:block; } .recommendation-card .recommendation-confidence { display:inline-block; margin-top:14px; } .recommendation-card .recommendation-details,.recommendation-card .recommendation-visual { grid-template-columns:1fr; gap:16px; } .recommendation-orb { width:132px; height:132px; } .recommendation-signal { grid-template-columns:125px minmax(0,1fr) 92px; gap:8px; } }
+    #recommendations { --rec-bg:#060b10; --rec-panel:#0d151d; --rec-line:#1b2a36; --rec-text:#e8f1f5; --rec-muted:#7f95a3; --rec-teal:#6fe3d0; background:radial-gradient(1200px 600px at 70% -10%,#12303a55,transparent),var(--rec-bg); color:var(--rec-text); padding:0 12px 60px; margin-left:-12px; margin-right:-12px; }
+    #recommendations .recommendation-hero { display:grid; grid-template-columns:1fr 1.15fr; gap:20px; align-items:center; padding:44px 12px 20px; }
+    #recommendations .recommendation-hero h1 { font-family:Sora,system-ui,sans-serif; font-size:clamp(34px,5vw,60px); line-height:1; font-weight:600; letter-spacing:-1.5px; -webkit-font-smoothing:antialiased; }
+    #recommendations .recommendation-hero h1 em { font-style:normal; background:linear-gradient(90deg,#f5c97a,#6fe3d0 50%,#b69cff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    #recommendations .recommendation-hero-copy { color:var(--rec-muted); max-width:46ch; line-height:1.6; font-size:15px; margin-top:16px; }
+    #recommendations .recommendation-crowns { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+    #recommendations .recommendation-crown { background:var(--rec-panel); border:1px solid var(--rec-line); border-radius:14px; padding:10px 14px; font-size:12px; color:var(--rec-muted); }
+    #recommendations .recommendation-crown strong { display:block; color:var(--rec-teal); font-size:14px; }
+    #recommendations #recommendationMap { width:100%; height:auto; overflow:visible; }
+    #recommendations .recommendation-map-orbit { animation:recommendationSpin 90s linear infinite; transform-origin:300px 220px; }
+    #recommendations .recommendation-map-node { cursor:pointer; }
+    #recommendations .recommendation-map-node .map-halo { opacity:.18; transition:r .3s,opacity .3s; }
+    #recommendations .recommendation-map-node .map-halo { animation:recommendationPulse 4.5s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+    #recommendations .recommendation-map-node:hover .map-halo, #recommendations .recommendation-map-node.hot .map-halo { r:34; opacity:.45; }
+    @keyframes recommendationSpin { to { transform:rotate(360deg); } }
+    @keyframes recommendationPulse { 0%,100% { opacity:.14; transform:scale(.92); } 50% { opacity:.34; transform:scale(1.08); } }
+    #recommendations .recommendation-card { --a:var(--rec-teal); display:grid; grid-template-columns:260px minmax(0,1fr); gap:28px; background:linear-gradient(135deg,color-mix(in srgb,var(--a) 9%,var(--rec-panel)),var(--rec-panel) 55%); border:1px solid color-mix(in srgb,var(--a) 28%,var(--rec-line)); border-radius:26px; padding:28px; margin-top:22px; overflow:hidden; scroll-margin-top:80px; opacity:0; transform:translateY(18px); transition:opacity .6s ease,box-shadow .4s,transform .6s cubic-bezier(.2,.8,.2,1),border-color .35s; }
+    #recommendations .recommendation-card.is-visible { opacity:1; transform:translateY(0); }
+    #recommendations .recommendation-card-content { min-width:0; position:relative; z-index:1; }
+    #recommendations .recommendation-card:hover, #recommendations .recommendation-card.hot { box-shadow:0 0 0 1px var(--a),0 20px 80px -20px var(--a); transform:translateY(-2px); }
+    #recommendations .recommendation-card::after { content:""; position:absolute; right:-90px; top:-90px; width:300px; height:300px; border-radius:50%; background:radial-gradient(var(--a),transparent 65%); opacity:.14; pointer-events:none; }
+    #recommendations .recommendation-gauge { display:grid; place-items:center; position:relative; align-self:start; }
+    #recommendations .recommendation-gauge svg { width:230px; height:230px; transform:rotate(-90deg); overflow:visible; }
+    #recommendations .recommendation-gauge .gauge-number { position:absolute; text-align:center; }
+    #recommendations .recommendation-gauge .gauge-number strong { display:block; color:var(--a); font-size:62px; font-weight:800; line-height:1; }
+    #recommendations .recommendation-gauge .gauge-number small { color:var(--rec-muted); font-size:11px; }
+    #recommendations .recommendation-tag { display:flex; gap:10px; align-items:center; color:var(--a); font-size:13px; font-weight:600; }
+    #recommendations .recommendation-icon { width:34px; height:34px; display:grid; place-items:center; border-radius:11px; background:color-mix(in srgb,var(--a) 18%,transparent); font-size:17px; }
+    #recommendations .recommendation-card .recommendation-title { font-size:26px; margin:12px 0 4px; letter-spacing:-.5px; }
+    #recommendations .recommendation-card .recommendation-model { display:inline-block; margin:6px 0 8px; padding:6px 12px; border-radius:10px; background:#050a0e; border:1px solid var(--rec-line); font-size:14px; }
+    #recommendations .recommendation-legend { display:flex; gap:18px; flex-wrap:wrap; margin-top:18px; color:var(--rec-muted); font-size:12px; }
+    #recommendations .recommendation-legend i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; }
+    #recommendations .recommendation-bars { margin-top:20px; display:grid; gap:14px; }
+    #recommendations .recommendation-bar-label { display:flex; justify-content:space-between; gap:10px; color:var(--rec-muted); font-size:12px; margin-bottom:6px; }
+    #recommendations .recommendation-bar-label strong { color:var(--rec-text); font-size:14px; }
+    #recommendations .recommendation-track { height:12px; border-radius:99px; background:#122029; overflow:hidden; }
+    #recommendations .recommendation-fill { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,color-mix(in srgb,var(--a) 35%,#000),var(--a)); box-shadow:0 0 18px var(--a); transition:width 1.4s cubic-bezier(.2,.8,.2,1); }
+    #recommendations .recommendation-gauge .gauge-ring { stroke-dasharray:0 var(--gauge-circumference); transition:stroke-dasharray 1.5s cubic-bezier(.2,.8,.2,1); }
+    #recommendations .recommendation-track.runner { height:6px; margin-top:5px; }
+    #recommendations .recommendation-track.runner .recommendation-fill { background:#9fb3c0; box-shadow:none; }
+    #recommendations .recommendation-runner-value { color:var(--rec-muted); margin-left:10px; font-size:12px; }
+    #recommendations .recommendation-runner-value.winner { color:#ffd166; }
+    #recommendations .recommendation-foot { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:22px; }
+    #recommendations .recommendation-box { background:#050a0e99; border:1px solid var(--rec-line); border-radius:16px; padding:14px 16px; font-size:13px; line-height:1.5; }
+    #recommendations .recommendation-box h4 { color:var(--rec-muted); font-size:12px; font-weight:600; margin-bottom:6px; }
+    #recommendations .recommendation-support { margin-top:8px; color:var(--a); font-size:12px; }
+    #recommendations .recommendation-head-to-head { display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; margin:10px 0; }
+    #recommendations .recommendation-head-to-head small { display:block; color:var(--rec-muted); font-size:11px; }
+    #recommendations .recommendation-head-to-head strong { font-size:24px; }
+    #recommendations .recommendation-duel-bars { display:grid; gap:5px; }
+    #recommendations .recommendation-duel-bars div { height:8px; border-radius:99px; background:var(--a); }
+    #recommendations .recommendation-duel-bars .runner { background:#9fb3c0; }
+    #recommendations .recommendation-lead { font-size:12px; color:var(--rec-muted); }
+    #recommendations .recommendation-lead strong { color:#ffd166; }
+    #recommendations .recommendation-caveat { margin-top:8px; color:var(--rec-muted); font-size:12px; }
+    #recommendations .recommendation-content-bars { margin-top:20px; padding-top:18px; border-top:1px solid var(--rec-line); }
+    @media (max-width:900px) { #recommendations .recommendation-hero,#recommendations .recommendation-card,#recommendations .recommendation-foot { grid-template-columns:1fr; } #recommendations .recommendation-gauge svg { width:180px; height:180px; } #recommendations .recommendation-gauge .gauge-number strong { font-size:48px; } }
+    @media (prefers-reduced-motion:reduce) { #recommendations .recommendation-map-orbit,#recommendations .recommendation-map-node .map-halo,#recommendations .recommendation-fill { animation:none; transition:none; } #recommendations .recommendation-card { opacity:1; transform:none; transition:none; } #recommendations .recommendation-gauge .gauge-ring { transition:none; } }
+
+    /* Shared Signal Lab treatment for the analytical views. Variables is intentionally excluded. */
+    .topbar, .navigation-bar { font-family:Sora,system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+    .topbar { background:rgba(6,11,16,.9); border-color:#1b2a36; box-shadow:0 1px 0 rgba(111,227,208,.06); }
+    body { background:radial-gradient(circle at 15% 0%,rgba(182,156,255,.08),transparent 28%),radial-gradient(circle at 85% 0%,rgba(111,227,208,.07),transparent 24%),#060b10; }
+    .topbar-meta { color:#7f95a3; }
+    .topbar-meta strong { color:#e8f1f5; }
+    .navigation-bar { background:rgba(6,11,16,.94); border-color:#1b2a36; box-shadow:0 8px 28px rgba(0,0,0,.2); }
+    .navigation-bar .nav-link { color:#7f95a3; border:1px solid transparent; border-radius:12px; transition:background .2s,color .2s,border-color .2s,transform .2s; }
+    .navigation-bar .nav-link:hover { color:#e8f1f5; background:#0d151d; border-color:#1b2a36; transform:translateY(-1px); }
+    .navigation-bar .nav-link.active { color:#e8f1f5; background:color-mix(in srgb,var(--view-accent,var(--ms-teal)) 15%,#0d151d); border-color:color-mix(in srgb,var(--view-accent,var(--ms-teal)) 44%,#1b2a36); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 24px color-mix(in srgb,var(--view-accent,var(--ms-teal)) 10%,transparent); }
+    .dashboard-view:not(#variables) { color:#e8f1f5; }
+    .dashboard-view:not(#variables) .view-header { position:relative; overflow:hidden; padding:30px 28px; border:1px solid color-mix(in srgb,var(--view-accent) 32%,#1b2a36); border-radius:24px; background:linear-gradient(135deg,color-mix(in srgb,var(--view-accent) 9%,#0d151d),#0d151d 58%,#091018); box-shadow:0 20px 52px rgba(0,0,0,.34); }
+    .dashboard-view:not(#variables) .view-header::before { content:""; position:absolute; inset:0 auto auto 0; width:58%; height:2px; background:linear-gradient(90deg,var(--view-accent),transparent); }
+    .dashboard-view:not(#variables) .view-header::after { content:""; position:absolute; width:260px; height:260px; right:-90px; top:-120px; border-radius:50%; background:radial-gradient(circle,color-mix(in srgb,var(--view-accent) 18%,transparent),transparent 68%); pointer-events:none; }
+    .dashboard-view:not(#variables) .view-header > * { position:relative; z-index:1; }
+    .dashboard-view:not(#variables) .hero-title { color:#e8f1f5; font-size:clamp(32px,4.5vw,56px); font-weight:800; letter-spacing:-1.5px; }
+    .dashboard-view:not(#variables) .eyebrow { color:var(--view-accent); }
+    .dashboard-view:not(#variables) .section-title { color:#e8f1f5; font-weight:800; letter-spacing:-.2px; }
+    .dashboard-view:not(#variables) .section-sub,.dashboard-view:not(#variables) .experiment-caption,.dashboard-view:not(#variables) .small-note { color:#7f95a3; }
+    .dashboard-view:not(#variables) .panel { border-color:#1b2a36; background:linear-gradient(145deg,#111d26,#0d151d); box-shadow:0 12px 32px rgba(0,0,0,.2); }
+    .dashboard-view:not(#variables) .panel:hover { border-color:color-mix(in srgb,var(--view-accent) 30%,#1b2a36); }
+    .dashboard-view:not(#variables) .experimental-card,
+    .dashboard-view:not(#variables) .experimental01-creative-card,
+    .dashboard-view:not(#variables) .experimental01-lab-card,
+    .dashboard-view:not(#variables) .experimental02x-card,
+    .dashboard-view:not(#variables) .experimental03z-card,
+    .dashboard-view:not(#variables) .experimental05-hero,
+    .dashboard-view:not(#variables) .experimental05-card { background:linear-gradient(145deg,color-mix(in srgb,var(--view-accent) 7%,#111d26),#0d151d); border-color:color-mix(in srgb,var(--view-accent) 24%,#1b2a36); }
+    .dashboard-view:not(#variables) .chart-card,
+    .dashboard-view:not(#variables) .fingerprint-chart-card { background:#0d151d; border-color:#1b2a36; }
+    .dashboard-view:not(#variables) .experimental-canvas,
+    .dashboard-view:not(#variables) .experimental01-creative-canvas,
+    .dashboard-view:not(#variables) .experimental01-lab-canvas,
+    .dashboard-view:not(#variables) .experimental02final-canvas,
+    .dashboard-view:not(#variables) .experimental05-canvas,
+    .dashboard-view:not(#variables) .fingerprint-canvas { background:linear-gradient(135deg,#091018,#101c25); border:1px solid #1b2a36; }
+    .dashboard-view:not(#variables) .kpi-card { position:relative; overflow:hidden; min-height:150px; background:linear-gradient(145deg,color-mix(in srgb,var(--view-accent) 12%,#111d26),#0d151d); border:1px solid color-mix(in srgb,var(--view-accent) 30%,#1b2a36); border-top:2px solid var(--view-accent); border-radius:16px; box-shadow:0 12px 30px rgba(0,0,0,.2); transition:transform .2s,box-shadow .2s,border-color .2s; }
+    .dashboard-view:not(#variables) .kpi-card:hover { transform:translateY(-3px); box-shadow:0 18px 38px color-mix(in srgb,var(--view-accent) 12%,transparent); }
+    .dashboard-view:not(#variables) .kpi-card::after { content:""; position:absolute; width:110px; height:110px; right:-35px; bottom:-50px; border:1px solid color-mix(in srgb,var(--view-accent) 25%,transparent); border-radius:50%; opacity:.5; }
+    .dashboard-view:not(#variables) .kpi-label { color:#7f95a3; letter-spacing:.08em; }
+    .dashboard-view:not(#variables) .kpi-value { color:#e8f1f5; font-family:"JetBrains Mono",monospace; }
+    .dashboard-view:not(#variables) .kpi-sub { color:#7f95a3; }
+    .dashboard-view:not(#variables) .kpi-icon { color:var(--view-accent); background:color-mix(in srgb,var(--view-accent) 18%,transparent); }
+    .dashboard-view:not(#variables) .experimental02-lens,
+    .dashboard-view:not(#variables) .experimental01-lab-tab,
+    .dashboard-view:not(#variables) .experimental01-picker button,
+    .dashboard-view:not(#variables) .btn-ghost { color:#7f95a3; background:#0d151d; border-color:#1b2a36; transition:color .2s,background .2s,border-color .2s,transform .2s; }
+    .dashboard-view:not(#variables) .experimental02-lens:hover,
+    .dashboard-view:not(#variables) .experimental01-lab-tab:hover,
+    .dashboard-view:not(#variables) .experimental01-picker button:hover,
+    .dashboard-view:not(#variables) .btn-ghost:hover { color:#e8f1f5; border-color:var(--view-accent); transform:translateY(-1px); }
+    .dashboard-view:not(#variables) .experimental02-lens.active,
+    .dashboard-view:not(#variables) .experimental01-lab-tab.active,
+    .dashboard-view:not(#variables) .experimental01-picker button.active { color:#e8f1f5; background:color-mix(in srgb,var(--view-accent) 16%,#0d151d); border-color:var(--view-accent); box-shadow:0 0 22px color-mix(in srgb,var(--view-accent) 14%,transparent); }
+    .dashboard-view:not(#variables) .table-wrap { border:1px solid #1b2a36; border-radius:16px; overflow-x:auto; background:#0d151d; }
+    .dashboard-view:not(#variables) .dashboard-table { --bs-table-color:#e8f1f5; --bs-table-bg:transparent; --bs-table-border-color:#1b2a36; }
+    .dashboard-view:not(#variables) .dashboard-table thead th { color:var(--view-accent); background:#111d26; border-bottom-color:color-mix(in srgb,var(--view-accent) 30%,#1b2a36); }
+    .dashboard-view:not(#variables) .dashboard-table tbody tr { transition:background .18s,transform .18s; }
+    .dashboard-view:not(#variables) .dashboard-table tbody tr:hover { background:color-mix(in srgb,var(--view-accent) 8%,transparent); }
+    .dashboard-view:not(#variables) input.form-control { color:#e8f1f5; background:#091018; border-color:#1b2a36; }
+    .dashboard-view:not(#variables) input.form-control:focus { color:#e8f1f5; border-color:var(--view-accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--view-accent) 18%,transparent); }
+    .dashboard-view:not(#variables) .badge-soft,.dashboard-view:not(#variables) .badge-plain { color:#c8d8df; background:#15232d; border-color:#28404d; }
+    .dashboard-view:not(#variables) .experimental01-key,.dashboard-view:not(#variables) .flow-legend { color:#7f95a3; }
+    .dashboard-view:not(#variables).active > * { animation:signalViewEnter .48s cubic-bezier(.2,.8,.2,1) both; }
+    .dashboard-view:not(#variables).active > *:nth-child(2) { animation-delay:.05s; }
+    .dashboard-view:not(#variables).active > *:nth-child(3) { animation-delay:.1s; }
+    .dashboard-view:not(#variables).active > *:nth-child(4) { animation-delay:.15s; }
+    @keyframes signalViewEnter { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    html[data-theme="light"] .topbar { background:rgba(248,251,255,.94); border-color:rgba(43,68,96,.18); }
+    html[data-theme="light"] body { background:radial-gradient(circle at 15% 0%,rgba(114,98,178,.08),transparent 28%),radial-gradient(circle at 85% 0%,rgba(59,130,126,.06),transparent 24%),#f5f8fc; }
+    html[data-theme="light"] .topbar-meta { color:#5f6d7b; }
+    html[data-theme="light"] .topbar-meta strong { color:#18212b; }
+    html[data-theme="light"] .navigation-bar { background:rgba(248,251,255,.96); border-color:rgba(43,68,96,.18); }
+    html[data-theme="light"] .navigation-bar .nav-link { color:#5f6d7b; }
+    html[data-theme="light"] .navigation-bar .nav-link:hover { color:#18212b; background:#edf3f9; border-color:rgba(43,68,96,.18); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) { color:#18212b; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .view-header { background:linear-gradient(135deg,color-mix(in srgb,var(--view-accent) 9%,#fff),#fff 58%,#f1f6fb); border-color:color-mix(in srgb,var(--view-accent) 35%,rgba(43,68,96,.18)); box-shadow:0 18px 42px rgba(30,48,72,.12); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .hero-title, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .section-title { color:#18212b; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .section-sub, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experiment-caption, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .small-note { color:#5f6d7b; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .panel, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .chart-card, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .fingerprint-chart-card { background:linear-gradient(145deg,#fff,#f1f6fb); border-color:rgba(43,68,96,.18); box-shadow:0 12px 30px rgba(30,48,72,.1); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experimental-canvas, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experimental01-creative-canvas, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experimental01-lab-canvas, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experimental02final-canvas, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experimental05-canvas, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .fingerprint-canvas { background:linear-gradient(135deg,#f1f6fb,#fff); border-color:rgba(43,68,96,.18); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .kpi-card { background:linear-gradient(145deg,color-mix(in srgb,var(--view-accent) 8%,#fff),#fff); border-color:color-mix(in srgb,var(--view-accent) 30%,rgba(43,68,96,.18)); box-shadow:0 12px 28px rgba(30,48,72,.1); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .kpi-label, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .kpi-sub { color:#5f6d7b; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .kpi-value { color:#18212b; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experimental02-lens, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experimental01-lab-tab, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .experimental01-picker button, html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .btn-ghost { color:#5f6d7b; background:#fff; border-color:rgba(43,68,96,.18); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .dashboard-table { --bs-table-color:#18212b; --bs-table-bg:transparent; --bs-table-border-color:rgba(43,68,96,.18); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .dashboard-table thead th { background:#edf3f9; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .table-wrap { background:#fff; border-color:rgba(43,68,96,.18); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) input.form-control { color:#18212b; background:#fff; border-color:rgba(43,68,96,.18); }
+    /* Recommendation-grade finish: intentionally high-specificity overrides for legacy panels. */
+    .dashboard-view:not(#variables), #recommendations { position:relative; isolation:isolate; font-family:Sora,system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+    .dashboard-view:not(#variables):not(#recommendations)::before { content:""; position:absolute; z-index:-1; inset:-20px -12px auto; height:460px; background:radial-gradient(650px 300px at 8% 0%,color-mix(in srgb,var(--view-accent) 12%,transparent),transparent 70%),radial-gradient(540px 260px at 94% 3%,color-mix(in srgb,var(--view-accent-secondary) 9%,transparent),transparent 72%); pointer-events:none; }
+    .dashboard-view:not(#variables):not(#recommendations) .hero-title,
+    .dashboard-view:not(#variables):not(#recommendations) .ms-view-hero .hero-title,
+    .dashboard-view:not(#variables):not(#recommendations) .view-header .hero-title { background:linear-gradient(100deg,#f5c97a 0%,var(--view-accent) 45%,var(--view-accent-secondary) 100%); -webkit-background-clip:text; background-clip:text; color:transparent !important; text-shadow:none; }
+    .dashboard-view:not(#variables):not(#recommendations) .ms-view-hero,
+    .dashboard-view:not(#variables):not(#recommendations) .view-header { border-radius:26px !important; background:linear-gradient(135deg,color-mix(in srgb,var(--view-accent) 10%,#0d151d),#0d151d 56%,#091018) !important; box-shadow:0 20px 72px rgba(0,0,0,.34),0 0 0 1px color-mix(in srgb,var(--view-accent) 10%,transparent) !important; }
+    .dashboard-view:not(#variables):not(#recommendations) .ms-view-hero::after,
+    .dashboard-view:not(#variables):not(#recommendations) .view-header::after { content:""; position:absolute; z-index:0; width:320px; height:320px; right:-110px; top:-150px; border-radius:50%; background:radial-gradient(circle,color-mix(in srgb,var(--view-accent) 20%,transparent),transparent 68%); pointer-events:none; }
+    .dashboard-view:not(#variables):not(#recommendations) > .panel,
+    .dashboard-view:not(#variables):not(#recommendations) > .row > *,
+    .dashboard-view:not(#variables):not(#recommendations) .panel { border:1px solid color-mix(in srgb,var(--view-accent) 24%,#1b2a36) !important; border-radius:18px !important; background:linear-gradient(145deg,color-mix(in srgb,var(--view-accent) 6%,#111d26),#0d151d 76%) !important; box-shadow:0 14px 38px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.035) !important; }
+    .dashboard-view:not(#variables):not(#recommendations) .panel::before { content:""; display:block; position:absolute; left:18px; right:18px; top:0; height:1px; background:linear-gradient(90deg,var(--view-accent),transparent 68%); opacity:.45; pointer-events:none; }
+    .dashboard-view:not(#variables):not(#recommendations) .panel { position:relative; overflow:hidden; transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease,background .22s ease !important; }
+    .dashboard-view:not(#variables):not(#recommendations) .panel:hover { transform:translateY(-3px); border-color:color-mix(in srgb,var(--view-accent) 48%,#1b2a36) !important; box-shadow:0 20px 48px color-mix(in srgb,var(--view-accent) 12%,rgba(0,0,0,.32)),inset 0 1px 0 rgba(255,255,255,.06) !important; }
+    .dashboard-view:not(#variables):not(#recommendations) .section-title { letter-spacing:.01em; }
+    .dashboard-view:not(#variables):not(#recommendations) .chart-card,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental-card,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental01-creative-card,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental01-lab-card { box-shadow:0 16px 44px rgba(0,0,0,.28),inset 0 2px 0 color-mix(in srgb,var(--view-accent) 38%,transparent) !important; }
+    .dashboard-view:not(#variables):not(#recommendations) .experimental-canvas,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental01-creative-canvas,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental01-lab-canvas,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental02final-canvas,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental05-canvas,
+    .dashboard-view:not(#variables):not(#recommendations) .fingerprint-canvas { border-radius:16px !important; box-shadow:inset 0 0 38px color-mix(in srgb,var(--view-accent) 9%,transparent),0 0 0 1px #1b2a36 !important; }
+    .dashboard-view:not(#variables):not(#recommendations) .badge,
+    .dashboard-view:not(#variables):not(#recommendations) .badge-soft,
+    .dashboard-view:not(#variables):not(#recommendations) .badge-plain { border-color:color-mix(in srgb,var(--view-accent) 35%,#1b2a36) !important; background:color-mix(in srgb,var(--view-accent) 10%,#0d151d) !important; color:#cfe0e6 !important; }
+    .dashboard-view:not(#variables):not(#recommendations) .experimental02-lenses,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental01-lab-tabs { padding:10px 0 14px; }
+    .dashboard-view:not(#variables):not(#recommendations) .experimental02-lens.active,
+    .dashboard-view:not(#variables):not(#recommendations) .experimental01-lab-tab.active { box-shadow:0 0 24px color-mix(in srgb,var(--view-accent) 20%,transparent) !important; }
+    .dashboard-view:not(#variables):not(#recommendations) .dashboard-table thead th { position:sticky; top:0; z-index:2; box-shadow:0 1px 0 color-mix(in srgb,var(--view-accent) 28%,#1b2a36); }
+    .dashboard-view:not(#variables):not(#recommendations).active > *,
+    .dashboard-view:not(#variables):not(#recommendations).active .panel { animation:recommendationPanelReveal .62s cubic-bezier(.2,.8,.2,1) both; }
+    .dashboard-view:not(#variables):not(#recommendations).active .panel:nth-child(2) { animation-delay:.06s; }
+    .dashboard-view:not(#variables):not(#recommendations).active .panel:nth-child(3) { animation-delay:.12s; }
+    @keyframes recommendationPanelReveal { from { opacity:0; transform:translateY(16px) scale(.992); } to { opacity:1; transform:translateY(0) scale(1); } }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations)::before { background:radial-gradient(650px 300px at 8% 0%,color-mix(in srgb,var(--view-accent) 10%,transparent),transparent 70%),radial-gradient(540px 260px at 94% 3%,color-mix(in srgb,var(--view-accent-secondary) 8%,transparent),transparent 72%); }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .ms-view-hero,
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .view-header { background:linear-gradient(135deg,color-mix(in srgb,var(--view-accent) 8%,#fff),#fff 58%,#eef4f9) !important; box-shadow:0 18px 48px rgba(30,48,72,.12),0 0 0 1px color-mix(in srgb,var(--view-accent) 12%,transparent) !important; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) > .panel,
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) > .row > *,
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .panel { background:linear-gradient(145deg,color-mix(in srgb,var(--view-accent) 4%,#fff),#f1f6fb 76%) !important; border-color:color-mix(in srgb,var(--view-accent) 24%,rgba(43,68,96,.18)) !important; box-shadow:0 14px 34px rgba(30,48,72,.1),inset 0 1px 0 rgba(255,255,255,.9) !important; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .panel:hover { box-shadow:0 20px 44px color-mix(in srgb,var(--view-accent) 12%,rgba(30,48,72,.12)),inset 0 1px 0 rgba(255,255,255,.95) !important; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .dashboard-table thead th { background:#eaf1f8; color:color-mix(in srgb,var(--view-accent) 78%,#18212b); }
+    @media (prefers-reduced-motion:reduce) { .dashboard-view:not(#variables):not(#recommendations).active > *, .dashboard-view:not(#variables):not(#recommendations).active .panel { animation:none; } .dashboard-view:not(#variables):not(#recommendations) .panel { transition:none !important; } }
+    /* Shared hero typography, matching Model Recommendations. */
+    .dashboard-view:not(#variables) .eyebrow { font-family:Sora,system-ui,sans-serif; font-size:12px; line-height:1.2; letter-spacing:.13em; font-weight:800; text-transform:uppercase; }
+    /* Use the original Model Recommendations hero treatment as the shared basis. */
+    .dashboard-view:not(#variables) .hero-title {
+      margin-top:0;
+      font-family:Sora,system-ui,sans-serif;
+      font-size:clamp(34px,5vw,60px) !important;
+      line-height:1 !important;
+      font-weight:600 !important;
+      letter-spacing:-1.5px !important;
+      color:#e8f1f5 !important;
+      background:none !important;
+      -webkit-font-smoothing:antialiased;
+    }
+    .dashboard-view:not(#variables) .hero-title .hero-lead {
+      color:#e8f1f5 !important;
+      -webkit-text-fill-color:#e8f1f5;
+      background:none !important;
+    }
+    .dashboard-view:not(#variables) .hero-title em {
+      font-style:normal;
+      background:linear-gradient(90deg,#f5c97a,#6fe3d0 50%,#b69cff);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+    }
+    .dashboard-view:not(#variables) .view-header > div:first-child > p,
+    .dashboard-view:not(#variables) .ms-view-hero > p { color:#7f95a3 !important; max-width:760px; font-family:"Inter",sans-serif; font-size:15px; line-height:1.6; }
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .view-header > div:first-child > p,
+    html[data-theme="light"] .dashboard-view:not(#variables):not(#recommendations) .ms-view-hero > p { color:#5f6d7b !important; }
+    @media (prefers-reduced-motion:reduce) { .dashboard-view:not(#variables).active > * { animation:none; } .dashboard-view:not(#variables) .kpi-card,.dashboard-view:not(#variables) .dashboard-table tbody tr,.dashboard-view:not(#variables) .btn-ghost { transition:none; } }
+    @media (max-width:700px) { .ms-view-hero { padding:20px 16px; border-radius:18px; } .ms-motif { width:72%; opacity:.45; } }
+    @media (prefers-reduced-motion: reduce) { *,*::before,*::after { transition-duration:0s !important; animation-duration:0s !important; } }
+
+    /* Responsive readability: charts and cards must reflow before they become cramped. */
+    .dashboard-view:not(#variables) { min-width:0; overflow:hidden; }
+    .dashboard-view:not(#variables) .row { --bs-gutter-x:1rem; --bs-gutter-y:1rem; }
+    .dashboard-view:not(#variables) .kpi-card { min-width:0; }
+    .dashboard-view:not(#variables) .section-title,
+    .dashboard-view:not(#variables) .experiment-caption,
+    .dashboard-view:not(#variables) .section-sub { font-size:clamp(.78rem,1.2vw,.95rem); line-height:1.5; }
+    .experimental01-creative-grid-wide { grid-template-columns:minmax(0,1fr); }
+    .experimental01-creative-grid-wide .experimental01-creative-card { min-width:0; }
+    .experimental01-creative-grid-wide .experimental01-creative-canvas { height:520px; }
+    #experimental01Weather { height:560px; }
+    #experimental01Spiral { height:520px; }
+    @media (max-width:700px) {
+      .dashboard-wrap { padding-left:.75rem !important; padding-right:.75rem !important; }
+      .ms-view-hero { padding:20px 16px; border-radius:18px; }
+      .ms-chart-stage { margin-top:18px; padding:12px; }
+      .dashboard-view:not(#variables) .hero-title { font-size:clamp(2rem,10vw,3rem) !important; }
+      .dashboard-view:not(#variables) .kpi-card { min-height:132px; }
+      .dashboard-view:not(#variables) .kpi-label { font-size:.72rem; }
+      .dashboard-view:not(#variables) .kpi-sub { font-size:.76rem; line-height:1.4; }
+      .experimental01-creative-grid-wide .experimental01-creative-canvas { height:650px; }
+      #experimental01Weather { height:2200px; }
+      #experimental01Spiral { height:580px; }
+      #experimental05Network { height:960px; }
+      #models .experimental01-lab-canvas { height:1500px; }
+      #models .experimental05-canvas { height:1100px; }
+      #models .panel:has(>#experimental05Network) { display:none; }
+      #models .x02-ladder-row { min-height:54px; grid-template-columns:minmax(0,1fr) 1.5fr 72px; gap:.5rem; }
+      #models .x02-ladder-label,
+      #models .x02-ladder-value { font-size:.68rem; line-height:1.3; }
+      #models .x02-ladder-track { height:16px; }
+      #models .experimental03z-card { overflow-x:auto; }
+      #models .x03-dna-grid { min-width:720px; }
+      #models .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      #models .dashboard-table { min-width:980px; font-size:.74rem; }
+      .fingerprint-insight-story-grid { gap:1rem; }
+    }
+    @media (min-width:701px) and (max-width:1050px) {
+      #experimental01Weather { height:620px; }
+      #experimental01Spiral { height:560px; }
+    }
+
+    /* Shared readability scale, based on the Recommendations cards. */
+    .dashboard-view:not(#variables) .section-title { font-size:clamp(.95rem,1.3vw,1.15rem); line-height:1.3; }
+    .dashboard-view:not(#variables) .section-sub,
+    .dashboard-view:not(#variables) .experiment-caption,
+    .dashboard-view:not(#variables) .small-note { font-size:clamp(.78rem,1.05vw,.92rem); line-height:1.5; }
+    .dashboard-view:not(#variables) .kpi-label { font-size:.76rem; }
+    .dashboard-view:not(#variables) .kpi-sub { font-size:.78rem; line-height:1.4; }
+    .dashboard-view:not(#variables) .fingerprint-card-title { font-size:.78rem; }
+    .dashboard-view:not(#variables) .fingerprint-card-model { font-size:.86rem; }
+    .dashboard-view:not(#variables) .fingerprint-card-meta,
+    .dashboard-view:not(#variables) .fingerprint-card-sub { font-size:.78rem; }
+    .dashboard-view:not(#variables) .fingerprint-insight-grid,
+    .dashboard-view:not(#variables) .fingerprint-insight-story-grid { grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); align-items:stretch; }
+    .dashboard-view:not(#variables) .fingerprint-story-card { min-height:150px; font-size:.82rem; }
+    .dashboard-view:not(#variables) .fingerprint-story-card > * { overflow-wrap:anywhere; }
+    .dashboard-view:not(#variables) .table-wrap { max-width:100%; }
+    .dashboard-view:not(#variables) .dashboard-table { font-size:.78rem; }
+    .dashboard-view:not(#variables) .dashboard-table th,
+    .dashboard-view:not(#variables) .dashboard-table td { white-space:nowrap; }
+    #experimental01Economy, #experimental01Forge { height:600px; }
+    #experimental01LatencyOrigami { height:680px; }
+    #experimental01Spiral { min-height:520px; }
+    #experimental05Network { min-height:480px; }
+    @media (max-width:700px) {
+      .dashboard-view:not(#variables) .section-title { font-size:1rem; }
+      .dashboard-view:not(#variables) .section-sub,
+      .dashboard-view:not(#variables) .experiment-caption,
+      .dashboard-view:not(#variables) .small-note { font-size:.82rem; }
+      .dashboard-view:not(#variables) .fingerprint-story-card { min-height:0; font-size:.84rem; }
+      #experimental01Economy, #experimental01Forge { height:720px; }
+      #experimental01LatencyOrigami { height:900px; }
+      #experimental01Spiral { min-height:580px; }
+    }
+    #overview > .d-flex h1.hero-title { display:block; color:#e8f1f5 !important; -webkit-text-fill-color:#e8f1f5; }
+    @media (max-width:767.98px) { #models .panel:has(> #experimental05Network) { display:none !important; } }
 
     .eyebrow {
       font-size: .72rem;
@@ -617,13 +978,38 @@
     .main-content, .dashboard-wrap, .dashboard-view, .panel, .row > *, .container-fluid { min-width: 0; }
     canvas, svg, img { max-width: 100%; }
     .hero-title, .section-title, .section-sub, .experiment-caption, .small-note, .eyebrow { overflow-wrap: anywhere; }
-    .navigation-bar .container-fluid { scrollbar-width: thin; }
+    .navigation-bar .container-fluid {
+      scrollbar-width: thin;
+      overflow-x: auto !important;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      scroll-behavior: smooth;
+    }
+    #dashboardNav {
+      width: max-content;
+      min-width: max-content;
+      flex-wrap: nowrap !important;
+      padding: .2rem 0;
+    }
+    #dashboardNav .nav-link { flex: 0 0 auto; }
 
     @media (max-width: 767.98px) {
       .topbar { min-height: 0; padding: .7rem 0; }
       .topbar-meta { justify-content: flex-start !important; gap: .45rem !important; font-size: .68rem; }
       .topbar-meta > span { max-width: 100%; overflow-wrap: anywhere; }
       .navigation-bar .nav-link { padding: .62rem .7rem; font-size: .78rem; gap: .45rem; }
+      .navigation-bar .container-fluid { padding-left: .55rem !important; padding-right: .55rem !important; }
+      .navigation-bar .container-fluid { overflow: visible !important; }
+      #dashboardNav {
+        display: flex !important;
+        width: auto;
+        min-width: 0;
+        flex-wrap: wrap !important;
+        gap: .2rem !important;
+        padding-bottom: .35rem;
+      }
+      #dashboardNav .nav-link { flex: 0 0 auto; }
       .hero-title { font-size: clamp(1.55rem, 8vw, 2.25rem); line-height: 1.08; }
       .chart-wrap, .chart-wrap.tall { height: 280px; }
       .experimental01-creative-canvas, .x03-crazy-canvas { height: 300px; }
@@ -740,8 +1126,7 @@
           <a class="nav-link" href="#performance" data-view="performance"><i class="fa-solid fa-gauge-high"></i> Performance</a>
           <a class="nav-link" href="#behavior" data-view="behavior"><i class="fa-solid fa-brain"></i> Response behavior</a>
           <a class="nav-link" href="#models" data-view="models"><i class="fa-solid fa-table-list"></i> Models</a>
-          <a class="nav-link" href="#fingerprints" data-view="fingerprints"><i class="fa-solid fa-fingerprint"></i> Fingerprints</a>
-          <a class="nav-link" href="#experimental-01" data-view="experimental-01"><i class="fa-solid fa-wand-magic-sparkles"></i> Experimental 01</a>
+          <a class="nav-link" href="#recommendations" data-view="recommendations"><i class="fa-solid fa-compass"></i> Model Recommendations</a>
           <a class="nav-link" href="#variables" data-view="variables"><i class="fa-solid fa-list"></i> Variables</a>
         </div>
       </div>
@@ -749,6 +1134,16 @@
 
     <div class="dashboard-wrap container-fluid px-3 px-sm-4 px-lg-5">
       <section id="overview" class="dashboard-view active mb-4">
+        <div class="ms-view-hero mb-4" data-view-theme="overview">
+          <svg class="ms-motif" aria-hidden="true" focusable="false" viewBox="0 0 700 300" preserveAspectRatio="none">
+            <path d="M700 28 C520 18 430 92 220 220 C155 260 95 276 0 268" fill="none" stroke="currentColor" stroke-opacity=".18" stroke-width="2"/><path d="M700 80 C520 64 420 130 250 242 C170 294 80 292 20 286" fill="none" stroke="currentColor" stroke-opacity=".12" stroke-width="1.5"/><path d="M690 140 C520 112 420 174 300 252" fill="none" stroke="var(--view-accent-secondary)" stroke-opacity=".16"/>
+            <circle cx="620" cy="54" r="3" fill="currentColor" opacity=".28"/><circle cx="510" cy="115" r="2" fill="currentColor" opacity=".22"/><circle cx="360" cy="205" r="2.5" fill="var(--view-accent-secondary)" opacity=".25"/><circle cx="180" cy="265" r="2" fill="currentColor" opacity=".2"/>
+          </svg>
+          <div class="eyebrow mb-2">Fleet observatory</div>
+          <h1 class="hero-title mb-2"><span class="hero-lead">Fleet </span><em>observatory</em></h1>
+          <p class="text-muted-custom mb-0">Observation history, activity, and throughput across saved Induction sessions.</p>
+          <div class="ms-chart-stage"><div class="section-title mb-1">Observation lifecycle ribbons</div><div class="experiment-caption mb-2">Model lifespans, snapshot density, recency, and throughput across the observed timeline.</div><canvas id="experimental04Timeline" class="experimental04-canvas tall"></canvas></div>
+        </div>
         <div class="d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3 mb-4">
           <div>
             <div class="eyebrow mb-2">Local model analytics</div>
@@ -803,6 +1198,8 @@
           </div>
         </div>
 
+        <div class="ms-panel--support p-3 p-lg-4 mb-4"><div class="section-title mb-1">Unexpected insights</div><div class="section-sub mb-3">Deterministic findings from observed workload traces</div><div id="fingerprintUnexpectedInsights" class="fingerprint-insight-story-grid"></div></div>
+
       <section class="mb-4">
         <div class="panel p-3 p-lg-4">
           <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-3">
@@ -843,41 +1240,23 @@
                 <div class="fw-bold fs-4 mt-1 dataset-health-value" id="healthSnapshotsSkipped">—</div>
               </div>
             </div>
-            <div class="col-6 col-md-4 col-xl">
-              <div class="panel p-3 h-100">
-                <div class="kpi-label">Models</div>
-                <div class="fw-bold fs-4 mt-1 dataset-health-value" id="healthModels">—</div>
-              </div>
-            </div>
           </div>
           <div class="row g-3 mt-1">
             <div class="col-12 col-sm-4">
               <div class="panel p-3 h-100"><div class="kpi-label">Snapshot inclusion</div><div class="fw-bold fs-4 mt-1 dataset-health-value" id="healthInclusionRate">—</div><div class="small-note">included / seen</div></div>
             </div>
-            <div class="col-12 col-sm-4">
-              <div class="panel p-3 h-100"><div class="kpi-label">Snapshots / session</div><div class="fw-bold fs-4 mt-1 dataset-health-value" id="healthSnapshotsPerSession">—</div><div class="small-note">average</div></div>
-            </div>
-            <div class="col-12 col-sm-4">
-              <div class="panel p-3 h-100"><div class="kpi-label">Snapshots / model</div><div class="fw-bold fs-4 mt-1 dataset-health-value" id="healthSnapshotsPerModel">—</div><div class="small-note">average</div></div>
-            </div>
           </div>
         </div>
       </section>
-      <div class="panel experimental-card p-3 p-lg-4 mt-3">
-        <div class="section-title mb-1">Observation lifecycle ribbons</div>
-        <div class="experiment-caption mb-2">Model lifespans, snapshot density, recency, and throughput across the observed timeline.</div>
-        <canvas id="experimental04Timeline" class="experimental04-canvas tall"></canvas>
-      </div>
       </section>
 
       <section id="performance" class="dashboard-view mb-4">
-        <div class="panel view-header p-3 p-lg-4 mb-3">
+        <div class="ms-view-hero mb-4" data-view-theme="performance">
+          <svg class="ms-motif" aria-hidden="true" focusable="false" viewBox="0 0 700 300" preserveAspectRatio="none"><path d="M700 30 C560 70 520 205 350 230 S120 180 0 280" fill="none" stroke="currentColor" stroke-opacity=".2" stroke-width="18"/><path d="M700 95 C560 120 485 242 300 250 S110 210 0 292" fill="none" stroke="var(--view-accent-secondary)" stroke-opacity=".16" stroke-width="8"/><path d="M700 168 C560 160 490 278 310 265 S120 244 0 300" fill="none" stroke="currentColor" stroke-opacity=".16"/></svg>
           <div class="eyebrow mb-2">Performance</div>
-          <h1 class="hero-title mb-2">Performance signals</h1>
+          <h1 class="hero-title mb-2"><span class="hero-lead">Performance </span><em>signals</em></h1>
           <p class="text-muted-custom mb-0" style="max-width:820px">Compare intake speed, generation speed, startup cost, and workload fit across the observed model fleet.</p>
-        </div>
-        <div class="panel experimental-card p-3 p-lg-4 mb-3">
-          <div class="section-title mb-1">The Decision Loom</div>
+          <div class="ms-chart-stage"><div class="section-title mb-1">The Decision Loom</div>
           <div class="experiment-caption mb-2">Choose a workload to reweigh observed performance. Click a model to inspect its signature and see where it gains or loses ground.</div>
           <div class="experimental02-lenses" role="group" aria-label="Workload lens">
             <button type="button" class="experimental02-lens active" data-loom-task="balanced" aria-pressed="true">Balanced</button>
@@ -889,145 +1268,57 @@
           </div>
           <canvas id="experimental02Loom" class="experimental02final-canvas" tabindex="0" aria-label="Interactive Decision Loom comparing models across seven observed performance measures. Use arrow keys to select a model."></canvas>
           <p id="experimental02LoomSummary" class="visually-hidden" aria-live="polite"></p>
-        </div>
-        <div class="row g-3">
-          <div class="col-12 col-xxl-7">
-            <div class="panel chart-card">
-              <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
-                <div>
-                  <div class="section-title">Generation throughput</div>
-                  <div class="section-sub">Tokens per second, sorted fastest to slowest</div>
-                </div>
-                <span class="badge badge-soft rounded-pill">Higher is better</span>
-              </div>
-              <div class="chart-wrap tall"><canvas id="generationChart"></canvas></div>
-            </div>
           </div>
-          <div class="col-12 col-xxl-5">
-            <div class="panel chart-card">
-              <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
-                <div>
-                  <div class="section-title">Load time</div>
-                  <div class="section-sub">Model load latency before inference</div>
-                </div>
-                <span class="badge badge-plain rounded-pill">Seconds</span>
-              </div>
-              <div class="chart-wrap tall"><canvas id="loadChart"></canvas></div>
-            </div>
-          </div>
-
         </div>
+        <div class="ms-panel--support p-3 p-lg-4 mb-4"><div class="section-title mb-1">Performance fingerprint signals</div><div class="section-sub mb-3">Observed leaders, not quality judgments</div><div id="performanceFingerprintInsights" class="fingerprint-insight-grid"></div></div>
         <div class="panel experimental01-creative-card p-3 p-lg-4 mt-3">
           <div class="section-title mb-1">The Latency Origami</div>
           <div class="experiment-caption mb-2">Each folded strip is a model’s estimated end-to-end latency: load, prompt ingestion, and generation. Fold area shows the budget; the sharpest fold is the bottleneck.</div>
           <canvas id="experimental01LatencyOrigami" class="experimental01-creative-canvas" tabindex="0"></canvas>
           <div class="experimental01-key"><span><i style="background:var(--pastel-gold)"></i>load</span><span><i style="background:var(--pastel-purple)"></i>prompt</span><span><i style="background:var(--pastel-teal)"></i>generation</span></div>
         </div>
+        <div class="ms-panel--support p-3 p-lg-4 mt-3"><div class="section-title mb-1">Startup vs Prompt Ingestion</div><div class="section-sub mb-2">Cold-start load time versus prompt throughput; source statistics remain attached to the readout.</div><div class="fingerprint-canvas-wrap" style="height:430px"><canvas id="fingerprintStartupPrompt" class="fingerprint-canvas" tabindex="0" aria-label="Scatter plot comparing model cold-start load time and prompt ingestion throughput."></canvas></div><p id="fingerprintStartupPromptSummary" class="visually-hidden" aria-live="polite"></p></div>
       </section>
 
       <section id="behavior" class="dashboard-view mb-4">
-        <div class="panel view-header p-3 p-lg-4 mb-3">
+        <div class="ms-view-hero mb-4" data-view-theme="behavior">
+          <svg class="ms-motif" aria-hidden="true" focusable="false" viewBox="0 0 700 300"><path d="M560 38a105 105 0 1 0 0 210a105 105 0 1 0 0-210" fill="none" stroke="currentColor" stroke-opacity=".18" stroke-width="2"/><path d="M620 78a72 72 0 1 0 0 145" fill="none" stroke="var(--view-accent-secondary)" stroke-opacity=".18"/><path d="M450 160 C500 160 510 105 560 105 S620 170 680 170" fill="none" stroke="currentColor" stroke-opacity=".16"/><circle cx="450" cy="160" r="4" fill="currentColor" opacity=".28"/><circle cx="680" cy="170" r="4" fill="var(--view-accent-secondary)" opacity=".25"/></svg>
           <div class="eyebrow mb-2">Response behavior</div>
-          <h1 class="hero-title mb-2">Response composition</h1>
+          <h1 class="hero-title mb-2"><span class="hero-lead">Response </span><em>composition</em></h1>
           <p class="text-muted-custom mb-0" style="max-width:820px">See how models divide work between visible answers, reasoning, context use, and completion behavior.</p>
+          <div class="ms-chart-stage"><div class="section-title mb-1">The Response Economy Tapestry</div><div class="experiment-caption mb-2">Threads combine response words per 1,000 prompt tokens, reasoning density, response depth, and prompt volume to reveal each model’s output economy.</div><canvas id="experimental01Economy" class="experimental01-creative-canvas" tabindex="0"></canvas></div>
         </div>
         <div class="panel p-3 p-lg-4 mb-3">
           <div class="section-title mb-3">Derived response metrics</div>
           <div class="row g-3">
             <div class="col-6 col-lg-3"><div class="kpi-label">Avg. response words</div><div class="kpi-value mt-1" id="behaviorTotalWords">—</div><div class="small-note">visible + reasoning</div></div>
-            <div class="col-6 col-lg-3"><div class="kpi-label">Avg. reasoning share</div><div class="kpi-value mt-1" id="behaviorReasoningShare">—</div><div class="small-note">of response words</div></div>
             <div class="col-6 col-lg-3"><div class="kpi-label">Reasoning enabled</div><div class="kpi-value mt-1" id="behaviorReasoningRate">—</div><div class="small-note">observations</div></div>
             <div class="col-6 col-lg-3"><div class="kpi-label">Natural completion</div><div class="kpi-value mt-1" id="behaviorNaturalRate">—</div><div class="small-note">finish reason: stop</div></div>
           </div>
         </div>
-        <div class="experimental01-creative-grid mb-3">
-          <div class="panel experimental01-creative-card p-3 p-lg-4"><div class="section-title mb-1">The Response Economy Tapestry</div><div class="experiment-caption mb-2">Threads combine response words per 1,000 prompt tokens, reasoning density, response depth, and prompt volume to reveal each model’s output economy.</div><canvas id="experimental01Economy" class="experimental01-creative-canvas" tabindex="0"></canvas></div>
-          <div class="panel experimental01-creative-card p-3 p-lg-4"><div class="section-title mb-1">The Token Forge</div><div class="experiment-caption mb-2">Prompt tokens enter the forge; cache reuse and speculative acceptance reduce waste; completion tokens are the finished output.</div><canvas id="experimental01Forge" class="experimental01-creative-canvas" tabindex="0"></canvas><div class="experimental01-key"><span><i style="background:var(--pastel-purple)"></i>prompt</span><span><i style="background:var(--pastel-teal)"></i>cache</span><span><i style="background:var(--pastel-gold)"></i>accepted draft</span><span><i style="background:var(--pastel-rose)"></i>completion</span></div></div>
-        </div>
+        <div class="panel experimental01-creative-card p-3 p-lg-4 mb-3"><div class="section-title mb-1">The Token Forge</div><div class="experiment-caption mb-2">Prompt tokens enter the forge; unavailable cache or speculative measurements remain unavailable, not zero.</div><canvas id="experimental01Forge" class="experimental01-creative-canvas" tabindex="0"></canvas><div class="experimental01-key"><span><i style="background:var(--pastel-purple)"></i>prompt</span><span><i style="background:var(--pastel-teal)"></i>cache</span><span><i style="background:var(--pastel-gold)"></i>accepted draft</span><span><i style="background:var(--pastel-rose)"></i>completion</span></div></div>
         <div class="panel experimental02x-card p-3 p-lg-4 mt-3">
           <div class="section-title mb-1">Conversation depth staircase</div>
           <div class="experiment-caption mb-3">Bar height is observed conversation turns; the number above each bar is the turn count and the label below identifies the model. Taller means deeper sustained dialogue.</div>
           <div id="x02DepthStaircase" class="x02-staircase-host"></div>
         </div>
-        <div class="panel experimental03z-card p-3 p-lg-4 mt-3">
-          <div class="section-title mb-1">Response spectra</div>
-          <div class="experiment-caption mb-3">Each row compares response composition. Purple cells are visible answer characters, teal cells are reasoning characters, and the value at right is the reasoning share plus total characters.</div>
-          <div class="x03-spectrum-key"><span><i style="background:var(--pastel-purple)"></i>Visible answer</span><span><i style="background:var(--pastel-teal)"></i>Reasoning</span><span>More teal = more reasoning content</span></div>
-          <div id="x03Spectra" class="x03-spectrum"></div>
-        </div>
-        <div class="experimental01-creative-grid mt-3">
-          <div class="panel experimental01-creative-card p-3 p-lg-4"><div class="section-title mb-1">The Conversation Spiral</div><div class="experiment-caption mb-2">The selected model’s session path winds through snapshot order, turn depth, prompt volume, and tool calls. Expanding radius means rising conversational load.</div><canvas id="experimental01Spiral" class="experimental01-creative-canvas" tabindex="0"></canvas></div>
-          <div class="panel experimental01-creative-card p-3 p-lg-4"><div class="section-title mb-1">The Tool-Response Weather System</div><div class="experiment-caption mb-2">Each model is a weather cell: tool calls create pressure, response depth creates rainfall, reasoning creates cloud cover, and throughput variability creates lightning.</div><canvas id="experimental01Weather" class="experimental01-creative-canvas" tabindex="0"></canvas></div>
-        </div>
       </section>
 
       <section id="models" class="dashboard-view mb-4">
-        <div class="panel view-header p-3 p-lg-4 mb-3">
+        <div class="ms-view-hero mb-4" data-view-theme="models">
+          <svg class="ms-motif" aria-hidden="true" focusable="false" viewBox="0 0 700 300"><path d="M410 0V300M450 0V300M490 0V300M530 0V300M570 0V300M610 0V300M650 0V300M690 0V300M390 30H700M390 70H700M390 110H700M390 150H700M390 190H700M390 230H700M390 270H700" fill="none" stroke="currentColor" stroke-opacity=".1"/><path d="M465 55 C560 105 500 190 620 245 M515 55 C420 105 480 190 360 245" fill="none" stroke="var(--view-accent-secondary)" stroke-opacity=".18" stroke-width="2"/><path d="M470 72l10-10 10 10-10 10zM570 150l10-10 10 10-10 10zM650 225l10-10 10 10-10 10z" fill="currentColor" opacity=".18"/></svg>
           <div class="eyebrow mb-2">Models</div>
-          <h1 class="hero-title mb-2">Model comparison</h1>
+          <h1 class="hero-title mb-2"><span class="hero-lead">Model </span><em>comparison</em></h1>
           <p class="text-muted-custom mb-0" style="max-width:820px">Compare model operating profiles, workload fit, capability signatures, and observed behavior in one place.</p>
+          <div class="ms-chart-stage"><div class="section-title mb-1">The Model Prism</div><div class="experiment-caption mb-2">Change the lens to reshape every model across five related measures. Leaders are observed metric markers, not quality claims.</div><div class="experimental01-lab-tabs" role="group" aria-label="Model Prism metric lens"><button type="button" class="experimental01-lab-tab active" data-prism-lens="throughput" aria-pressed="true">Throughput</button><button type="button" class="experimental01-lab-tab" data-prism-lens="response" aria-pressed="false">Response</button><button type="button" class="experimental01-lab-tab" data-prism-lens="context" aria-pressed="false">Context</button><button type="button" class="experimental01-lab-tab" data-prism-lens="runtime" aria-pressed="false">Runtime</button></div><canvas id="experimental01Prism" class="experimental01-lab-canvas" tabindex="0" aria-label="Interactive Model Prism comparing five model dimensions. Use arrow keys to select a model."></canvas><p id="experimental01PrismSummary" class="visually-hidden" aria-live="polite"></p></div>
         </div>
-        <div class="panel experimental02x-card p-3 p-lg-4 mb-3">
-          <div class="section-title mb-1">Fleet state cards</div>
-          <div class="experiment-caption mb-3">A model’s operating state, combining throughput, response density, context pressure, and runtime capacity into one compact identity card.</div>
-          <div id="x02StateCards" class="x02-state-grid"></div>
-        </div>
-        <div class="panel p-3 p-lg-4 mb-3">
-          <div class="section-title mb-3">Derived model metrics</div>
-          <div class="row g-3">
-            <div class="col-6 col-lg-3"><div class="kpi-label">Avg. observations / session</div><div class="kpi-value mt-1" id="modelsObsPerSession">—</div><div class="small-note">model groups</div></div>
-            <div class="col-6 col-lg-3"><div class="kpi-label">Avg. messages / turn</div><div class="kpi-value mt-1" id="modelsMessagesPerTurn">—</div><div class="small-note">conversation structure</div></div>
-            <div class="col-6 col-lg-3"><div class="kpi-label">Avg. completion / prompt</div><div class="kpi-value mt-1" id="modelsCompletionPrompt">—</div><div class="small-note">token ratio</div></div>
-            <div class="col-6 col-lg-3"><div class="kpi-label">Avg. completion share</div><div class="kpi-value mt-1" id="modelsCompletionShare">—</div><div class="small-note">of total tokens</div></div>
-          </div>
-        </div>
-        <div class="panel experimental02x-card p-3 p-lg-4 mb-3">
-          <div class="section-title mb-1">Selection heuristics</div>
-          <div class="experiment-caption mb-3">Decision tiles translate the observed operating signatures into practical model-selection guidance.</div>
-          <div id="x02Decisions" class="x02-decision-grid"></div>
-        </div>
-        <div class="panel experimental03z-card p-3 p-lg-4 mb-3">
-          <div class="section-title mb-1">Context pressure envelopes</div>
-          <div class="experiment-caption mb-3">Nested envelopes expose the amount of context consumed, the remaining headroom, and the output generated per prompt.</div>
-          <div id="x03Envelopes" class="x03-envelopes"></div>
-        </div>
-        <div class="panel experimental01-lab-card p-2 p-lg-3 mb-3">
-          <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-2 px-2 pb-2">
-            <div><div class="section-title">The Model Prism</div><div class="experiment-caption">Change the lens to reshape every model across five related measures. The leader strip defines every facet, names the winning model, and marks its point with a gold diamond.</div></div>
-            <span class="small-note">5 dimensions · click a model</span>
-          </div>
-          <div class="experimental01-lab-tabs px-2" role="group" aria-label="Model Prism metric lens">
-            <button type="button" class="experimental01-lab-tab active" data-prism-lens="throughput" aria-pressed="true">Throughput</button>
-            <button type="button" class="experimental01-lab-tab" data-prism-lens="response" aria-pressed="false">Response</button>
-            <button type="button" class="experimental01-lab-tab" data-prism-lens="context" aria-pressed="false">Context</button>
-            <button type="button" class="experimental01-lab-tab" data-prism-lens="runtime" aria-pressed="false">Runtime</button>
-          </div>
-          <canvas id="experimental01Prism" class="experimental01-lab-canvas" tabindex="0" aria-label="Interactive Model Prism comparing five model dimensions. Use arrow keys to select a model."></canvas>
-          <p id="experimental01PrismSummary" class="visually-hidden" aria-live="polite"></p>
-        </div>
-        <div class="panel experimental01-lab-card p-2 p-lg-3 mb-3">
-          <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-2 px-2 pb-2">
-            <div><div class="section-title">The Workload River</div><div class="experiment-caption">Choose a workload and follow each model’s route through a fit terrain: horizontal position is weighted fit, node size is response depth, and glow is evidence volume.</div></div>
-            <span class="small-note">scenario routing · click a model</span>
-          </div>
-          <div class="experimental01-lab-tabs px-2" role="group" aria-label="Workload River scenario">
-            <button type="button" class="experimental01-lab-tab active" data-river-task="chat" aria-pressed="true">Fast chat</button>
-            <button type="button" class="experimental01-lab-tab" data-river-task="reasoning" aria-pressed="false">Deep reasoning</button>
-            <button type="button" class="experimental01-lab-tab" data-river-task="context" aria-pressed="false">Long context</button>
-            <button type="button" class="experimental01-lab-tab" data-river-task="writing" aria-pressed="false">Long-form writing</button>
-          </div>
-          <canvas id="experimental01River" class="experimental01-lab-canvas" tabindex="0" aria-label="Interactive Workload River comparing model workload routes. Use arrow keys to select a model."></canvas>
-          <p id="experimental01RiverSummary" class="visually-hidden" aria-live="polite"></p>
-        </div>
+        <div class="ms-panel--support p-3 p-lg-4 mb-4"><div class="section-title mb-1">Model fingerprint signals</div><div class="section-sub mb-3">Observed metric leaders, with sample support where relevant</div><div id="modelFingerprintInsights" class="fingerprint-insight-grid"></div></div>
+        <div class="panel experimental-card p-3 p-lg-4 mt-3"><div class="section-title mb-1">Task-to-model routing network</div><div class="experiment-caption mb-2">Links represent heuristic suitability from observed metrics, not benchmarked accuracy.</div><canvas id="experimental05Network" class="experimental05-canvas"></canvas></div>
         <div class="row g-3 mb-3">
-          <div class="col-12 col-xl-7"><div class="panel experimental02x-card p-3 p-lg-4 h-100"><div class="section-title mb-1">Capacity ladder</div><div class="experiment-caption mb-3">Each row is a model; the segmented ladder shows prompt load, response output, context capacity, and available runtime capacity at once.</div><div id="x02CapacityLadder" class="x02-ladder"></div></div></div>
-          <div class="col-12 col-xl-7"><div class="panel experimental03z-card p-3 p-lg-4 h-100"><div class="section-title mb-1">Throughput thermals</div><div class="experiment-caption mb-3">A heat signature combines generation speed, prompt speed, response density, and context pressure for each model.</div><div id="x03Thermals" class="x03-thermal-grid"></div></div></div>
-          <div class="col-12 col-xl-7"><div class="panel experimental03z-card p-3 p-lg-4 h-100"><div class="section-title mb-1">Pairwise trade-offs</div><div class="experiment-caption mb-3">Each duel makes the trade between speed, response depth, and context efficiency explicit.</div><div id="x03Pairs" class="x03-pairs"></div></div></div>
-          <div class="col-12 col-xl-5"><div class="panel experimental03z-card p-3 p-lg-4 h-100"><div class="section-title mb-1">Stability runway</div><div class="experiment-caption mb-3">Every segment is an observation; color intensity reflects consistency of generation throughput across the model’s runway.</div><div id="x03Runway" class="x03-runway"></div></div></div>
+          <div class="col-12"><div class="panel experimental02x-card p-3 p-lg-4 h-100"><div class="section-title mb-1">Capacity ladder</div><div class="experiment-caption mb-3">Each row is a model; the segmented ladder shows prompt load, response output, context capacity, and available runtime capacity at once.</div><div id="x02CapacityLadder" class="x02-ladder"></div></div></div>
           <div class="col-12"><div class="panel experimental03z-card p-3 p-lg-4"><div class="section-title mb-1">Capability DNA</div><div class="experiment-caption mb-3">Each model is a row of runtime signals. Bright cells mean the capability is observed; dim cells mean it is absent or unavailable. Read the fixed key left-to-right: context, slots, reasoning, vision, app tools, MCP tools, multi-turn, load timing.</div><div id="x03DNA" class="x03-dna-grid"></div></div></div>
-          <div class="col-12 col-xl-7"><div class="panel experimental03z-card p-3 p-lg-4 h-100"><div class="section-title mb-1">Workload fit cards</div><div class="experiment-caption mb-3">The cards map observed evidence to practical use cases: rapid chat, prompt-heavy work, deep reasoning, and long context.</div><div id="x03Workloads" class="x03-workloads"></div></div></div>
-          <div class="col-12"><div class="panel experimental03z-card p-3 p-lg-4"><div class="section-title mb-1">Decision ledger</div><div class="experiment-caption mb-3">A transparent shortlist that states the task, the evidence used, and the model selected by that evidence.</div><div id="x03Ledger" class="x03-ledger"></div></div></div>
         </div>
+        <div class="panel experimental01-creative-card p-3 p-lg-4 mb-3"><div class="section-title mb-1">The Capability Genome</div><div class="experiment-caption mb-2">A double helix turns context configuration, reasoning, modality, tools, and multi-turn behavior into a readable operating genome.</div><canvas id="experimental01Genome" class="experimental01-creative-canvas" tabindex="0"></canvas></div>
         <div class="panel">
           <div class="p-3 p-lg-4 border-bottom" style="border-color:var(--border)!important">
             <div class="row g-3 align-items-center">
@@ -1068,19 +1359,9 @@
             </div>
           </div>
         </div>
-        <div class="panel experimental-card p-3 p-lg-4 mt-3">
-          <div class="section-title mb-1">Task-to-model routing network</div>
-          <div class="experiment-caption mb-2">Task archetypes connect to their strongest model candidates; node size is average versatility.</div>
-          <canvas id="experimental05Network" class="experimental05-canvas"></canvas>
-        </div>
-        <div class="panel p-3 p-lg-4 mt-3">
-          <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center"><div class="section-sub">Focus the model-specific capability instrument:</div><div id="experimental01Picker" class="experimental01-picker" role="group" aria-label="Model capability instrument selection"></div></div>
-          <div id="experimental01Selection" class="small-note mt-2" aria-live="polite"></div>
-        </div>
-        <div class="panel experimental01-creative-card p-3 p-lg-4"><div class="section-title mb-1">The Capability Genome</div><div class="experiment-caption mb-2">A double helix turns context configuration, reasoning, modality, tools, and multi-turn behavior into a readable operating genome.</div><canvas id="experimental01Genome" class="experimental01-creative-canvas" tabindex="0"></canvas></div>
       </section>
 
-      <section id="fingerprints" class="dashboard-view mb-4">
+      <template id="retired-fingerprints">
         <div class="panel view-header p-3 p-lg-4 mb-3">
           <div class="d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3">
             <div>
@@ -1094,16 +1375,16 @@
         <div id="fingerprintDatasetStrip" class="fingerprint-dataset-strip mb-3"></div>
         <div id="fingerprintInsightCards" class="fingerprint-insight-grid mb-3"></div>
         <div class="row g-3 mb-3">
-          <div class="col-12 col-xxl-8"><div class="panel fingerprint-chart-card"><div class="section-title mb-1"><i class="fa-solid fa-atom me-2" style="color:var(--pastel-teal)"></i>Fingerprint Constellation</div><div class="section-sub mb-2">Generation speed vs. thought density · bubble size = snapshot count</div><div class="fingerprint-canvas-wrap"><canvas id="fingerprintConstellation" class="fingerprint-canvas" tabindex="0" aria-label="Model fingerprint constellation comparing generation throughput and reasoning density."></canvas></div><p id="fingerprintConstellationSummary" class="visually-hidden" aria-live="polite"></p></div></div>
-          <div class="col-12 col-xxl-4"><div class="panel fingerprint-chart-card"><div class="section-title mb-1"><i class="fa-solid fa-rocket me-2" style="color:var(--pastel-gold)"></i>Startup vs Prompt Ingestion</div><div class="section-sub mb-2">Cold-start load time vs. prompt throughput</div><div class="fingerprint-canvas-wrap"><canvas id="fingerprintStartupPrompt" class="fingerprint-canvas" tabindex="0" aria-label="Scatter plot comparing model cold-start load time and prompt ingestion throughput."></canvas></div><p id="fingerprintStartupPromptSummary" class="visually-hidden" aria-live="polite"></p><div class="small-note mt-2">Models that feel fast once loaded may still impose large startup penalties in bursty workflows.</div></div></div>
+          <div class="col-12 col-xxl-8"><div class="panel fingerprint-chart-card"><div class="section-title mb-1"><i class="fa-solid fa-atom me-2" style="color:var(--pastel-teal)"></i>Fingerprint Constellation</div><div class="section-sub mb-2">Generation speed vs. thought density · bubble size = snapshot count</div><div class="fingerprint-canvas-wrap"><canvas id="retiredFingerprintConstellation" class="fingerprint-canvas" tabindex="0" aria-label="Model fingerprint constellation comparing generation throughput and reasoning density."></canvas></div><p id="retiredFingerprintConstellationSummary" class="visually-hidden" aria-live="polite"></p></div></div>
+          <div class="col-12 col-xxl-4"><div class="panel fingerprint-chart-card"><div class="section-title mb-1"><i class="fa-solid fa-rocket me-2" style="color:var(--pastel-gold)"></i>Startup vs Prompt Ingestion</div><div class="section-sub mb-2">Cold-start load time vs. prompt throughput</div><div class="fingerprint-canvas-wrap"><canvas id="retiredFingerprintStartupPrompt" class="fingerprint-canvas" tabindex="0" aria-label="Scatter plot comparing model cold-start load time and prompt ingestion throughput."></canvas></div><p id="retiredFingerprintStartupPromptSummary" class="visually-hidden" aria-live="polite"></p><div class="small-note mt-2">Models that feel fast once loaded may still impose large startup penalties in bursty workflows.</div></div></div>
         </div>
         <div class="panel p-3 p-lg-4 mb-3"><div class="d-flex align-items-baseline gap-2 mb-3"><div class="section-title">Compound Metrics</div><div class="section-sub">Derived measures that reveal different strengths</div></div><div id="fingerprintCompoundMetrics" class="fingerprint-compound-grid"></div></div>
-        <div class="panel p-3 p-lg-4 mb-3"><div class="d-flex align-items-baseline gap-2 mb-3"><div class="section-title">Unexpected Insights</div><div class="section-sub">Deterministic takeaways from observed telemetry</div></div><div id="fingerprintUnexpectedInsights" class="fingerprint-insight-story-grid"></div></div>
+        <div class="panel p-3 p-lg-4 mb-3"><div class="d-flex align-items-baseline gap-2 mb-3"><div class="section-title">Unexpected Insights</div><div class="section-sub">Deterministic takeaways from observed telemetry</div></div><div id="retiredFingerprintUnexpectedInsights" class="fingerprint-insight-story-grid"></div></div>
         <div class="panel p-3 p-lg-4 mb-3"><div class="d-flex align-items-baseline gap-2 mb-3"><div class="section-title">Model Lineup</div><div class="section-sub">All currently filtered models at a glance</div></div><div id="fingerprintModelLineup" class="fingerprint-table-wrap"></div></div>
         <div class="fingerprint-methodology">Observed workload telemetry, not a controlled benchmark. Workload mix, prompt size, response format, tool use, modality, and session structure may differ between models. Compound metrics are derived by Induction from saved dashboard observations.</div>
-      </section>
+      </template>
 
-      <section id="experimental-01" class="dashboard-view mb-4">
+      <template id="retired-experimental-01">
         <div class="panel view-header p-3 p-lg-4 mb-3">
           <div class="eyebrow mb-2">Experimental 01</div>
           <h1 class="hero-title mb-2">The model observatory</h1>
@@ -1123,6 +1404,20 @@
           <div id="ex1Reactors" class="ex1-stage" role="group" aria-label="Interactive workload gravity well comparing every model"></div>
           <div id="ex1ReactorReadout" class="ex1-readout mt-3" aria-live="polite"></div>
         </div>
+      </template>
+
+      <section id="recommendations" class="dashboard-view mb-4" data-view-theme="models">
+        <div class="recommendation-hero">
+          <div>
+            <div class="eyebrow mb-2">Model recommendations</div>
+            <h1>Which model for <em>which job?</em></h1>
+            <p class="recommendation-hero-copy">Six workload shapes, matched to the models that handled them best in your own sessions. Select a signal to jump to its guide.</p>
+            <div id="recommendationCrowns" class="recommendation-crowns"></div>
+          </div>
+          <svg id="recommendationMap" viewBox="0 0 600 440" role="img" aria-label="Map of workload categories and their recommended models"></svg>
+        </div>
+        <div id="modelRecommendations" class="recommendation-grid"></div>
+        <div class="ms-methodology mt-4">Recommendations require observed evidence and omit unavailable telemetry. Sample counts, workload mix, prompt size, and response format can affect every comparison. Add task evaluations when correctness or answer quality matters.</div>
       </section>
 
       <section id="variables" class="dashboard-view mb-4">
@@ -1659,6 +1954,63 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
     $("#healthSnapshotsPerModel").text(fmt.n((s.snapshots_included || 0) / Math.max(s.models || 0, 1), 2));
   }
 
+  function renderModelRecommendations() {
+    const rawModels = DASHBOARD_DATA.models || [];
+    const byId = new Map(models.map(model => [model.model_id, model]));
+    const median = values => { const clean = values.filter(value => value != null && Number.isFinite(Number(value))).map(Number).sort((a,b) => a-b); return clean.length ? clean[Math.floor((clean.length - 1) / 2)] : null; };
+    const average = values => { const clean = values.filter(value => value != null && Number.isFinite(Number(value))).map(Number); return clean.length ? clean.reduce((sum,value) => sum + value, 0) / clean.length : null; };
+    const profiles = rawModels.map(raw => {
+      const observations = Array.isArray(raw.observations) ? raw.observations : [];
+      const model = byId.get(raw.model_id) || {};
+      const responseWords = observations.map(o => (o.response?.visible_words || 0) + (o.response?.reasoning_words || 0));
+      const reasoningShares = observations.map(o => { const total = (o.response?.visible_words || 0) + (o.response?.reasoning_words || 0); return total > 0 ? (o.response?.reasoning_words || 0) / total : null; });
+      const promptSizes = observations.map(o => o.tokens?.prompt);
+      return {model, id:raw.model_id, n:observations.length, gen:median(observations.map(o => o.performance?.generation_tokens_per_second)), prompt:median(observations.map(o => o.performance?.prompt_tokens_per_second)), load:median(observations.map(o => o.load_time_ms)), promptSize:median(promptSizes), context:Math.max(0, ...observations.map(o => Number(o.runtime?.context_size) || 0)), imageRatio:observations.length ? observations.filter(o => o.input_type === "image").length / observations.length : 0, structuredRatio:observations.length ? observations.filter(o => /json/i.test(String(o.output_type || ""))).length / observations.length : 0, reasoningShare:average(reasoningShares), reasoningWords:average(responseWords.map((_, i) => observations[i].response?.reasoning_words)), toolRatio:observations.length ? observations.filter(o => o.conversation?.has_tool_calls === true).length / observations.length : 0, toolAvailability:observations.length ? observations.filter(o => o.tools?.application_tools_available || o.tools?.mcp_tools_available).length / observations.length : 0};
+    }).filter(profile => profile.n > 0);
+    const numeric = key => profiles.map(profile => profile[key]).filter(value => value != null && Number.isFinite(value));
+    const normalize = (value, values, inverse=false) => { const min=Math.min(...values), max=Math.max(...values); if (!Number.isFinite(value)) return 0; if (max === min) return 1; const score=(value-min)/(max-min); return inverse ? 1-score : score; };
+    const maxContext = Math.max(1, ...numeric("context")), maxPromptSize = Math.max(1, ...numeric("promptSize")), maxGen = Math.max(1, ...numeric("gen")), maxPrompt = Math.max(1, ...numeric("prompt")), maxReasoningWords = Math.max(1, ...numeric("reasoningWords"));
+    const definitions = [
+      {label:"Speed-first work", icon:"fa-bolt", title:"Fast interaction, throughput, and short-turn work", description:"Best fit when response latency and sustained token throughput matter more than maximum context or elaborate deliberation.", caveat:"This is a performance recommendation only; it does not measure answer quality.", score:p => normalize(p.gen,numeric("gen"))*.5 + normalize(p.prompt,numeric("prompt"))*.3 + normalize(p.load,numeric("load"),true)*.2, evidence:p => `${fmt.tps(p.gen)} median generation, ${fmt.tps(p.prompt)} median prompt ingestion, and ${fmt.sec(p.load)} median load time.`, signals:p => [["Generation",normalize(p.gen,numeric("gen"))*100,fmt.tps(p.gen)],["Prompt intake",normalize(p.prompt,numeric("prompt"))*100,fmt.tps(p.prompt)],["Startup efficiency",normalize(p.load,numeric("load"),true)*100,fmt.sec(p.load)]]},
+      {label:"Long-context & documents", icon:"fa-book-open", title:"Large prompts, documents, and sustained context", description:"Best fit when the workload is dominated by large prompt payloads, document batches, evidence collection, or extended conversations.", caveat:"Configured context is capacity, not proof of long-context recall or document quality.", score:p => normalize(Math.log1p(p.promptSize),numeric("promptSize").map(Math.log1p))*.65 + normalize(p.context,numeric("context"))*.35, evidence:p => `${fmt.n(p.promptSize,0)} median prompt tokens and ${fmt.ctx(p.context)} configured context.`, signals:p => [["Observed prompt size",normalize(Math.log1p(p.promptSize),numeric("promptSize").map(Math.log1p))*100,fmt.n(p.promptSize,0)+" tokens"],["Context capacity",normalize(p.context,numeric("context"))*100,fmt.ctx(p.context)],["Evidence volume",normalize(p.n,profiles.map(x=>x.n))*100,"n="+p.n]]},
+      {label:"Reasoning & long-form analysis", icon:"fa-brain", title:"Deliberation, analysis, and long responses", description:"Best fit when observed responses contain substantial reasoning and longer generated explanations.", caveat:"Reasoning volume is not a correctness or intelligence score.", score:p => (p.reasoningShare || 0)*.55 + normalize(Math.log1p(p.reasoningWords),numeric("reasoningWords").map(Math.log1p))*.25 + normalize(Math.log1p(p.n),profiles.map(x=>Math.log1p(x.n)))*.2, evidence:p => `${percent(p.reasoningShare)} average reasoning share and ${fmt.n(p.reasoningWords,0)} average reasoning words.`, signals:p => [["Reasoning share",(p.reasoningShare||0)*100,percent(p.reasoningShare)],["Reasoning volume",normalize(Math.log1p(p.reasoningWords),numeric("reasoningWords").map(Math.log1p))*100,fmt.n(p.reasoningWords,0)+" words"],["Evidence volume",normalize(p.n,profiles.map(x=>x.n))*100,"n="+p.n]]},
+      {label:"Vision & image documents", icon:"fa-image", title:"Images, visual documents, and multimodal extraction", description:"Best fit when the model has repeatedly handled image inputs and maintains useful observed throughput on those workloads.", caveat:"Image presence confirms modality usage, not OCR, visual reasoning, or extraction accuracy.", score:p => p.imageRatio*.55 + normalize(p.gen,numeric("gen"))*.25 + normalize(p.prompt,numeric("prompt"))*.2, evidence:p => `${fmt.n(p.imageRatio*100,0)}% of observations used images, with ${fmt.tps(p.gen)} median generation.`, signals:p => [["Image coverage",p.imageRatio*100,fmt.n(p.imageRatio*100,0)+"%"],["Generation",normalize(p.gen,numeric("gen"))*100,fmt.tps(p.gen)],["Prompt intake",normalize(p.prompt,numeric("prompt"))*100,fmt.tps(p.prompt)]]},
+      {label:"Structured extraction", icon:"fa-code", title:"JSON, schemas, forms, and machine-readable output", description:"Best fit when the model has repeatedly produced structured output for downstream pipeline stages or extraction tasks.", caveat:"Output format telemetry does not validate schema correctness or field accuracy.", score:p => p.structuredRatio*.65 + normalize(p.prompt,numeric("prompt"))*.15 + normalize(p.gen,numeric("gen"))*.2, evidence:p => `${fmt.n(p.structuredRatio*100,0)}% of observations used JSON or schema output.`, signals:p => [["Structured coverage",p.structuredRatio*100,fmt.n(p.structuredRatio*100,0)+"%"],["Generation",normalize(p.gen,numeric("gen"))*100,fmt.tps(p.gen)],["Prompt intake",normalize(p.prompt,numeric("prompt"))*100,fmt.tps(p.prompt)]]},
+      {label:"Tool-enabled agents", icon:"fa-sitemap", title:"MCP, application tools, and multi-step agent workflows", description:"Best fit when the model has observed tool availability and has actually issued tool calls during sessions.", caveat:"Tool-call frequency does not prove that calls were correct or successful.", score:p => p.toolRatio*.6 + p.toolAvailability*.2 + normalize(p.gen,numeric("gen"))*.2, evidence:p => `${fmt.n(p.toolRatio*100,0)}% of observations issued tool calls; tools were available in ${fmt.n(p.toolAvailability*100,0)}%.`, signals:p => [["Tool calls",p.toolRatio*100,fmt.n(p.toolRatio*100,0)+"%"],["Tool availability",p.toolAvailability*100,fmt.n(p.toolAvailability*100,0)+"%"],["Generation",normalize(p.gen,numeric("gen"))*100,fmt.tps(p.gen)]]}
+    ];
+    const signalMarkup = (definition, profile, runner) => `<div class="recommendation-signals">${definition.signals(profile).map(([label,value,display],index) => { const runnerSignal=runner ? definition.signals(runner)[index] : null; return `<div class="recommendation-signal"><div class="recommendation-signal-label">${label}</div><div><div class="recommendation-track"><div class="recommendation-fill" style="--signal-value:${Math.max(0,Math.min(100,value || 0))}%;width:var(--signal-value)"></div></div>${runnerSignal ? `<div class="recommendation-track runner"><div class="recommendation-fill" style="--a:#9fb3c0;width:${Math.max(0,Math.min(100,runnerSignal[1] || 0))}%"></div></div>` : ""}</div><div class="recommendation-signal-value">${display}${runnerSignal ? `<span class="recommendation-runner-value">${runnerSignal[2]}</span>` : ""}</div></div>`; }).join("")}</div>`;
+    const recommendationColors=["#ffd166","#6fe3d0","#b69cff","#ff7eb6","#5cc8ff","#ff9f5c"];
+    const recommendationResults = [];
+    const cards = definitions.map((definition,definitionIndex) => {
+      const eligible = profiles.filter(profile => profile.n >= 8 && (definition.label !== "Vision & image documents" || profile.imageRatio > 0) && (definition.label !== "Structured extraction" || profile.structuredRatio > 0) && (definition.label !== "Tool-enabled agents" || profile.toolRatio > 0));
+      const ranked = eligible.sort((a,b) => definition.score(b)-definition.score(a) || b.n-a.n);
+      const winner = ranked[0];
+      if (!winner) return `<article class="recommendation-card" style="--a:${recommendationColors[definitionIndex]}"><div class="recommendation-card-content"><div class="recommendation-head"><div><div class="recommendation-tag"><span class="recommendation-icon"><i class="fa-solid ${definition.icon}"></i></span>${definition.label}</div><div class="recommendation-title">${definition.title}</div></div><span class="recommendation-confidence">Unavailable</span></div><div class="recommendation-description">${definition.description}</div><div class="recommendation-foot"><div class="recommendation-box"><h4>Current evidence</h4>No model has enough relevant observed telemetry for this category.</div><div class="recommendation-box"><h4>Interpretation</h4><div class="recommendation-caveat">${definition.caveat}</div></div></div></div></article>`;
+      const runner = ranked[1], confidence = winner.n >= 30 ? "Strong evidence" : winner.n >= 15 ? "Moderate evidence" : "Observed candidate";
+      recommendationResults.push({definition,winner,runner,score:definition.score(winner)});
+      const signalHtml = signalMarkup(definition,winner,runner);
+      const orbScore = Math.round(Math.max(0,Math.min(1,definition.score(winner)))*100), runnerScore = runner ? Math.round(Math.max(0,Math.min(1,definition.score(runner)))*100) : 0, circumference = 2 * Math.PI * 100, innerCircumference = 2 * Math.PI * 78;
+      return `<article class="recommendation-card" style="--a:${recommendationColors[definitionIndex]}"><div class="recommendation-gauge"><svg viewBox="0 0 230 230" aria-hidden="true"><circle cx="115" cy="115" r="100" fill="none" stroke="#122029" stroke-width="16"/><circle class="gauge-ring" cx="115" cy="115" r="100" fill="none" stroke="var(--a)" stroke-width="16" stroke-linecap="round" data-gauge-len="${circumference*orbScore/100}" data-gauge-circumference="${circumference}" style="filter:drop-shadow(0 0 10px var(--a))"/><circle cx="115" cy="115" r="78" fill="none" stroke="#122029" stroke-width="7"/><circle class="gauge-ring" cx="115" cy="115" r="78" fill="none" stroke="#9fb3c0" stroke-width="7" stroke-linecap="round" data-gauge-len="${innerCircumference*runnerScore/100}" data-gauge-circumference="${innerCircumference}"/></svg><div class="gauge-number"><strong data-score="${orbScore}">0</strong><small>signal strength</small></div></div><div class="recommendation-card-content"><div class="recommendation-head"><div><div class="recommendation-tag"><span class="recommendation-icon"><i class="fa-solid ${definition.icon}"></i></span>${definition.label}</div><div class="recommendation-title">${definition.title}</div><div class="recommendation-model">${fmt.esc(winner.id)}</div></div><span class="recommendation-confidence">${confidence}</span></div><div class="recommendation-description">${definition.description}</div><div class="recommendation-legend"><span><i style="background:var(--a)"></i>${fmt.esc(winner.id)} · primary signal</span>${runner ? `<span><i style="background:#9fb3c0"></i>${fmt.esc(runner.id)} · comparison</span>` : ""}</div><div class="recommendation-content-bars">${signalHtml}</div><div class="recommendation-foot"><div class="recommendation-box"><h4>Why this model</h4><strong>${definition.evidence(winner)}</strong><div class="recommendation-support">Observed support · ${winner.n} snapshots across ${winner.model.session_count || "—"} sessions</div></div><div class="recommendation-box"><h4>Head-to-head context</h4>${runner ? `<span class="chip">${fmt.esc(runner.id)}</span> <span style="color:var(--rec-muted)">${runner.n} snapshots</span><div class="recommendation-head-to-head"><div><small>Primary</small><strong style="color:var(--a)">${orbScore}</strong></div><div class="recommendation-duel-bars"><div style="width:${orbScore}%"></div><div class="runner" style="width:${runnerScore}%"></div></div><div><small>Comparison</small><strong>${runnerScore}</strong></div></div>` : "No second eligible model is available for comparison."}<div class="recommendation-caveat">${definition.caveat}</div></div></div></div></article>`;
+    });
+    $("#modelRecommendations").html(cards.join(""));
+    const mapColors=["#ffd166","#6fe3d0","#b69cff","#ff7eb6","#5cc8ff","#ff9f5c"], mapIcons=["⚡","📚","🧠","🖼️","🧩","🛠️"], map=document.getElementById("recommendationMap"), cx=300, cy=220;
+    if (map) {
+      let svg=`<defs><radialGradient id="recommendationCore"><stop offset="0" stop-color="#6fe3d0"/><stop offset="1" stop-color="#6fe3d000"/></radialGradient></defs>`;
+      [90,150,200].forEach(radius => { svg += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#1b2a36" stroke-dasharray="2 6"/>`; });
+      svg += `<circle cx="${cx}" cy="${cy}" r="46" fill="url(#recommendationCore)" opacity=".5"/><text x="${cx}" y="${cy-2}" text-anchor="middle" fill="#e8f1f5" font-size="13" font-weight="800">Your fleet</text><text x="${cx}" y="${cy+14}" text-anchor="middle" fill="#7f95a3" font-size="10">${recommendationResults.length} workloads</text><g class="recommendation-map-orbit">`;
+      const positions=recommendationResults.map((result,index)=>{ const angle=-Math.PI/2+index*2*Math.PI/Math.max(1,recommendationResults.length), radius=105+(100-result.score*100)*.9+(index%2?45:0); return [cx+Math.cos(angle)*radius*1.35,cy+Math.sin(angle)*radius*.95]; });
+      svg += `</g>`;
+      recommendationResults.forEach((result,index)=>{ const [x,y]=positions[index], color=mapColors[index%mapColors.length]; svg += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${color}" stroke-opacity=".35" stroke-dasharray="3 5"/>`; });
+      recommendationResults.forEach((result,index)=>{ const [x,y]=positions[index], color=mapColors[index%mapColors.length], radius=11+result.score*9; svg += `<g class="recommendation-map-node" data-recommendation-index="${index}" tabindex="0" role="button" aria-label="Jump to ${fmt.esc(result.definition.label)}"><circle class="map-halo" cx="${x}" cy="${y}" r="${radius+14}" fill="${color}"/><circle cx="${x}" cy="${y}" r="${radius}" fill="#0b141b" stroke="${color}" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="${radius+5}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-dasharray="${2*Math.PI*(radius+5)*result.score} ${2*Math.PI*(radius+5)}" transform="rotate(-90 ${x} ${y})"/><text x="${x}" y="${y+5}" text-anchor="middle" font-size="${Math.max(10,radius*.9)}">${mapIcons[index]}</text><text x="${x}" y="${y+radius+22}" text-anchor="middle" font-weight="600" fill="#e8f1f5" font-size="11">${result.definition.label.split(" ").slice(0,2).join(" ")}</text><text x="${x}" y="${y+radius+35}" text-anchor="middle" fill="${color}" font-size="10">${Math.round(result.score*100)}</text></g>`; });
+      map.innerHTML=svg;
+    }
+    const wins={}; recommendationResults.forEach(result => { wins[result.winner.id]=(wins[result.winner.id]||[]).concat(result.definition.label); });
+    $("#recommendationCrowns").html(Object.entries(wins).filter(([,labels])=>labels.length>1).map(([model,labels])=>`<div class="recommendation-crown">👑 Multi-talent<strong>${fmt.esc(model)}</strong>wins ${labels.join(" + ")}</div>`).join("")+`<div class="recommendation-crown">Strongest signal<strong>${fmt.esc(recommendationResults.slice().sort((a,b)=>b.score-a.score)[0]?.winner.id || "—")}</strong>${recommendationResults.length ? Math.round(Math.max(...recommendationResults.map(result=>result.score))*100) : 0}/100</div>`);
+    document.querySelectorAll("#recommendationMap .recommendation-map-node").forEach(node => { const result=recommendationResults[Number(node.dataset.recommendationIndex)], card=document.querySelectorAll("#modelRecommendations .recommendation-card")[Number(node.dataset.recommendationIndex)]; const jump=()=>card?.scrollIntoView({behavior:"smooth",block:"start"}); node.addEventListener("click",jump); node.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();jump();}}); node.addEventListener("mouseenter",()=>card?.classList.add("hot")); node.addEventListener("mouseleave",()=>card?.classList.remove("hot")); });
+    const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(!entry.isIntersecting)return; observer.unobserve(entry.target); const card=entry.target; card.classList.add("is-visible"); card.querySelectorAll(".recommendation-fill").forEach(fill=>{const width=fill.style.width; fill.style.width="0"; requestAnimationFrame(()=>{fill.style.width=width;});}); card.querySelectorAll(".gauge-ring").forEach(ring=>{const length=ring.dataset.gaugeLen, circumference=ring.dataset.gaugeCircumference; ring.style.strokeDasharray=`0 ${circumference}`; requestAnimationFrame(()=>{ring.style.strokeDasharray=`${length} ${circumference}`;});}); const number=card.querySelector("[data-score]"); if(number){const target=Number(number.dataset.score),start=performance.now(); const count=now=>{const progress=Math.min(1,(now-start)/1100); number.textContent=Math.round(target*(1-Math.pow(1-progress,3))); if(progress<1)requestAnimationFrame(count);}; requestAnimationFrame(count);} }),{threshold:.2});
+    document.querySelectorAll("#modelRecommendations .recommendation-card").forEach(card=>observer.observe(card));
+  }
+
   function renderKPIs() {
     const fastestGen = [...models].sort((a,b)=>generationTokensPerSecond(b)-generationTokensPerSecond(a))[0];
     const fastestPrompt = [...models].sort((a,b)=>promptTokensPerSecond(b)-promptTokensPerSecond(a))[0];
@@ -1723,6 +2075,7 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
   }
 
   function renderCharts() {
+    if (!document.getElementById("generationChart") || !document.getElementById("loadChart")) return;
     const byGen = [...models].sort((a,b)=>generationTokensPerSecond(b)-generationTokensPerSecond(a));
     const byLoad = [...models].sort((a,b)=>(a.load_time_ms||Infinity)-(b.load_time_ms||Infinity));
 
@@ -2076,17 +2429,17 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
   function exp01Ranges(key) { return x02Range(models.map(model => exp01Stats(model)[key])); }
   function exp01RenderPicker() { const selected = exp01Selected(); const picker = document.getElementById("experimental01Picker"); if (!picker) return; picker.innerHTML = models.map(model => `<button type="button" class="${model === selected ? "active" : ""}" data-exp01-model="${fmt.esc(model.model_id)}" title="${fmt.esc(model.model_id)}">${fmt.esc(fmt.shortModel(model.model_id))}</button>`).join(""); picker.querySelectorAll("button").forEach(button => button.addEventListener("click", () => { experimental01CreativeState.selected = button.dataset.exp01Model; exp01RenderPicker(); exp01RenderAll(); })); const note = document.getElementById("experimental01Selection"); if (note) note.textContent = `Focused model: ${selected?.model_id || "—"}. Other instruments compare the full fleet.`; }
   function exp01DrawAll() { experimental01CreativeCanvases.forEach(canvas => canvas()); }
-  function exp01DrawLatencyOrigami(context, width, height) { const theme = exp01Header(context, "LATENCY BUDGET", "Fold width = estimated time · fold height = bottleneck intensity"); const rows = [...models].sort((a, b) => derivedMetrics(b).totalInferenceMS - derivedMetrics(a).totalInferenceMS).slice(0, 11); const max = Math.max(1, ...rows.map(model => { const s = exp01Stats(model); return s.observations.length ? x02Num(model.load_time_ms) + x02Num(model.tokens?.prompt) / Math.max(1, promptTokensPerSecond(model)) * 1000 + x02Num(model.tokens?.completion) / Math.max(1, generationTokensPerSecond(model)) * 1000 : 1; })); const left = 150, right = width - 72, step = Math.min(32, (height - 56) / Math.max(1, rows.length)); rows.forEach((model, index) => { const s = exp01Stats(model); const stages = [x02Num(model.load_time_ms), s.prompt / Math.max(1, promptTokensPerSecond(model)) * 1000, s.completion / Math.max(1, generationTokensPerSecond(model)) * 1000]; const total = Math.max(1, stages.reduce((sum, value) => sum + value, 0)); const y = 52 + index * step; const selected = model.model_id === exp01Selected()?.model_id; let x = left; const colors = ["#f6c453", "#8c7bff", "#4fd1c5"]; context.fillStyle = selected ? theme.label : theme.secondary; context.font = selected ? "700 8px Inter, sans-serif" : "8px Inter, sans-serif"; loomName(context, model.model_id, 10, y + 3, 130, 9, "left"); stages.forEach((value, stage) => { const w = Math.max(8, (right - left) * value / max); const h = 5 + 18 * value / total; context.fillStyle = colors[stage]; context.globalAlpha = selected ? 1 : .65; context.beginPath(); context.moveTo(x, y); context.lineTo(x + w, y - h); context.lineTo(x + w + 9, y); context.lineTo(x + w, y + h); context.lineTo(x, y); context.closePath(); context.fill(); x += w + 3; }); context.globalAlpha = 1; context.fillStyle = theme.secondary; context.font = "8px JetBrains Mono, monospace"; context.textAlign = "right"; context.fillText(fmt.sec(total), width - 12, y + 3); context.textAlign = "left"; }); }
+  function exp01DrawLatencyOrigami(context, width, height) { const theme = exp01Header(context, "LATENCY BUDGET", "Fold width = estimated time · fold height = bottleneck intensity"); const rows = [...models].sort((a, b) => derivedMetrics(b).totalInferenceMS - derivedMetrics(a).totalInferenceMS).slice(0, 11); const max = Math.max(1, ...rows.map(model => { const s = exp01Stats(model); return s.observations.length ? x02Num(model.load_time_ms) + x02Num(model.tokens?.prompt) / Math.max(1, promptTokensPerSecond(model)) * 1000 + x02Num(model.tokens?.completion) / Math.max(1, generationTokensPerSecond(model)) * 1000 : 1; })); const left = Math.min(190, Math.max(150, width * .22)), right = width - 72, step = Math.max(36, Math.min(58, (height - 70) / Math.max(1, rows.length))); rows.forEach((model, index) => { const s = exp01Stats(model); const stages = [x02Num(model.load_time_ms), s.prompt / Math.max(1, promptTokensPerSecond(model)) * 1000, s.completion / Math.max(1, generationTokensPerSecond(model)) * 1000]; const total = Math.max(1, stages.reduce((sum, value) => sum + value, 0)); const y = 52 + index * step; const selected = model.model_id === exp01Selected()?.model_id; let x = left; const colors = ["#f6c453", "#8c7bff", "#4fd1c5"]; context.fillStyle = selected ? theme.label : theme.secondary; context.font = selected ? "600 11px Inter, sans-serif" : "11px Inter, sans-serif"; loomName(context, model.model_id, 10, y + 3, left - 22, 11, "left"); stages.forEach((value, stage) => { const w = Math.max(8, (right - left) * value / max); const h = 5 + 18 * value / total; context.fillStyle = colors[stage]; context.globalAlpha = selected ? 1 : .65; context.beginPath(); context.moveTo(x, y); context.lineTo(x + w, y - h); context.lineTo(x + w + 9, y); context.lineTo(x + w, y + h); context.lineTo(x, y); context.closePath(); context.fill(); x += w + 3; }); context.globalAlpha = 1; context.fillStyle = theme.secondary; context.font = "10px JetBrains Mono, monospace"; context.textAlign = "right"; context.fillText(fmt.sec(total), width - 12, y + 3); context.textAlign = "left"; }); }
   function exp01DrawGravity(context, width, height) { const theme = exp01Header(context, "CONTEXT FIELD", "x = configured context · y = generation speed · halo = load cost"); const xRange = x02Range(models.map(model => exp01Stats(model).nctx || model.runtime?.context_size)); const yRange = x02Range(models.map(generationTokensPerSecond)); const loadRange = x02Range(models.map(model => model.load_time_ms)); const center = {x: width * .48, y: height * .56}; const radius = Math.min(width, height) * .34; context.strokeStyle = theme.grid; [.35, .62, .88].forEach(ring => { context.beginPath(); context.arc(center.x, center.y, radius * ring, 0, Math.PI * 2); context.stroke(); }); context.fillStyle = theme.secondary; context.textAlign = "center"; context.fillText("low context", center.x - radius * .8, center.y + radius + 18); context.fillText("high context", center.x + radius * .8, center.y + radius + 18); models.forEach(model => { const s = exp01Stats(model); const x = center.x - radius + x02Scale(s.nctx || model.runtime?.context_size, xRange) * radius * 2; const y = center.y + radius * .65 - x02Scale(generationTokensPerSecond(model), yRange) * radius * 1.3; const r = 5 + x02Scale(s.promptTotal, x02Range(models.map(item => exp01Stats(item).promptTotal))) * 12; const halo = 4 + x02Scale(model.load_time_ms, loadRange) * 16; const color = experimentalModelColor(model, model.model_id === exp01Selected()?.model_id ? 1 : .72); context.strokeStyle = color; context.globalAlpha = .18; context.lineWidth = halo; context.beginPath(); context.arc(x, y, r + 3, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1; context.fillStyle = color; context.beginPath(); context.arc(x, y, r, 0, Math.PI * 2); context.fill(); context.fillStyle = theme.label; context.font = "8px Inter, sans-serif"; context.textAlign = "center"; if (model.model_id === exp01Selected()?.model_id) context.fillText(fmt.shortModel(model.model_id), x, y - r - 7); }); context.textAlign = "left"; context.fillStyle = theme.secondary; context.fillText("larger bubbles = more prompt volume", 14, height - 12); }
   function exp01DrawDoppelganger(context, width, height) { const theme = exp01Header(context, "RAW VS OBSERVED", "outer = llama.cpp · inner = dashboard aggregate · selected model"); const model = exp01Selected(); const s = exp01Stats(model); const dimensions = [["raw prompt", s.rawPrompt], ["raw generation", s.rawGeneration], ["observed prompt", promptTokensPerSecond(model)], ["observed generation", generationTokensPerSecond(model)], ["prompt volume", s.promptTotal], ["response depth", s.response]]; const ranges = dimensions.map(([, value], index) => x02Range(models.map(item => { const q = exp01Stats(item); return [q.rawPrompt, q.rawGeneration, promptTokensPerSecond(item), generationTokensPerSecond(item), q.promptTotal, q.response][index]; }))); const center = {x: width * .43, y: height * .55}; const radius = Math.min(width, height) * .3; const polygon = (values, color, fill) => { context.beginPath(); values.forEach((value, index) => { const angle = -Math.PI / 2 + index * Math.PI * 2 / values.length; const r = 18 + x02Scale(value, ranges[index]) * radius; const x = center.x + Math.cos(angle) * r; const y = center.y + Math.sin(angle) * r; index ? context.lineTo(x, y) : context.moveTo(x, y); }); context.closePath(); context.fillStyle = fill; context.fill(); context.strokeStyle = color; context.lineWidth = 2; context.stroke(); }; polygon(dimensions.map(([, value]) => value), "#f6c453", "rgba(246,196,83,.15)"); polygon(dimensions.map(([, value], index) => [promptTokensPerSecond(model), generationTokensPerSecond(model), promptTokensPerSecond(model), generationTokensPerSecond(model), s.promptTotal, s.response][index]), "#8c7bff", "rgba(140,123,255,.2)"); dimensions.forEach(([label], index) => { const angle = -Math.PI / 2 + index * Math.PI * 2 / dimensions.length; context.fillStyle = theme.label; context.font = "8px Inter, sans-serif"; context.textAlign = "center"; context.fillText(label, center.x + Math.cos(angle) * (radius + 28), center.y + Math.sin(angle) * (radius + 28)); }); context.fillStyle = theme.label; context.font = "700 10px Inter, sans-serif"; context.fillText(fmt.shortModel(model.model_id), width * .78, 70); context.fillStyle = theme.secondary; context.font = "9px Inter, sans-serif"; context.fillText("The gap between outlines is telemetry divergence.", width * .7, 90); }
-  function exp01DrawEconomy(context, width, height) { const theme = exp01Header(context, "OUTPUT ECONOMY", "thread length = response per 1K prompt · wave = reasoning density"); const rows = [...models].sort((a, b) => exp01Stats(b).responsePerK - exp01Stats(a).responsePerK); const max = Math.max(1, ...rows.map(model => exp01Stats(model).responsePerK)); const left = 145, right = width - 20, step = Math.min(33, (height - 55) / Math.max(1, rows.length)); rows.forEach((model, index) => { const s = exp01Stats(model); const y = 52 + index * step; const widthValue = (right - left) * s.responsePerK / max; const reasonWidth = widthValue * exp01Pct(s.reasoning / Math.max(1, s.response)); context.fillStyle = theme.secondary; context.font = "8px Inter, sans-serif"; loomName(context, model.model_id, 8, y + 3, 130, 9, "left"); context.strokeStyle = "#8c7bff"; context.lineWidth = 8; context.beginPath(); context.moveTo(left, y); context.lineTo(left + widthValue, y); context.stroke(); context.strokeStyle = "#4fd1c5"; context.lineWidth = 4; context.beginPath(); context.moveTo(left, y); context.lineTo(left + reasonWidth, y); context.stroke(); context.fillStyle = theme.label; context.font = "8px JetBrains Mono, monospace"; context.textAlign = "right"; context.fillText(`${fmt.n(s.responsePerK, 1)} words/K · ${fmt.n(s.reasoningPerK, 1)} reason/K`, width - 10, y + 3); context.textAlign = "left"; }); }
-  function exp01DrawForge(context, width, height) { const theme = exp01Header(context, "TOKEN FLOW", "input volume → reuse → accepted draft → finished response"); const rows = [...models].sort((a, b) => exp01Stats(b).prompt - exp01Stats(a).prompt).slice(0, 10); const max = Math.max(1, ...rows.map(model => exp01Stats(model).prompt + exp01Stats(model).completion)); rows.forEach((model, index) => { const s = exp01Stats(model); const y = 60 + index * Math.min(31, (height - 72) / rows.length); const stages = [[s.prompt, "#8c7bff"], [s.prompt * exp01Pct(s.cache), "#4fd1c5"], [s.speculative ? s.completion * exp01Pct(s.speculative) : 0, "#f6c453"], [s.completion, "#ff6b7a"]]; let x = 155; context.fillStyle = theme.secondary; context.font = "8px Inter, sans-serif"; loomName(context, model.model_id, 8, y + 3, 138, 9, "left"); stages.forEach(([value, color], stage) => { const w = Math.max(4, (width - 220) * value / max); context.fillStyle = color; context.globalAlpha = stage === 1 || stage === 2 ? .8 : 1; context.beginPath(); context.roundRect(x, y - 7, w, 14, 5); context.fill(); x += w + 3; }); context.globalAlpha = 1; context.fillStyle = theme.secondary; context.font = "8px JetBrains Mono, monospace"; context.textAlign = "right"; context.fillText(`${fmt.n(s.cache * 100, 0)}% cache · ${fmt.n(s.speculative * 100, 0)}% accept`, width - 10, y + 3); context.textAlign = "left"; }); }
+  function exp01DrawEconomy(context, width, height) { const theme = exp01Header(context, "OUTPUT ECONOMY", "thread length = response per 1K prompt · wave = reasoning density"); const rows = [...models].sort((a, b) => exp01Stats(b).responsePerK - exp01Stats(a).responsePerK); const max = Math.max(1, ...rows.map(model => exp01Stats(model).responsePerK)); const compact = width < 800; const left = compact ? Math.min(205, width * .42) : 205, right = width - 20, step = Math.max(32, Math.min(46, (height - 55) / Math.max(1, rows.length))); rows.forEach((model, index) => { const s = exp01Stats(model); const y = 52 + index * step; const widthValue = (right - left) * s.responsePerK / max; const reasonWidth = widthValue * exp01Pct(s.reasoning / Math.max(1, s.response)); context.fillStyle = theme.secondary; context.font = "14px Inter, sans-serif"; loomName(context, fmt.shortModel(model.model_id), 8, y - 2, left - 20, 15, "left"); context.strokeStyle = "#8c7bff"; context.lineWidth = 14; context.beginPath(); context.moveTo(left, y); context.lineTo(left + widthValue, y); context.stroke(); context.strokeStyle = "#4fd1c5"; context.lineWidth = 7; context.beginPath(); context.moveTo(left, y); context.lineTo(left + reasonWidth, y); context.stroke(); context.fillStyle = theme.label; context.font = "11px JetBrains Mono, monospace"; context.textAlign = "right"; context.fillText(`${fmt.n(s.responsePerK, 1)} words/K · ${fmt.n(s.reasoningPerK, 1)} reason/K`, width - 10, y + 4); context.textAlign = "left"; }); }
+  function exp01DrawForge(context, width, height) { const theme = exp01Header(context, "TOKEN FLOW", "input volume → reuse → accepted draft → finished response"); const rows = [...models].sort((a, b) => exp01Stats(b).prompt - exp01Stats(a).prompt).slice(0, 10); const max = Math.max(1, ...rows.map(model => exp01Stats(model).prompt + exp01Stats(model).completion)); const compact = width < 800; const left = compact ? Math.min(205, width * .42) : 205; rows.forEach((model, index) => { const s = exp01Stats(model); const y = 60 + index * Math.max(34, Math.min(46, (height - 72) / rows.length)); const stages = [[s.prompt, "#8c7bff"], [s.prompt * exp01Pct(s.cache), "#4fd1c5"], [s.speculative ? s.completion * exp01Pct(s.speculative) : 0, "#f6c453"], [s.completion, "#ff6b7a"]]; let x = left; context.fillStyle = theme.secondary; context.font = "14px Inter, sans-serif"; loomName(context, fmt.shortModel(model.model_id), 8, y - 2, left - 20, 15, "left"); stages.forEach(([value, color], stage) => { const w = Math.max(4, (width - left - 90) * value / max); context.fillStyle = color; context.globalAlpha = stage === 1 || stage === 2 ? .8 : 1; context.beginPath(); context.roundRect(x, y - 7, w, 14, 5); context.fill(); x += w + 3; }); context.globalAlpha = 1; context.fillStyle = theme.secondary; context.font = "11px JetBrains Mono, monospace"; context.textAlign = "right"; context.fillText(`${fmt.n(s.cache * 100, 0)}% cache · ${fmt.n(s.speculative * 100, 0)}% accept`, width - 10, y + 4); context.textAlign = "left"; }); }
   function exp01DrawGenome(context, width, height) { const theme = exp01Header(context, "OPERATING GENOME", "helix width = magnitude · color = capability family · selected model is outlined"); const model = exp01Selected(); const s = exp01Stats(model); const genes = [["CTX", exp01Pct(s.nctx / Math.max(1, x02Range(models.map(item => exp01Stats(item).nctx)).max)), "#8c7bff"], ["RSN", exp01Pct(s.reasoning / Math.max(1, s.response)), "#4fd1c5"], ["IMG", s.inputImageShare, "#f6c453"], ["TOOL", exp01Pct(s.toolCalls / Math.max(1, x02Range(models.map(item => exp01Stats(item).toolCalls)).max)), "#ff6b7a"], ["TURN", exp01Pct(s.turn / Math.max(1, x02Range(models.map(item => exp01Stats(item).turn)).max)), "#70a5ff"], ["CACHE", exp01Pct(s.cache), "#8de9df"], ["SPEC", exp01Pct(s.speculative), "#f5a4cb"]]; const left = 72, right = width - 34, center = height * .52; context.strokeStyle = theme.grid; context.beginPath(); context.moveTo(left, center); context.lineTo(right, center); context.stroke(); genes.forEach((gene, index) => { const x = left + index * (right - left) / (genes.length - 1); const amp = 10 + gene[1] * 35; context.strokeStyle = gene[2]; context.lineWidth = 2; context.beginPath(); for (let t = 0; t <= 30; t++) { const xx = x - 22 + t * 44 / 30; const yy = center + Math.sin(t / 30 * Math.PI * 2) * amp; t ? context.lineTo(xx, yy) : context.moveTo(xx, yy); } context.stroke(); context.beginPath(); for (let t = 0; t <= 30; t++) { const xx = x - 22 + t * 44 / 30; const yy = center - Math.sin(t / 30 * Math.PI * 2) * amp; t ? context.lineTo(xx, yy) : context.moveTo(xx, yy); } context.stroke(); context.fillStyle = theme.label; context.font = "700 9px Inter, sans-serif"; context.textAlign = "center"; context.fillText(gene[0], x, center + 68); context.fillStyle = theme.secondary; context.font = "8px JetBrains Mono, monospace"; context.fillText(`${Math.round(gene[1] * 100)}%`, x, center + 82); }); context.textAlign = "left"; context.fillStyle = theme.secondary; context.fillText(fmt.shortModel(model.model_id), 14, 54); }
-  function exp01DrawSpiral(context, width, height) { const theme = exp01Header(context, "SESSION LOAD", "radius = prompt volume · turns = angle · tool calls = marker size"); const model = exp01Selected(); const observations = x02Obs(model); const center = {x: width * .48, y: height * .54}; const promptRange = x02Range(observations.map(observation => observation.tokens?.prompt)); const maxIndex = Math.max(1, observations.length - 1); context.strokeStyle = theme.grid; context.beginPath(); context.arc(center.x, center.y, 34, 0, Math.PI * 2); context.stroke(); observations.forEach((observation, index) => { const angle = index / maxIndex * Math.PI * 5; const radius = 14 + x02Scale(observation.tokens?.prompt, promptRange) * Math.min(width, height) * .34; const x = center.x + Math.cos(angle) * radius; const y = center.y + Math.sin(angle) * radius; const color = observation.input_type === "image" ? "#f6c453" : "#8c7bff"; const size = 2 + Math.min(7, x02Num(observation.conversation?.tool_call_count)); context.fillStyle = color; context.globalAlpha = .45 + index / maxIndex * .55; context.beginPath(); context.arc(x, y, size, 0, Math.PI * 2); context.fill(); }); context.globalAlpha = 1; context.fillStyle = theme.label; context.font = "700 10px Inter, sans-serif"; context.textAlign = "center"; context.fillText(fmt.shortModel(model.model_id), center.x, center.y + 4); context.fillStyle = theme.secondary; context.font = "9px Inter, sans-serif"; context.fillText(`${observations.length} snapshots · ${fmt.n(model.conversation?.turn_number, 0)} average turns`, center.x, height - 14); context.textAlign = "left"; }
-  function exp01DrawWeather(context, width, height) { const theme = exp01Header(context, "MODEL WEATHER", "pressure = tool calls · rainfall = response depth · lightning = throughput variability"); const rows = [...models].sort((a, b) => exp01Stats(b).toolCalls - exp01Stats(a).toolCalls); const maxTool = Math.max(1, ...rows.map(model => exp01Stats(model).toolCalls)); rows.forEach((model, index) => { const s = exp01Stats(model); const x = 18 + (index % 4) * ((width - 36) / 4); const y = 68 + Math.floor(index / 4) * 105; const w = (width - 54) / 4 - 12; const h = 78; const pressure = s.toolCalls / maxTool; context.fillStyle = `rgba(79,209,197,${.06 + pressure * .2})`; context.beginPath(); context.roundRect(x, y, w, h, 14); context.fill(); context.fillStyle = `rgba(140,123,255,${.12 + exp01Pct(s.reasoning / Math.max(1, s.response)) * .3})`; context.beginPath(); context.arc(x + w * .52, y + 28, 18 + s.reasoning / Math.max(1, s.response) * 18, 0, Math.PI * 2); context.fill(); for (let drop = 0; drop < 6; drop++) { context.fillStyle = "#4fd1c5"; context.globalAlpha = .35 + exp01Pct(s.response / 200) * .5; context.beginPath(); context.arc(x + 15 + drop * (w - 30) / 5, y + 55 + (drop % 2) * 6, 2 + exp01Pct(s.response / 200) * 3, 0, Math.PI * 2); context.fill(); } context.globalAlpha = 1; context.fillStyle = s.variability > .3 ? "#ff6b7a" : "#f6c453"; context.font = "700 12px Inter, sans-serif"; context.fillText(s.variability > .3 ? "⚡" : "·", x + w - 22, y + 20); context.fillStyle = theme.label; context.font = "700 8px Inter, sans-serif"; loomName(context, model.model_id, x + 8, y + h - 24, w - 16, 9, "left"); context.fillStyle = theme.secondary; context.font = "8px JetBrains Mono, monospace"; context.fillText(`${s.toolCalls} calls · ${fmt.n(s.response, 0)} words`, x + 8, y + h - 7); }); }
+  function exp01DrawSpiral(context, width, height) { const theme = exp01Header(context, "SESSION LOAD", "radius = prompt volume · turns = angle · tool calls = marker size"); const model = exp01Selected(); const observations = x02Obs(model); const center = {x: width * .48, y: height * .54}; const promptRange = x02Range(observations.map(observation => observation.tokens?.prompt)); const maxIndex = Math.max(1, observations.length - 1); context.strokeStyle = theme.grid; context.beginPath(); context.arc(center.x, center.y, 34, 0, Math.PI * 2); context.stroke(); observations.forEach((observation, index) => { const angle = index / maxIndex * Math.PI * 5; const radius = 14 + x02Scale(observation.tokens?.prompt, promptRange) * Math.min(width, height) * .34; const x = center.x + Math.cos(angle) * radius; const y = center.y + Math.sin(angle) * radius; const color = observation.input_type === "image" ? "#f6c453" : "#8c7bff"; const size = 2 + Math.min(7, x02Num(observation.conversation?.tool_call_count)); context.fillStyle = color; context.globalAlpha = .45 + index / maxIndex * .55; context.beginPath(); context.arc(x, y, size, 0, Math.PI * 2); context.fill(); }); context.globalAlpha = 1; context.fillStyle = theme.label; context.font = width < 800 ? "700 12px Inter, sans-serif" : "700 11px Inter, sans-serif"; context.textAlign = "center"; context.fillText(fmt.shortModel(model.model_id), center.x, center.y + 4); context.fillStyle = theme.secondary; context.font = "11px Inter, sans-serif"; context.fillText(`${observations.length} snapshots · ${fmt.n(model.conversation?.turn_number, 0)} average turns`, center.x, height - 18); context.textAlign = "left"; }
+  function exp01DrawWeather(context, width, height) { const theme = exp01Header(context, "MODEL WEATHER", "pressure = tool calls · rainfall = response depth · lightning = throughput variability"); const rows = [...models].sort((a, b) => exp01Stats(b).toolCalls - exp01Stats(a).toolCalls); const maxTool = Math.max(1, ...rows.map(model => exp01Stats(model).toolCalls)); const cols = width < 700 ? 1 : width < 900 ? 2 : 4; const gap = 16; const cardWidth = (width - 36 - gap * (cols - 1)) / cols; const mobile = cols === 1; const cardHeight = mobile ? 150 : width < 900 ? 128 : 78; const rowStep = cardHeight + (mobile ? 22 : width < 900 ? 18 : 28); rows.forEach((model, index) => { const s = exp01Stats(model); const x = 18 + (index % cols) * (cardWidth + gap); const y = 68 + Math.floor(index / cols) * rowStep; const w = cardWidth; const h = cardHeight; const pressure = s.toolCalls / maxTool; context.fillStyle = `rgba(79,209,197,${.06 + pressure * .2})`; context.beginPath(); context.roundRect(x, y, w, h, 14); context.fill(); context.fillStyle = `rgba(140,123,255,${.12 + exp01Pct(s.reasoning / Math.max(1, s.response)) * .3})`; context.beginPath(); context.arc(x + w * .52, y + (mobile ? 42 : 32), 18 + s.reasoning / Math.max(1, s.response) * 18, 0, Math.PI * 2); context.fill(); for (let drop = 0; drop < 6; drop++) { context.fillStyle = "#4fd1c5"; context.globalAlpha = .35 + exp01Pct(s.response / 200) * .5; context.beginPath(); context.arc(x + 15 + drop * (w - 30) / 5, y + h - (mobile ? 36 : 30) + (drop % 2) * 6, 2 + exp01Pct(s.response / 200) * 3, 0, Math.PI * 2); context.fill(); } context.globalAlpha = 1; context.fillStyle = s.variability > .3 ? "#ff6b7a" : "#f6c453"; context.font = "700 12px Inter, sans-serif"; context.fillText(s.variability > .3 ? "⚡" : "·", x + w - 22, y + 20); context.fillStyle = theme.label; context.font = mobile ? "600 12px Inter, sans-serif" : "600 11px Inter, sans-serif"; loomName(context, model.model_id, x + 8, y + h - (mobile ? 46 : 30), w - 16, mobile ? 13 : 11, "left"); context.fillStyle = theme.secondary; context.font = mobile ? "10px JetBrains Mono, monospace" : "10px JetBrains Mono, monospace"; context.fillText(`${s.toolCalls} calls · ${fmt.n(s.response, 0)} words`, x + 8, y + h - 12); }); }
   function exp01DrawFormatPrism(context, width, height) { const theme = exp01Header(context, "FORMAT SURFACE", "faces = input/output formats · brightness = throughput · edge = response depth"); const model = exp01Selected(); const s = exp01Stats(model); const center = {x: width * .42, y: height * .54}; const size = 108; const faces = [["TEXT", .8, "#8c7bff"], ["IMAGE", s.inputImageShare, "#f6c453"], ["JSON", s.outputFormats.includes("json") ? .8 : .1, "#4fd1c5"], ["SCHEMA", s.outputFormats.includes("json_schema") ? .8 : .1, "#ff6b7a"]]; context.strokeStyle = theme.grid; context.lineWidth = 1; const points = [[center.x, center.y - size], [center.x + size, center.y - size * .35], [center.x + size * .72, center.y + size * .7], [center.x - size * .25, center.y + size], [center.x - size, center.y + size * .2]]; context.beginPath(); points.forEach((point, index) => index ? context.lineTo(point[0], point[1]) : context.moveTo(point[0], point[1])); context.closePath(); context.stroke(); faces.forEach((face, index) => { const point = points[index]; const next = points[(index + 1) % points.length]; context.fillStyle = face[2]; context.globalAlpha = .14 + face[1] * .55; context.beginPath(); context.moveTo(center.x, center.y); context.lineTo(point[0], point[1]); context.lineTo(next[0], next[1]); context.closePath(); context.fill(); context.globalAlpha = 1; context.fillStyle = theme.label; context.font = "700 9px Inter, sans-serif"; context.textAlign = "center"; context.fillText(face[0], (point[0] + next[0]) / 2, (point[1] + next[1]) / 2); }); context.fillStyle = theme.label; context.font = "700 10px Inter, sans-serif"; context.fillText(fmt.shortModel(model.model_id), width * .72, 74); context.fillStyle = theme.secondary; context.font = "9px JetBrains Mono, monospace"; context.fillText(`${fmt.n(generationTokensPerSecond(model), 1)} gen tok/s`, width * .68, 94); context.fillText(`${fmt.n(s.response, 0)} response words`, width * .68, 110); }
   function exp01DrawCompass(context, width, height) { const theme = exp01Header(context, "RELATIONSHIP FIELD", "needle direction = sign · length = correlation strength · grouped by signal family"); const observations = models.flatMap(model => x02Obs(model)); const responseWords = observation => x02Num(observation.response?.visible_words) + x02Num(observation.response?.reasoning_words); const reasoningShare = observation => { const total = responseWords(observation); return total ? x02Num(observation.response?.reasoning_words) / total : 0; }; const relations = [["gen ↔ ctx", o => o.performance?.generation_tokens_per_second, o => o.runtime?.context_size, "#8c7bff"], ["prompt ↔ ctx", o => o.performance?.prompt_tokens_per_second, o => o.runtime?.context_size, "#4fd1c5"], ["prompt ↔ output", o => o.tokens?.prompt, responseWords, "#f6c453"], ["tools ↔ gen", o => o.conversation?.tool_call_count, o => o.performance?.generation_tokens_per_second, "#ff6b7a"], ["turns ↔ prompt", o => o.conversation?.turn_number, o => o.tokens?.prompt, "#70a5ff"], ["gen ↔ reasoning", o => o.performance?.generation_tokens_per_second, reasoningShare, "#f5a4cb"], ["load ↔ ctx", o => o.load_time_ms, o => o.runtime?.context_size, "#8de9df"]]; const center = {x: width * .45, y: height * .54}; const radius = Math.min(width, height) * .31; context.strokeStyle = theme.grid; [.35, .67, 1].forEach(ring => { context.beginPath(); context.arc(center.x, center.y, radius * ring, 0, Math.PI * 2); context.stroke(); }); relations.forEach((relation, index) => { const value = exp01Correlation(observations, relation[1], relation[2]); const angle = -Math.PI / 2 + index * Math.PI * 2 / relations.length; const length = Math.abs(value) * radius; const endX = center.x + Math.cos(angle) * length; const endY = center.y + Math.sin(angle) * length; context.strokeStyle = relation[3]; context.lineWidth = 3; context.beginPath(); context.moveTo(center.x, center.y); context.lineTo(endX, endY); context.stroke(); context.fillStyle = relation[3]; context.beginPath(); context.arc(endX, endY, 5, 0, Math.PI * 2); context.fill(); context.fillStyle = theme.label; context.font = "8px Inter, sans-serif"; context.textAlign = "center"; context.fillText(relation[0], center.x + Math.cos(angle) * (radius + 25), center.y + Math.sin(angle) * (radius + 25)); context.fillStyle = theme.secondary; context.fillText(value >= 0 ? `+${value.toFixed(2)}` : value.toFixed(2), endX, endY - 9); }); context.fillStyle = theme.label; context.font = "700 10px Inter, sans-serif"; context.textAlign = "center"; context.fillText("0", center.x, center.y + 3); context.textAlign = "left"; }
-  function renderExperimental01CreativeAtlas() { const selected = exp01Selected(); experimental01CreativeState.selected = selected?.model_id || null; const definitions = [["experimental01LatencyOrigami", exp01DrawLatencyOrigami], ["experimental01Economy", exp01DrawEconomy], ["experimental01Forge", exp01DrawForge], ["experimental01Genome", exp01DrawGenome], ["experimental01Spiral", exp01DrawSpiral], ["experimental01Weather", exp01DrawWeather]]; definitions.forEach(([id, draw]) => { const canvas = experimentalCanvas(id, draw); experimental01CreativeCanvases.push(canvas); charts[id] = {resize: canvas}; }); exp01RenderPicker(); exp01DrawAll(); }
+  function renderExperimental01CreativeAtlas() { const selected = exp01Selected(); experimental01CreativeState.selected = selected?.model_id || null; const definitions = [["experimental01LatencyOrigami", exp01DrawLatencyOrigami], ["experimental01Economy", exp01DrawEconomy], ["experimental01Forge", exp01DrawForge], ["experimental01Genome", exp01DrawGenome]]; definitions.forEach(([id, draw]) => { const canvas = experimentalCanvas(id, draw); experimental01CreativeCanvases.push(canvas); charts[id] = {resize: canvas}; }); exp01RenderPicker(); exp01DrawAll(); }
 
   const experimental01State = {prismLens: "throughput", prismSelected: null, prismHits: [], riverTask: "chat", riverSelected: null, riverHits: []};
   const prismLenses = {
@@ -2376,12 +2729,12 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
   }
 
   function drawExperimental05Network(context, width, height) {
-    const analysis = experimental05Analysis; if (!analysis) return; const margin = {top: 30, right: 190, bottom: 26, left: 155}; const taskX = margin.left; const modelX = width - margin.right; const taskStep = (height - margin.top - margin.bottom) / Math.max(1, analysis.tasks.length - 1); const modelProfiles = [...analysis.profiles].sort((a, b) => b.versatility - a.versatility); const modelStep = (height - margin.top - margin.bottom) / Math.max(1, modelProfiles.length - 1);
+    const analysis = experimental05Analysis; if (!analysis) return; const compact = width < 700; const margin = compact ? {top: 34, right: 126, bottom: 34, left: 78} : {top: 30, right: 190, bottom: 26, left: 155}; const taskX = compact ? 78 : margin.left; const modelX = compact ? width - 126 : width - margin.right; const taskStep = (height - margin.top - margin.bottom) / Math.max(1, analysis.tasks.length - 1); const modelProfiles = [...analysis.profiles].sort((a, b) => b.versatility - a.versatility); const modelStep = (height - margin.top - margin.bottom) / Math.max(1, modelProfiles.length - 1);
     context.clearRect(0, 0, width, height); const background = context.createLinearGradient(0, 0, width, 0); background.addColorStop(0, "rgba(140,123,255,.08)"); background.addColorStop(1, "rgba(79,209,197,.035)"); context.fillStyle = background; context.fillRect(0, 0, width, height);
     const modelY = new Map(modelProfiles.map((profile, index) => [profile.model.model_id, margin.top + index * modelStep]));
     const routes = analysis.tasks.map(task => ({task, profiles: [...analysis.profiles].sort((a, b) => b.taskScores[task.id] - a.taskScores[task.id]).slice(0, 3)})); const connected = new Set(routes.flatMap(route => route.profiles.map(profile => profile.model.model_id))); modelProfiles.filter(profile => !connected.has(profile.model.model_id)).forEach(profile => { const task = [...analysis.tasks].sort((a, b) => profile.taskScores[b.id] - profile.taskScores[a.id])[0]; const route = routes.find(item => item.task.id === task.id); if (route) route.profiles.push(profile); });
-    routes.forEach((route, taskIndex) => { const task = route.task; const y = margin.top + taskIndex * taskStep; route.profiles.forEach((profile, rank) => { const targetY = modelY.get(profile.model.model_id); const score = profile.taskScores[task.id]; const forced = rank >= 3; context.beginPath(); context.moveTo(taskX + 62, y); context.bezierCurveTo(taskX + (modelX - taskX) * .38, y, modelX - (modelX - taskX) * .32, targetY, modelX - 42, targetY); context.strokeStyle = task.color; context.globalAlpha = forced ? .28 + score * .35 : .13 + score * .68 - rank * .08; context.lineWidth = forced ? 1.4 + score * 3 : Math.max(1, 1.5 + score * 7 - rank); context.shadowColor = task.color; context.shadowBlur = rank === 0 ? 8 : 0; context.stroke(); context.globalAlpha = 1; context.shadowBlur = 0; }); context.fillStyle = task.color; context.beginPath(); context.roundRect(taskX - 62, y - 14, 124, 28, 10); context.fill(); context.fillStyle = "#10151c"; context.font = "800 10px Inter, sans-serif"; context.textAlign = "center"; context.fillText(task.label, taskX, y + 3); });
-    modelProfiles.forEach((profile, index) => { const y = modelY.get(profile.model.model_id); const radius = 5 + profile.versatility * 10; context.fillStyle = `rgba(79,209,197,${.20 + profile.versatility * .7})`; context.strokeStyle = "#b8fff5"; context.lineWidth = 1; context.beginPath(); context.arc(modelX, y, radius, 0, Math.PI * 2); context.fill(); context.stroke(); context.fillStyle = "#e7edf1"; context.font = "8px Inter, sans-serif"; drawExperimentalModelLabel(context, profile.model.model_id, modelX + 18, y - 5, 170); }); context.textAlign = "left"; context.fillStyle = "#778394"; context.font = "9px Inter, sans-serif"; context.fillText("Every model has a route · stronger lines = higher task fit · node radius = versatility", margin.left, height - 8);
+    routes.forEach((route, taskIndex) => { const task = route.task; const y = margin.top + taskIndex * taskStep; route.profiles.forEach((profile, rank) => { if (compact && rank > 0) return; const targetY = modelY.get(profile.model.model_id); const score = profile.taskScores[task.id]; const forced = rank >= 3; context.beginPath(); context.moveTo(taskX + (compact ? 58 : 62), y); context.bezierCurveTo(taskX + (modelX - taskX) * .38, y, modelX - (modelX - taskX) * .32, targetY, modelX - 42, targetY); context.strokeStyle = task.color; context.globalAlpha = compact ? .9 : (forced ? .28 + score * .35 : .13 + score * .68 - rank * .08); context.lineWidth = compact ? 3 : (forced ? 1.4 + score * 3 : Math.max(1, 1.5 + score * 7 - rank)); context.shadowColor = task.color; context.shadowBlur = compact ? 6 : (rank === 0 ? 8 : 0); context.stroke(); context.globalAlpha = 1; context.shadowBlur = 0; }); context.fillStyle = task.color; context.beginPath(); context.roundRect(taskX - (compact ? 58 : 62), y - 14, compact ? 116 : 124, 28, 10); context.fill(); context.fillStyle = "#10151c"; context.font = compact ? "700 10px Inter, sans-serif" : "800 10px Inter, sans-serif"; context.textAlign = "center"; context.fillText(task.label, taskX, y + 3); });
+    modelProfiles.forEach((profile, index) => { const y = modelY.get(profile.model.model_id); const radius = 5 + profile.versatility * 10; context.fillStyle = `rgba(79,209,197,${.20 + profile.versatility * .7})`; context.strokeStyle = "#b8fff5"; context.lineWidth = 1; context.beginPath(); context.arc(modelX, y, radius, 0, Math.PI * 2); context.fill(); context.stroke(); context.fillStyle = "#e7edf1"; context.font = compact ? "10px Inter, sans-serif" : "8px Inter, sans-serif"; drawExperimentalModelLabel(context, compact ? fmt.shortModel(profile.model.model_id) : profile.model.model_id, modelX + 16, y - 5, compact ? 108 : 170, "left"); }); context.textAlign = "left"; context.fillStyle = "#778394"; context.font = "9px Inter, sans-serif"; context.fillText("Every model has a route · stronger lines = higher task fit · node radius = versatility", margin.left, height - 8);
   }
 
   function drawExperimental05Signatures(context, width, height) {
@@ -2594,14 +2947,14 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
     if (complete.length) {
       const loads = complete.map(stat => stat.medianLoadSeconds), prompts = complete.map(stat => stat.medianPromptTokensPerSecond), generations = complete.map(stat => stat.medianGenerationTokensPerSecond), yields = complete.map(stat => stat.outputYield);
       const winner = complete.map(stat => ({stat, score: [fingerprintNormalize(stat.medianLoadSeconds, loads, true), fingerprintNormalize(stat.medianPromptTokensPerSecond, prompts), fingerprintNormalize(stat.medianGenerationTokensPerSecond, generations), fingerprintNormalize(stat.outputYield, yields)].reduce((sum, value) => sum + value, 0) / 4})).sort((a, b) => b.score - a.score || a.stat.modelId.localeCompare(b.stat.modelId))[0].stat;
-      cards.push({title:"Balanced Throughput", icon:"fa-scale-balanced", accent:"#e5c78f", stat:winner, value:`${fingerprintSeconds(winner.medianLoadSeconds)} load`, meta:`${fingerprintRate(winner.medianPromptTokensPerSecond)} prompt · ${fingerprintRate(winner.medianGenerationTokensPerSecond)} generation`, sub:`${fingerprintPercent(winner.thoughtDensity)} thought density`});
+      cards.push({id:"balanced-throughput", title:"Balanced Throughput", icon:"fa-scale-balanced", accent:"#e5c78f", stat:winner, value:`${fingerprintSeconds(winner.medianLoadSeconds)} load`, meta:`${fingerprintRate(winner.medianPromptTokensPerSecond)} prompt · ${fingerprintRate(winner.medianGenerationTokensPerSecond)} generation`, sub:`${fingerprintPercent(winner.thoughtDensity)} thought density`});
     }
-    const addMax = (title, icon, accent, accessor, value, meta) => { const eligible = stats.filter(stat => accessor(stat) !== null).sort((a, b) => accessor(b) - accessor(a) || a.modelId.localeCompare(b.modelId)); if (eligible.length) { const stat = eligible[0]; cards.push({title, icon, accent, stat, value:value(stat), meta:meta(stat), sub:`${fmt.n(stat.snapshotCount,0)} snapshots`}); } };
-    addMax("Cold-Start Sprinter", "fa-bolt", "#91d4cf", stat => stat.coldStartSprint, stat => `${fingerprintSeconds(stat.medianLoadSeconds)} load`, stat => `${fingerprintFormat(stat.coldStartSprint,1)} sprint index`);
-    addMax("Deepest Deliberator", "fa-brain", "#a79be0", stat => stat.thoughtDensity, stat => fingerprintPercent(stat.thoughtDensity === null ? null : stat.thoughtDensity * 100), stat => `${fingerprintPercent(stat.structuredOutputPercent)} structured output`);
-    addMax("Highest Answer Yield", "fa-comment-dots", "#a9d4bc", stat => stat.outputYield, stat => `${fingerprintFormat(stat.outputYield,1)} words / 1k`, stat => stat.smallSample ? `Small sample · n=${stat.snapshotCount}` : `${fmt.n(stat.snapshotCount,0)} snapshots`);
+    const addMax = (id, title, icon, accent, accessor, value, meta) => { const eligible = stats.filter(stat => accessor(stat) !== null).sort((a, b) => accessor(b) - accessor(a) || a.modelId.localeCompare(b.modelId)); if (eligible.length) { const stat = eligible[0]; cards.push({id, title, icon, accent, stat, value:value(stat), meta:meta(stat), sub:`${fmt.n(stat.snapshotCount,0)} snapshots`}); } };
+    addMax("cold-start-sprinter", "Cold-Start Sprinter", "fa-bolt", "#91d4cf", stat => stat.coldStartSprint, stat => `${fingerprintSeconds(stat.medianLoadSeconds)} load`, stat => `${fingerprintFormat(stat.coldStartSprint,1)} sprint index`);
+    addMax("deepest-deliberator", "Deepest Deliberator", "fa-brain", "#a79be0", stat => stat.thoughtDensity, stat => fingerprintPercent(stat.thoughtDensity === null ? null : stat.thoughtDensity * 100), stat => `${fingerprintPercent(stat.structuredOutputPercent)} structured output`);
+    addMax("highest-answer-yield", "Highest Answer Yield", "fa-comment-dots", "#a9d4bc", stat => stat.outputYield, stat => `${fingerprintFormat(stat.outputYield,1)} words / 1k`, stat => stat.smallSample ? `Small sample · n=${stat.snapshotCount}` : `${fmt.n(stat.snapshotCount,0)} snapshots`);
     const highSample = stats.filter(stat => stat.snapshotCount >= FINGERPRINT_HIGH_SAMPLE_THRESHOLD && stat.outputYield !== null).sort((a, b) => b.outputYield - a.outputYield || a.modelId.localeCompare(b.modelId));
-    if (highSample.length) { const stat = highSample[0]; cards.push({title:"High-Sample Answer Yield", icon:"fa-star", accent:"#dda8b5", stat, value:`${fingerprintFormat(stat.outputYield,1)} words / 1k`, meta:`${fmt.n(stat.snapshotCount,0)} snapshots`, sub:"high-sample comparison"}); }
+    if (highSample.length) { const stat = highSample[0]; cards.push({id:"high-sample-answer-yield", title:"High-Sample Answer Yield", icon:"fa-star", accent:"#dda8b5", stat, value:`${fingerprintFormat(stat.outputYield,1)} words / 1k`, meta:`${fmt.n(stat.snapshotCount,0)} snapshots`, sub:"high-sample comparison"}); }
     return cards;
   }
 
@@ -2609,6 +2962,12 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
     const container = document.getElementById("fingerprintInsightCards"); if (!container) return;
     const cards = buildFingerprintHeroInsights(stats);
     container.innerHTML = cards.length ? cards.map(card => `<article class="fingerprint-insight-card" style="--fingerprint-accent:${card.accent}" title="${fmt.esc(card.stat.modelId)}"><div class="fingerprint-card-icon"><i class="fa-solid ${card.icon}"></i></div><div class="fingerprint-card-title">${card.title}</div><div class="fingerprint-card-model">${fmt.esc(card.stat.displayName)}</div><div class="fingerprint-card-value">${card.value}</div><div class="fingerprint-card-meta">${card.meta}</div><div class="fingerprint-card-sub">${card.sub}</div>${card.stat.smallSample ? `<span class="fingerprint-warning">Small sample · n=${card.stat.snapshotCount}</span>` : ""}</article>`).join("") : `<div class="small-note">No fingerprint metrics are available for the current selection.</div>`;
+  }
+  function renderFingerprintInsightTargets(stats) {
+    const cards = buildFingerprintHeroInsights(stats);
+    const render = list => list.length ? list.map(card => `<article class="ms-insight-card fingerprint-insight-card" style="--view-accent:${card.accent}" title="${fmt.esc(card.stat.modelId)}"><div class="fingerprint-card-title">${card.title}</div><div class="fingerprint-card-model">${fmt.esc(card.stat.displayName)}</div><div class="fingerprint-card-value">${card.value}</div><div class="fingerprint-card-meta">${card.meta}</div><div class="fingerprint-card-sub">${card.sub}</div>${card.stat.smallSample ? `<span class="fingerprint-warning">Small sample · n=${card.stat.snapshotCount}</span>` : ""}</article>`).join("") : '<div class="small-note">No fingerprint metrics are available for the current selection.</div>';
+    $("#performanceFingerprintInsights").html(render(cards.filter(card => ["balanced-throughput","cold-start-sprinter"].includes(card.id))));
+    $("#modelFingerprintInsights").html(render(cards.filter(card => ["deepest-deliberator","highest-answer-yield","high-sample-answer-yield"].includes(card.id))));
   }
 
   function renderFingerprintDatasetStrip(stats) {
@@ -2648,7 +3007,7 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
 
   function fingerprintMiniMetric(value, accent) { return `<div class="fingerprint-mini-metric"><span>${fingerprintPercent(value)}</span><span class="fingerprint-mini-track"><span class="fingerprint-mini-fill" style="width:${Math.max(0,Math.min(100,value||0))}%;--fingerprint-accent:${accent}"></span></span></div>`; }
   function renderFingerprintModelLineup(stats) { const rows=[...stats].sort((a,b)=>a.modelId.localeCompare(b.modelId)); $("#fingerprintModelLineup").html(rows.length?`<table class="table dashboard-table fingerprint-table align-middle"><thead><tr><th>Model</th><th>Snapshots</th><th>Load</th><th>Prompt</th><th>Generation</th><th>Thought density</th><th>Sprint</th><th>Yield</th><th>Image workload</th><th>Structured output</th></tr></thead><tbody>${rows.map(stat=>`<tr title="${fmt.esc(stat.modelId)}"><td><span style="color:${stat.color}">●</span> <span class="mono">${fmt.esc(stat.displayName)}</span></td><td>n=${fmt.n(stat.snapshotCount,0)}</td><td>${fingerprintSeconds(stat.medianLoadSeconds)}</td><td>${fingerprintRate(stat.medianPromptTokensPerSecond)}</td><td>${fingerprintRate(stat.medianGenerationTokensPerSecond)}</td><td>${fingerprintMiniMetric(stat.thoughtDensity===null?null:stat.thoughtDensity*100,stat.color)}</td><td>${fingerprintFormat(stat.coldStartSprint,1)}</td><td>${fingerprintFormat(stat.outputYield,1)} words / 1k</td><td>${fingerprintMiniMetric(stat.imageWorkloadPercent,stat.color)}</td><td>${fingerprintMiniMetric(stat.structuredOutputPercent,stat.color)}</td></tr>`).join("")}</tbody></table>`:'<div class="small-note">No model telemetry is available for Model Fingerprints.</div>'); }
-  function renderFingerprintView() { const stats=buildFingerprintModelStats(filteredModels); fingerprintState.stats=stats; if (!stats.some(stat => stat.modelId === fingerprintState.selectedModelId)) fingerprintState.selectedModelId = null; renderFingerprintDatasetStrip(stats); renderFingerprintInsightCards(stats); renderFingerprintCompoundMetrics(); renderFingerprintUnexpectedInsights(stats); renderFingerprintModelLineup(stats); fingerprintBindCanvases(); renderFingerprintCanvases(); charts.fingerprints = {resize: renderFingerprintCanvases}; }
+  function renderFingerprintView() { const stats=buildFingerprintModelStats(filteredModels); fingerprintState.stats=stats; if (!stats.some(stat => stat.modelId === fingerprintState.selectedModelId)) fingerprintState.selectedModelId = null; renderFingerprintDatasetStrip(stats); renderFingerprintInsightTargets(stats); renderFingerprintCompoundMetrics(); renderFingerprintUnexpectedInsights(stats); renderFingerprintModelLineup(stats); fingerprintBindCanvases(); renderFingerprintCanvases(); charts.fingerprints = {resize: renderFingerprintCanvases}; }
 
   function detailRow(k,v,mono=false) {
     return `<div class="detail-row"><div class="detail-key">${fmt.esc(k)}</div><div class="detail-value ${mono?"mono":""}">${v}</div></div>`;
@@ -3136,12 +3495,16 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
   }
 
   function showView(viewId) {
-    const requestedLink = $("#dashboardNav .nav-link").filter((_, el) => $(el).data("view") === viewId).first();
+    const redirects = {fingerprints:"models", "experimental-01":"models"};
+    const requested = redirects[viewId] || viewId;
+    const requestedLink = $("#dashboardNav .nav-link").filter((_, el) => $(el).data("view") === requested).first();
     const view = requestedLink.length ? requestedLink.data("view") : "overview";
     $(".dashboard-view").removeClass("active");
     $(`#${view}`).addClass("active");
-    $("#dashboardNav .nav-link").removeClass("active");
-    $(`#dashboardNav .nav-link[data-view="${view}"]`).addClass("active");
+    $("#dashboardNav .nav-link").removeClass("active").removeAttr("aria-current");
+    const activeNavLink = $(`#dashboardNav .nav-link[data-view="${view}"]`).addClass("active").attr("aria-current", "page");
+    if (activeNavLink.length) activeNavLink[0].scrollIntoView({behavior:"smooth", block:"nearest", inline:"nearest"});
+    if (viewId !== view) window.history.replaceState(null, "", `#${view}`);
     Object.values(charts).forEach(chart => chart.resize());
   }
 
@@ -3151,6 +3514,25 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
     showView(view);
     window.history.replaceState(null, "", `#${view}`);
   });
+
+  // Responsive canvases need a fresh render after the layout, not just a CSS resize.
+  let dashboardResizeFrame = 0;
+  function refreshDashboardLayout() {
+    if (dashboardResizeFrame) return;
+    dashboardResizeFrame = window.requestAnimationFrame(() => {
+      dashboardResizeFrame = 0;
+      Object.values(charts).forEach(chart => {
+        if (chart && typeof chart.resize === "function") chart.resize();
+      });
+    });
+  }
+  window.addEventListener("resize", refreshDashboardLayout, {passive:true});
+  window.addEventListener("orientationchange", refreshDashboardLayout, {passive:true});
+  if (typeof ResizeObserver !== "undefined") {
+    const dashboardResizeObserver = new ResizeObserver(refreshDashboardLayout);
+    const dashboardLayout = document.querySelector(".dashboard-wrap");
+    if (dashboardLayout) dashboardResizeObserver.observe(dashboardLayout);
+  }
 
   $("#themeToggle").on("click", function(){
     applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
@@ -3164,6 +3546,7 @@ const DASHBOARD_DATA = // insert data/dashboard/session_metrics.json;
   setMetadata();
   renderDatasetHealth();
   renderKPIs();
+  renderModelRecommendations();
   renderCharts();
   applyFilters();
   renderVariables();

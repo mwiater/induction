@@ -153,23 +153,20 @@ func TestWriteDashboardHTMLEmbedsMetricsInTemplate(t *testing.T) {
 	}
 }
 
-func TestDashboardTemplateIncludesModelFingerprintsView(t *testing.T) {
+func TestDashboardTemplateUsesRecommendationView(t *testing.T) {
 	contents, err := os.ReadFile(DefaultDashboardTemplatePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	output := string(contents)
-	for _, marker := range []string{
-		`data-view="fingerprints"`,
-		`id="fingerprints"`,
-		`id="fingerprintConstellation"`,
-		`id="fingerprintStartupPrompt"`,
-		`buildFingerprintModelStats`,
-		`FINGERPRINT_SMALL_SAMPLE_THRESHOLD`,
-		`FINGERPRINT_HIGH_SAMPLE_THRESHOLD`,
-	} {
+	for _, marker := range []string{`data-view="overview"`, `data-view="performance"`, `data-view="behavior"`, `data-view="models"`, `data-view="recommendations"`, `data-view="variables"`, `id="modelRecommendations"`, `id="performanceFingerprintInsights"`, `id="modelFingerprintInsights"`, `id="fingerprintStartupPrompt"`, `id="fingerprintUnexpectedInsights"`, `aria-hidden="true"`, `buildFingerprintModelStats`, `FINGERPRINT_SMALL_SAMPLE_THRESHOLD`, `FINGERPRINT_HIGH_SAMPLE_THRESHOLD`} {
 		if !strings.Contains(output, marker) {
 			t.Fatalf("dashboard template is missing fingerprint marker %q", marker)
+		}
+	}
+	for _, marker := range []string{`data-view="fingerprints"`, `data-view="experimental-01"`, `<section id="fingerprints"`, `<section id="experimental-01"`} {
+		if strings.Contains(output, marker) {
+			t.Fatalf("retired dashboard destination remains active: %q", marker)
 		}
 	}
 }
