@@ -37,6 +37,9 @@ type ClientOptions struct {
 	initialChatPrompt string
 	// initialChatPromptAutoSubmit submits initialChatPrompt after it is inserted.
 	initialChatPromptAutoSubmit bool
+	// initialModelSelection opens the normal model picker before loading a
+	// model. It is used by the root positional-chat shortcut.
+	initialModelSelection bool
 	// autoExitAfterInitialChat exits after the automated turn's session save.
 	autoExitAfterInitialChat bool
 	// sessionSaved is called after a session has been written successfully.

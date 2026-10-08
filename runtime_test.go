@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -46,6 +47,71 @@ func TestRuntimeModelTransitionsAndSwitch(t *testing.T) {
 	}
 	if _, err := client.UnloadModel(context.Background(), "missing"); !errors.Is(err, ErrModelNotFound) {
 		t.Fatalf("expected model-not-found error, got %v", err)
+	}
+}
+
+func TestSwitchModelSerializesCompoundTransitions(t *testing.T) {
+	var stateMu sync.Mutex
+	states := map[string]ModelRuntimeState{"old": ModelRuntimeLoaded, "target": ModelRuntimeUnloaded}
+	var activeLoads atomic.Int32
+	var maxActiveLoads atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/models":
+			stateMu.Lock()
+			defer stateMu.Unlock()
+			_, _ = fmt.Fprintf(w, `{"data":[{"id":"old","status":%q},{"id":"target","status":%q}]}`, states["old"], states["target"])
+		case "/models/unload":
+			stateMu.Lock()
+			states["old"] = ModelRuntimeUnloaded
+			stateMu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true}`))
+		case "/models/load":
+			current := activeLoads.Add(1)
+			for {
+				previous := maxActiveLoads.Load()
+				if current <= previous || maxActiveLoads.CompareAndSwap(previous, current) {
+					break
+				}
+			}
+			if current > 1 {
+				activeLoads.Add(-1)
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"error":{"message":"model limit reached, try again later"}}`))
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+			stateMu.Lock()
+			states["target"] = ModelRuntimeLoaded
+			stateMu.Unlock()
+			activeLoads.Add(-1)
+			_, _ = w.Write([]byte(`{"success":true}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewClient(context.Background(), srv.URL, WithLoadWaitInterval(time.Millisecond))
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := client.SwitchModel(context.Background(), "target")
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent SwitchModel failed: %v", err)
+		}
+	}
+	if got := maxActiveLoads.Load(); got != 1 {
+		t.Fatalf("maximum concurrent model loads = %d, want 1", got)
 	}
 }
 

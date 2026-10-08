@@ -221,6 +221,15 @@ func UnloadModel(ctx context.Context, endpoint, model string, options ...ClientO
 
 // SwitchModel optionally unloads other loaded models and loads target.
 func (c *Client) SwitchModel(ctx context.Context, target string, options ...SwitchOption) (*SwitchResult, error) {
+	// A switch is a compound lifecycle operation. Keep the status check,
+	// unloads, and load together so concurrent inferences cannot both observe
+	// the same loaded model and then exceed the server's model limit.
+	c.runtimeMu.Lock()
+	defer c.runtimeMu.Unlock()
+	return c.switchModel(ctx, target, options...)
+}
+
+func (c *Client) switchModel(ctx context.Context, target string, options ...SwitchOption) (*SwitchResult, error) {
 	target = strings.TrimSpace(target)
 	if target == "" {
 		return nil, fmt.Errorf("model ID is required")
@@ -240,14 +249,14 @@ func (c *Client) SwitchModel(ctx context.Context, target string, options ...Swit
 			if model.ID == target || model.State != ModelRuntimeLoaded {
 				continue
 			}
-			op, err := c.UnloadModel(ctx, model.ID)
+			op, err := c.changeModelStateLocked(ctx, model.ID, ModelRuntimeUnloaded)
 			if err != nil {
 				return nil, fmt.Errorf("switch unload %q: %w", model.ID, err)
 			}
 			result.Unloaded = append(result.Unloaded, *op)
 		}
 	}
-	op, err := c.LoadModel(ctx, target)
+	op, err := c.changeModelStateLocked(ctx, target, ModelRuntimeLoaded)
 	if err != nil {
 		return result, fmt.Errorf("switch load %q: %w", target, err)
 	}
@@ -257,13 +266,17 @@ func (c *Client) SwitchModel(ctx context.Context, target string, options ...Swit
 }
 
 func (c *Client) changeModelState(ctx context.Context, model string, desired ModelRuntimeState) (*RuntimeOperation, error) {
+	c.runtimeMu.Lock()
+	defer c.runtimeMu.Unlock()
+	return c.changeModelStateLocked(ctx, model, desired)
+}
+
+func (c *Client) changeModelStateLocked(ctx context.Context, model string, desired ModelRuntimeState) (*RuntimeOperation, error) {
 	model = strings.TrimSpace(model)
 	if model == "" {
 		return nil, fmt.Errorf("model ID is required")
 	}
 	start := time.Now()
-	c.runtimeMu.Lock()
-	defer c.runtimeMu.Unlock()
 	operationName := "loading"
 	if desired == ModelRuntimeUnloaded {
 		operationName = "unloading"

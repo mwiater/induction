@@ -17,6 +17,7 @@ import (
 	induction "github.com/mwiater/induction"
 	"github.com/mwiater/induction/internal/modelmanager"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -24,8 +25,22 @@ import (
 func NewRootCommand() *cobra.Command {
 	var configPath string
 	var inference inferenceFlags
-	root := &cobra.Command{Use: "induction", Short: "run inference and manage Induction", SilenceUsage: true, SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+	root := &cobra.Command{Use: "induction [PROMPT]", Short: "run inference and manage Induction", Long: "Run inference and manage Induction. With no flags, opens the interactive model selector and waits for chat input. With one positional PROMPT and no flags, it sends that prompt after model selection and keeps the chat open for follow-up questions. The positional shortcut accepts exactly one argument and cannot be combined with flags; existing flag-based workflows and subcommands remain available.", Example: "  induction\n  induction \"Hello!\"\n  induction \"Explain how transformers work\"\n  induction --model <model-id> --userPrompt \"Hello!\"", SilenceUsage: true, SilenceErrors: true,
+		// An explicit validator prevents Cobra's legacy root validation from
+		// treating an unmatched token as an unknown subcommand. Registered
+		// subcommands are still resolved first by Cobra.
+		Args: func(_ *cobra.Command, _ []string) error { return nil },
+		RunE: func(cmd *cobra.Command, args []string) error {
+			route, err := classifyRootInvocation(args, explicitlySetFlags(cmd), cmd.Flags().ArgsLenAtDash() >= 0)
+			if err != nil {
+				return err
+			}
+			if route == rootModelSelection {
+				return runRootChat(cmd, configPath, "", false)
+			}
+			if route == rootPositionalChat {
+				return runRootChat(cmd, configPath, args[0], true)
+			}
 			inference.parameterSet = map[string]bool{}
 			for _, name := range []string{"temperature", "top-p", "top-k", "max-tokens", "repeat-penalty", "seed"} {
 				inference.parameterSet[name] = cmd.Flags().Changed(name)
@@ -64,6 +79,75 @@ func NewRootCommand() *cobra.Command {
 	markBetaCommandTree(evalCommand)
 	markBetaCommandTree(models)
 	return root
+}
+
+type rootInvocationRoute uint8
+
+const (
+	rootNormal rootInvocationRoute = iota
+	rootModelSelection
+	rootPositionalChat
+)
+
+func classifyRootInvocation(args, explicitlySet []string, delimiter bool) (rootInvocationRoute, error) {
+	if len(args) == 0 {
+		if len(explicitlySet) == 0 {
+			return rootModelSelection, nil
+		}
+		return rootNormal, nil
+	}
+	if delimiter {
+		return rootNormal, fmt.Errorf("the positional chat shortcut does not support the -- delimiter")
+	}
+	if len(args) != 1 {
+		return rootNormal, fmt.Errorf("accepts exactly one positional prompt argument, got %d", len(args))
+	}
+	if strings.TrimSpace(args[0]) == "" {
+		return rootNormal, fmt.Errorf("positional prompt cannot be empty")
+	}
+	if len(explicitlySet) != 0 {
+		return rootNormal, fmt.Errorf("positional chat shortcut cannot be combined with flags")
+	}
+	return rootPositionalChat, nil
+}
+
+func explicitlySetFlags(cmd *cobra.Command) []string {
+	seen := map[string]bool{}
+	var names []string
+	collect := func(flags *pflag.FlagSet) {
+		if flags == nil {
+			return
+		}
+		flags.Visit(func(flag *pflag.Flag) {
+			if !seen[flag.Name] {
+				seen[flag.Name] = true
+				names = append(names, flag.Name)
+			}
+		})
+	}
+	collect(cmd.Flags())
+	collect(cmd.InheritedFlags())
+	return names
+}
+
+func runRootChat(cmd *cobra.Command, configPath, prompt string, submit bool) error {
+	request := &induction.ChatRequest{Messages: []induction.Message{{Role: "system", Content: "You are a precise technical assistant."}}}
+	options := []induction.ClientOption{
+		induction.WithConfigPath(configPath),
+		induction.WithInitialModelSelection(true),
+	}
+	if submit {
+		options = append(options, induction.WithInitialChatPrompt(prompt, true))
+	}
+	cfg, err := induction.LoadConfig(configPath)
+	if err != nil {
+		return err
+	}
+	refreshModelListCache(cmd.Context(), cfg)
+	if len(cfg.MCPServers) > 0 {
+		return runMCP(cmd.Context(), request, cmd.InOrStdin(), cmd.OutOrStdout(), options...)
+	}
+	return runApplicationTools(cmd.Context(), request, cmd.InOrStdin(), cmd.OutOrStdout(), options...)
 }
 
 // markBetaCommandTree marks an experimental command and every descendant as

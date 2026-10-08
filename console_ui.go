@@ -121,6 +121,8 @@ type consoleModel struct {
 	initialPrompt            string
 	autoSubmitInitialPrompt  bool
 	initialPromptApplied     bool
+	initialModelSelection    bool
+	submittingInitialPrompt  bool
 	autoExitAfterInitialChat bool
 	pipeline                 *Pipeline
 	pipelineStep             int
@@ -220,6 +222,7 @@ func newConsoleModel(ctx context.Context, client *Client, request ChatRequest, t
 	if client != nil && client.opts != nil {
 		m.initialPrompt = client.opts.initialChatPrompt
 		m.autoSubmitInitialPrompt = client.opts.initialChatPromptAutoSubmit
+		m.initialModelSelection = client.opts.initialModelSelection
 		m.autoExitAfterInitialChat = client.opts.autoExitAfterInitialChat
 		m.pipeline = client.opts.pipeline
 		m.pipelineRunning = m.pipeline != nil
@@ -234,6 +237,9 @@ func newConsoleModel(ctx context.Context, client *Client, request ChatRequest, t
 }
 
 func (m consoleModel) Init() tea.Cmd {
+	if m.initialModelSelection {
+		return listModelsCmd(m.client, m.ctx, m.timeout)
+	}
 	loadModel := func() tea.Msg {
 		if m.client == nil {
 			return consoleModelLoadedMsg{}
@@ -441,6 +447,22 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
+			if step.Output != nil && !strings.EqualFold(step.Output.Type, "json") && step.Output.Artifact != "" && m.pipelineRunID != "" && (step.ForEach == "" || m.pipelineFanoutIndex+1 == len(m.pipelineFanoutItems)) {
+				mediaType := "text/plain"
+				if strings.HasSuffix(strings.ToLower(step.Output.Artifact), ".md") || strings.HasSuffix(strings.ToLower(step.Output.Artifact), ".markdown") {
+					mediaType = "text/markdown"
+				}
+				artifactPath, err := ResolveArtifactPath(step.Output.Artifact, m.artifactPathContext)
+				if err == nil {
+					_, err = persistPipelineArtifact(m.pipelineRunID, step.Name, artifactPath, mediaType, []byte(msg.content))
+				}
+				if err != nil {
+					m.pipelineRunning = false
+					m.err = fmt.Errorf("pipeline step %q: persist artifact: %w", step.Name, err)
+					m.refreshTranscript()
+					return m, nil
+				}
+			}
 			if step.ResponseFormat != nil {
 				typeName := strings.ToLower(strings.TrimSpace(step.ResponseFormat.Type))
 				if (typeName == "json" || typeName == "json_object" || typeName == "json_schema") && !isJSONObject(msg.content) {
@@ -595,6 +617,14 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.request.Model = msg.model
+		if m.session == nil {
+			if err := m.createAndPersistSession(); err != nil {
+				m.err = err
+				m.sessionStatus = "Session creation failed: " + err.Error()
+				m.refreshTranscript()
+				return m, nil
+			}
+		}
 		m.client.logf("ui: model ready model=%q previous=%q", msg.model, msg.previous)
 		m.props = msg.props
 		m.slots = msg.slots
@@ -609,6 +639,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.modelMonitor.markModelReady()
 		}
 		m.sessionStatus = "Loaded model: " + msg.model
+		m.initialModelSelection = false
 		m.sessionView = sessionViewChat
 		if m.pipeline != nil {
 			return m, m.submitPipelineStep(m.pipelineStep)
@@ -766,6 +797,12 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.sessionView == sessionViewModels {
 			switch key {
 			case "esc":
+				if m.initialModelSelection {
+					if m.cancel != nil {
+						m.cancel()
+					}
+					return m, tea.Quit
+				}
 				m.sessionView = sessionViewChat
 				m.input.Focus()
 				return m, textinput.Blink
@@ -833,7 +870,29 @@ func (m *consoleModel) applyInitialChatPrompt(blink tea.Cmd) tea.Cmd {
 	if !m.autoSubmitInitialPrompt {
 		return blink
 	}
-	return tea.Batch(blink, m.submitInput())
+	m.submittingInitialPrompt = true
+	cmd := m.submitInput()
+	m.submittingInitialPrompt = false
+	return tea.Batch(blink, cmd)
+}
+
+func (m *consoleModel) createAndPersistSession() error {
+	var err error
+	m.session, err = newUnsavedChatSession(m.request)
+	if err != nil {
+		return err
+	}
+	configureSessionMode(m.session, m.pipeline)
+	m.pipelineRunID = m.session.ID
+	m.client.logf("session: creating id=%q path=%q saved=%t pipeline=%t", m.session.ID, sessionPathForLog(m.session.ID), m.session.Saved, m.pipeline != nil)
+	if err := saveChatSession(m.session); err != nil {
+		return err
+	}
+	m.client.logf("session: initial persistence complete id=%q path=%q", m.session.ID, sessionPathForLog(m.session.ID))
+	if m.client.opts.sessionSaved != nil {
+		m.client.opts.sessionSaved(chatSessionPath(m.session.ID))
+	}
+	return nil
 }
 
 func (m *consoleModel) startPipelineStep(index int) tea.Cmd {
@@ -1091,7 +1150,10 @@ func addPipelineSystemPrompt(messages []Message, prompt string) []Message {
 }
 
 func (m *consoleModel) submitInput() tea.Cmd {
-	value := strings.TrimSpace(m.input.Value())
+	value := m.input.Value()
+	if !m.submittingInitialPrompt {
+		value = strings.TrimSpace(value)
+	}
 	if value == "" || !m.inputReady() {
 		return nil
 	}
@@ -1866,19 +1928,25 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 		return nil, err
 	}
 	request := cloneChatRequest(req)
-	if request.Model == "" {
-		return nil, fmt.Errorf("request model is required")
-	}
 	clientOptions := append([]ClientOption(nil), options...)
 	// Bubble Tea owns the terminal in interactive mode. Keep diagnostics in
 	// the configured file instead of mirroring them onto the UI's stderr.
 	clientOptions = append(clientOptions, WithLogger(configuredUILogger(cfg.Log)))
 	client := newClientFromConfig(ctx, cfg, clientOptions...)
+	if request.Model == "" && !client.opts.initialModelSelection {
+		return nil, fmt.Errorf("request model is required")
+	}
 	client.logf("ui: chat session starting model=%q mode=%d pipeline=%t steps=%d", request.Model, mode, client.opts.pipeline != nil, pipelineStepCount(client.opts.pipeline))
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	model := newConsoleModel(runCtx, client, request, time.Duration(cfg.Timeout), cfg.SidebarWidth, mode)
 	model.cancel = cancel
+	if client.opts.initialModelSelection {
+		model.sessionView = sessionViewModels
+		model.loading = false
+		model.input.Blur()
+		model.footer = "Select a model"
+	}
 	if client.opts.pipeline != nil {
 		model.pipelineInputs, err = preparePipelineRuntimeInputs(client.opts.pipeline.Inputs)
 		if err != nil {
@@ -1886,23 +1954,28 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 		}
 	}
 	model.session, err = newUnsavedChatSession(request)
-	configureSessionMode(model.session, client.opts.pipeline)
-	if model.session != nil {
-		model.pipelineRunID = model.session.ID
-	}
-	if model.session != nil {
-		client.logf("session: creating id=%q path=%q saved=%t pipeline=%t", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved, client.opts.pipeline != nil)
-	}
-	if err == nil {
-		err = saveChatSession(model.session)
+	if client.opts.initialModelSelection {
+		model.session = nil
+		err = nil
+	} else {
+		configureSessionMode(model.session, client.opts.pipeline)
+		if model.session != nil {
+			model.pipelineRunID = model.session.ID
+			client.logf("session: creating id=%q path=%q saved=%t pipeline=%t", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved, client.opts.pipeline != nil)
+		}
+		if err == nil {
+			err = saveChatSession(model.session)
+		}
 	}
 	if err != nil {
 		client.logf("session: initial persistence failed id=%q error=%v", sessionID(model.session), err)
 		return nil, err
 	}
-	client.logf("session: initial persistence complete id=%q path=%q", model.session.ID, sessionPathForLog(model.session.ID))
-	if client.opts.sessionSaved != nil {
-		client.opts.sessionSaved(chatSessionPath(model.session.ID))
+	if model.session != nil {
+		client.logf("session: initial persistence complete id=%q path=%q", model.session.ID, sessionPathForLog(model.session.ID))
+		if client.opts.sessionSaved != nil {
+			client.opts.sessionSaved(chatSessionPath(model.session.ID))
+		}
 	}
 
 	var program *tea.Program
@@ -1923,6 +1996,9 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 		}
 	}
 	model.startMonitor = func() tea.Cmd {
+		if strings.TrimSpace(model.request.Model) == "" {
+			return nil
+		}
 		return func() tea.Msg {
 			monitor = client.startInferenceMonitorWithOverlay(runCtx, request.Model, false, overlay)
 			return consoleMonitorStartedMsg{monitor: monitor}
@@ -1962,9 +2038,6 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 		return err
 	}
 	request := cloneChatRequest(req)
-	if request.Model == "" {
-		return fmt.Errorf("request model is required")
-	}
 	timeout := time.Duration(cfg.Timeout)
 	discoveryCtx, cancel := context.WithTimeout(ctx, timeout)
 	tools, err := discoverMCPTools(discoveryCtx, cfg, timeout)
@@ -1976,11 +2049,20 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 	clientOptions := append([]ClientOption(nil), options...)
 	clientOptions = append(clientOptions, WithLiveMetricsOverlay(false), WithLogger(configuredUILogger(cfg.Log)))
 	client := newClientFromConfig(ctx, cfg, clientOptions...)
+	if request.Model == "" && !client.opts.initialModelSelection {
+		return fmt.Errorf("request model is required")
+	}
 	client.opts.mcpTools = true
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	model := newConsoleModel(runCtx, client, request, timeout, cfg.SidebarWidth, consoleNonStreaming)
 	model.cancel = cancel
+	if client.opts.initialModelSelection {
+		model.sessionView = sessionViewModels
+		model.loading = false
+		model.input.Blur()
+		model.footer = "Select a model"
+	}
 	if client.opts.pipeline != nil {
 		model.pipelineInputs, err = preparePipelineRuntimeInputs(client.opts.pipeline.Inputs)
 		if err != nil {
@@ -1988,23 +2070,28 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 		}
 	}
 	model.session, err = newUnsavedChatSession(request)
-	configureSessionMode(model.session, client.opts.pipeline)
-	if model.session != nil {
-		model.pipelineRunID = model.session.ID
-	}
-	if model.session != nil {
-		client.logf("session: creating id=%q path=%q saved=%t pipeline=%t mcp=true", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved, client.opts.pipeline != nil)
-	}
-	if err == nil {
-		err = saveChatSession(model.session)
+	if client.opts.initialModelSelection {
+		model.session = nil
+		err = nil
+	} else {
+		configureSessionMode(model.session, client.opts.pipeline)
+		if model.session != nil {
+			model.pipelineRunID = model.session.ID
+			client.logf("session: creating id=%q path=%q saved=%t mcp=true", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved)
+		}
+		if err == nil {
+			err = saveChatSession(model.session)
+		}
 	}
 	if err != nil {
 		client.logf("session: initial persistence failed id=%q error=%v", sessionID(model.session), err)
 		return err
 	}
-	client.logf("session: initial persistence complete id=%q path=%q", model.session.ID, sessionPathForLog(model.session.ID))
-	if client.opts.sessionSaved != nil {
-		client.opts.sessionSaved(chatSessionPath(model.session.ID))
+	if model.session != nil {
+		client.logf("session: initial persistence complete id=%q path=%q", model.session.ID, sessionPathForLog(model.session.ID))
+		if client.opts.sessionSaved != nil {
+			client.opts.sessionSaved(chatSessionPath(model.session.ID))
+		}
 	}
 	model.mcpFooter = fmt.Sprintf("  [Induction: MCP] %d tools available ", len(tools))
 	model.mcpTools = tools
@@ -2087,6 +2174,9 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 		}
 	}
 	model.startMonitor = func() tea.Cmd {
+		if strings.TrimSpace(model.request.Model) == "" {
+			return nil
+		}
 		return func() tea.Msg {
 			monitor = client.startInferenceMonitorWithOverlay(runCtx, request.Model, false, overlay)
 			return consoleMonitorStartedMsg{monitor: monitor}

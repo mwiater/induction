@@ -58,6 +58,13 @@ func WithInitialChatPrompt(prompt string, autoSubmit bool) ClientOption {
 	}
 }
 
+// WithInitialModelSelection opens the existing model selector before the
+// initial prompt is submitted. The prompt remains pending until a model is
+// selected and loaded successfully.
+func WithInitialModelSelection(enabled bool) ClientOption {
+	return func(o *ClientOptions) { o.initialModelSelection = enabled }
+}
+
 // WithAutoExitAfterInitialChat exits the console after the automated initial
 // chat turn and its session snapshot have been saved.
 func WithAutoExitAfterInitialChat(enabled bool) ClientOption {

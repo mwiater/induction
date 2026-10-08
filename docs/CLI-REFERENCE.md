@@ -9,7 +9,7 @@ commands require the `--beta` acknowledgement flag.
 
 | Command | Description | Beta |
 | --- | --- | --- |
-| `induction` | Run inference and manage Induction. With inference flags, starts a console inference session; without them, displays help. |  |
+| `induction [PROMPT]` | Run inference and manage Induction. With no flags, opens the model selector and waits for chat input; with one positional prompt and no flags, submits it after selection; with inference flags, starts the existing flag-based workflow. |  |
 | `induction dashboard` | Manage generated dashboard artifacts. |  |
 | `induction dashboard generate` | Generate dashboard metrics from persisted sessions. |  |
 | `induction eval` | Run a configured local model evaluation. | ☑ |
@@ -58,6 +58,25 @@ configuration.
 | `--config FILE` | `induction.yaml` | Configuration file. |
 
 ### Direct inference (`induction`)
+
+Interactive root invocations:
+
+```bash
+# Open the model selector, then wait for the first chat message.
+induction
+
+# Open the model selector, submit the prompt, and keep the chat open.
+induction "Explain how transformers work"
+```
+
+The root command also accepts exactly one positional prompt with no explicitly
+supplied flags, for example `induction "Hello!"`. It opens the existing model
+selector, submits the prompt after the selected model is ready, and stays open
+for follow-up questions. Quoting is recommended for multiword prompts and
+shell metacharacters, but shell quote syntax cannot be inspected. Do not
+combine this shortcut with flags; use the existing flag-based workflow for
+advanced options. A prompt identical to a registered subcommand is resolved as
+that subcommand instead.
 
 These flags run inference when supplied directly to `induction`. `--pipeline`
 selects a pipeline instead of direct inference. Request parameter flags override

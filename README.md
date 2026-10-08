@@ -75,6 +75,27 @@ For local development:
 go run ./cmd/induction --help
 ```
 
+### Start a chat
+
+```bash
+# From the repository root
+go run ./cmd/induction "Hello!"
+
+# If installed as a command
+induction "Hello!"
+```
+
+Induction opens its existing terminal interface, asks you to select a model,
+sends the prompt, and keeps the chat open for follow-up questions. A working
+configured backend and available models are required. The shortcut accepts one
+positional argument and no flags; quote multiword prompts or prompts with
+shell metacharacters. Shell quote syntax is not visible to Induction, so it
+cannot verify whether a prompt was quoted. Existing flag-based workflows and
+subcommands remain available.
+
+Running `induction` with no flags opens the same model selector and then waits
+for the first message in the chat input.
+
 ## Documentation
 
 The complete code reference is available at
@@ -181,7 +202,21 @@ Run these from the repository root or with an installed `induction` binary:
 
 ```bash
 # Interactive text chat.
+induction
+
+# Interactive chat with the first prompt supplied automatically.
+induction "What can you help me with?"
+
+# Existing explicit-model workflow.
 induction --model "MODEL"
+
+# Select a model, send one prompt, and continue interactively.
+induction "What can you help me with?"
+induction "Write a short Go example showing channels"
+induction "Explain this error: connection refused"
+
+# Invalid: the positional shortcut cannot use flags.
+induction "Hello!" --model my-model
 
 # Unattended document question-answering.
 induction --model "MODEL" --document PATH \
