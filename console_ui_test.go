@@ -2,6 +2,7 @@ package induction
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"path/filepath"
@@ -74,6 +75,39 @@ func TestConsoleRunTurnUsesInjectedNonStreamingInference(t *testing.T) {
 	result = m.runTurn(m.request)().(consoleTurnResult)
 	if result.err == nil || result.content != "" {
 		t.Fatalf("failed turn = %#v", result)
+	}
+}
+
+func TestConsolePipelineStoresTextOutputForLaterReferences(t *testing.T) {
+	m := newConsoleModel(context.Background(), nil, ChatRequest{Model: "model"}, time.Second, 24, consoleNonStreaming)
+	m.pipeline = &Pipeline{Steps: []PipelineStep{{Name: "story-guide"}}}
+	m.pipelineStep = 0
+	m.pipelineOutputs = make(map[string]json.RawMessage)
+	m.pipelineRunning = true
+
+	updated, _ := m.Update(consoleTurnResult{content: "guide text", model: "model"})
+	m = updated.(consoleModel)
+
+	got, err := renderPipelineReferencesFor("{{ steps.story-guide.output }}", m.pipelineOutputs, nil, nil, "item")
+	if err != nil || got != "guide text" {
+		t.Fatalf("stored text output = %q, error=%v", got, err)
+	}
+}
+
+func TestConsolePipelineRejectsEmptyTextOutput(t *testing.T) {
+	m := newConsoleModel(context.Background(), nil, ChatRequest{Model: "model"}, time.Second, 24, consoleNonStreaming)
+	m.pipeline = &Pipeline{Steps: []PipelineStep{{Name: "story-guide"}}}
+	m.pipelineStep = 0
+	m.pipelineOutputs = make(map[string]json.RawMessage)
+	m.pipelineRunning = true
+
+	updated, _ := m.Update(consoleTurnResult{content: "\n", model: "model"})
+	m = updated.(consoleModel)
+	if m.err == nil || !strings.Contains(m.err.Error(), "returned empty output") {
+		t.Fatalf("empty output error = %v", m.err)
+	}
+	if m.pipelineRunning {
+		t.Fatal("pipeline continued after empty output")
 	}
 }
 

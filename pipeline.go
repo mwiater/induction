@@ -60,10 +60,24 @@ type PipelineStep struct {
 	Decision       *DecisionConfig       `yaml:"decision,omitempty"`
 	When           *WhenCondition        `yaml:"when,omitempty"`
 	Output         *StepOutputConfig     `yaml:"output,omitempty"`
+	Quality        *PipelineQuality      `yaml:"quality,omitempty"`
+	Retry          *PipelineRetry        `yaml:"retry,omitempty"`
 	Transform      string                `yaml:"transform,omitempty"`
 	Input          map[string]any        `yaml:"input,omitempty"`
 	ForEach        string                `yaml:"forEach,omitempty"`
 	As             string                `yaml:"as,omitempty"`
+}
+
+// PipelineQuality is a lightweight contract for generated text. Failed
+// contracts are retried by the pipeline runner before the output is exposed
+// to later steps or persisted as an artifact.
+type PipelineQuality struct {
+	MinWords         int      `yaml:"minWords,omitempty"`
+	MaxWords         int      `yaml:"maxWords,omitempty"`
+	ExactHeading     string   `yaml:"exactHeading,omitempty"`
+	RequiredPhrases  []string `yaml:"requiredPhrases,omitempty"`
+	ForbiddenPhrases []string `yaml:"forbiddenPhrases,omitempty"`
+	MaxRetries       int      `yaml:"maxRetries,omitempty"`
 }
 
 // StepOutputConfig describes a persisted structured result. The legacy
@@ -173,6 +187,12 @@ func LoadPipeline(path string) (*Pipeline, error) {
 		}
 	}
 	for i := range result.Steps {
+		if result.Steps[i].Retry != nil {
+			normalizePipelineRetry(result.Steps[i].Retry)
+			if err := validatePipelineRetry(result.Steps[i], base); err != nil {
+				return nil, fmt.Errorf("validate pipeline %q: steps[%d]: %w", path, i, err)
+			}
+		}
 		if result.Steps[i].Image != "" && !filepath.IsAbs(result.Steps[i].Image) && !IsRemoteSource(result.Steps[i].Image) {
 			result.Steps[i].Image = filepath.Join(base, result.Steps[i].Image)
 		}
@@ -180,10 +200,10 @@ func LoadPipeline(path string) (*Pipeline, error) {
 			result.Steps[i].Document = filepath.Join(base, result.Steps[i].Document)
 		}
 	}
+	result.FilePath = path
 	if err := result.Validate(); err != nil {
 		return nil, fmt.Errorf("validate pipeline %q: %w", path, err)
 	}
-	result.FilePath = path
 	return &result, nil
 }
 
@@ -236,7 +256,7 @@ func (p *Pipeline) Validate() error {
 		isTransform := strings.TrimSpace(step.Transform) != ""
 		if isTransform {
 			switch step.Transform {
-			case "knowledgeGraph.entityCandidates", "knowledgeGraph.canonicalizeEntities", "knowledgeGraph.predicateCandidates", "knowledgeGraph.buildGraph", "knowledgeGraph.finalize":
+			case "text.concat", "text.select", "knowledgeGraph.entityCandidates", "knowledgeGraph.canonicalizeEntities", "knowledgeGraph.predicateCandidates", "knowledgeGraph.buildGraph", "knowledgeGraph.finalize":
 			default:
 				return fmt.Errorf("steps[%d]: unknown transform %q", i, step.Transform)
 			}
@@ -246,12 +266,31 @@ func (p *Pipeline) Validate() error {
 			if step.Image != "" || step.Document != "" {
 				return fmt.Errorf("steps[%d]: transform steps cannot specify attachments", i)
 			}
+			if step.Quality != nil {
+				return fmt.Errorf("steps[%d]: transform steps cannot specify quality", i)
+			}
 		} else {
 			if strings.TrimSpace(step.Model) == "" {
 				return fmt.Errorf("steps[%d].model is required", i)
 			}
 			if strings.TrimSpace(step.UserPrompt) == "" {
 				return fmt.Errorf("steps[%d].userPrompt is required", i)
+			}
+		}
+		if step.Quality != nil {
+			if step.Quality.MinWords < 0 || step.Quality.MaxWords < 0 || (step.Quality.MaxWords > 0 && step.Quality.MaxWords < step.Quality.MinWords) {
+				return fmt.Errorf("steps[%d].quality word bounds are invalid", i)
+			}
+			if step.Quality.MaxRetries < 0 || step.Quality.MaxRetries > 10 {
+				return fmt.Errorf("steps[%d].quality.maxRetries must be between 0 and 10", i)
+			}
+			if strings.TrimSpace(step.Quality.ExactHeading) == "" && len(step.Quality.RequiredPhrases) == 0 && len(step.Quality.ForbiddenPhrases) == 0 && step.Quality.MinWords == 0 && step.Quality.MaxWords == 0 {
+				return fmt.Errorf("steps[%d].quality must define at least one check", i)
+			}
+		}
+		if step.Retry != nil {
+			if err := validatePipelineRetry(step, "."); err != nil {
+				return fmt.Errorf("steps[%d]: %w", i, err)
 			}
 		}
 		if step.Transform != "" && step.ForEach != "" {

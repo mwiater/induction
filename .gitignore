@@ -1,14 +1,17 @@
 /.batches
 /.docker-build.log
+/.local
 /.pipeline-artifacts
 /.sessions/
 /.venv-inspect
+/.vscode/
 /coverage.out
-/Dockerfile.local
 /data/dashboard/session_metrics.json
 /data/eoc
 /data/evals
 /dist/
+/Dockerfile.local
+/experiments/
 /induction.log
 /induction.yaml
 /inspect_evals.yaml
@@ -17,4 +20,3 @@
 /PROJECT_CLEANUP_GUIDE.md
 /TESTING_NOTES.md
 /TO_DO.md
-/.local

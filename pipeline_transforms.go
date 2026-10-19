@@ -146,17 +146,47 @@ func pipelineJSONBytes(value any) []byte {
 }
 
 func executePipelineTransform(step PipelineStep, outputs map[string]json.RawMessage) ([]byte, error) {
+	var resolveInput func(any) (any, error)
+	resolveInput = func(value any) (any, error) {
+		switch v := value.(type) {
+		case string:
+			trimmed := strings.TrimSpace(v)
+			if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") {
+				expr := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(trimmed, "{{"), "}}"))
+				return resolvePipelineReference(expr, outputs, nil)
+			}
+			return value, nil
+		case []any:
+			resolved := make([]any, len(v))
+			for i, item := range v {
+				var err error
+				resolved[i], err = resolveInput(item)
+				if err != nil {
+					return nil, err
+				}
+			}
+			return resolved, nil
+		case map[string]any:
+			resolved := make(map[string]any, len(v))
+			for key, item := range v {
+				var err error
+				resolved[key], err = resolveInput(item)
+				if err != nil {
+					return nil, err
+				}
+			}
+			return resolved, nil
+		default:
+			return value, nil
+		}
+	}
 	input := map[string]any{}
 	for key, raw := range step.Input {
-		if expr, ok := raw.(string); ok && strings.HasPrefix(strings.TrimSpace(expr), "{{") && strings.HasSuffix(strings.TrimSpace(expr), "}}") {
-			value, err := resolvePipelineReference(strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(expr), "{{"), "}}")), outputs, nil)
-			if err != nil {
-				return nil, err
-			}
-			input[key] = value
-		} else {
-			input[key] = raw
+		value, err := resolveInput(raw)
+		if err != nil {
+			return nil, err
 		}
+		input[key] = value
 	}
 	decodeObservations := func() ([]kg.EntityObservation, []kg.RelationObservation, error) {
 		value := input["observations"]
@@ -189,6 +219,41 @@ func executePipelineTransform(step PipelineStep, outputs map[string]json.RawMess
 	var result any
 	var err error
 	switch step.Transform {
+	case "text.concat":
+		parts, ok := input["parts"].([]any)
+		if !ok {
+			return nil, fmt.Errorf("text.concat requires input.parts to be an array")
+		}
+		var builder strings.Builder
+		for i, part := range parts {
+			text, ok := part.(string)
+			if !ok {
+				return nil, fmt.Errorf("text.concat input.parts[%d] is not text", i)
+			}
+			if i > 0 {
+				builder.WriteString("\n\n")
+			}
+			builder.WriteString(strings.TrimSpace(text))
+		}
+		return []byte(builder.String()), nil
+	case "text.select":
+		decision, ok := input["decision"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("text.select requires input.decision to be a decision result")
+		}
+		selected, ok := decision["selectedValue"].(string)
+		if !ok || strings.TrimSpace(selected) == "" {
+			return nil, fmt.Errorf("text.select decision has no selected_value")
+		}
+		choices, ok := input["choices"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("text.select requires input.choices to be an object")
+		}
+		chosen, ok := choices[selected].(string)
+		if !ok {
+			return nil, fmt.Errorf("text.select has no text choice for %q", selected)
+		}
+		return []byte(strings.TrimSpace(chosen)), nil
 	case "knowledgeGraph.entityCandidates":
 		eo, _, err := decodeObservations()
 		if err != nil {
