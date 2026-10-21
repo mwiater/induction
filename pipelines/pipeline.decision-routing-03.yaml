@@ -1,0 +1,166 @@
+name: decision-routing-03-system-one-primitives
+config: induction.yaml
+prompt: "My Go service is stuck. Please figure out what I should do."
+
+steps:
+  - name: input-triage
+    model: Kev-4B-Q8_0
+    nomcp: true
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: noul
+      questionID: is_clear
+      state: "{{ inputs.prompt }}"
+      instructions: Is this request sufficiently detailed and actionable to execute without rewriting or clarification?
+      criteria:
+        "true": The request has a clear objective, sufficient context, and actionable constraints.
+        "false": The request is ambiguous, incomplete, or missing information needed for execution.
+
+  - name: rewrite-prompt
+    model: GLM-4.7-Flash-Q4_K_M
+    nomcp: true
+    userPrompt: |
+      Rewrite this under-specified request into a clear, actionable task for a
+      technical assistant. Preserve the user's intent, but make the missing
+      objective, relevant context, diagnostic steps, assumptions, and desired
+      answer format explicit. Do not claim facts that were not provided.
+
+      Original request:
+      {{ inputs.prompt }}
+
+  - name: complexity-score
+    model: Kev-4B-Q8_0
+    nomcp: true
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: score
+      questionID: complexity
+      state: |
+        Original request:
+        {{ inputs.prompt }}
+
+        Rewritten request:
+        {{ steps.rewrite-prompt.output }}
+      instructions: Rate the reasoning depth and implementation complexity of this request.
+      criteria:
+        - Trivial request requiring little or no reasoning.
+        - Simple request with limited reasoning or transformation.
+        - Moderate request requiring several related reasoning steps.
+        - Complex request requiring substantial analysis or implementation.
+        - Deep multi-step request requiring advanced reasoning, debugging, or design.
+
+  - name: model-broker
+    model: Kev-4B-Q8_0
+    nomcp: true
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: choice
+      questionID: selected_model
+      candidatesFrom: runtime.text_generation_models
+      state: |
+        Original request:
+        {{ inputs.prompt }}
+
+        Rewritten request:
+        {{ steps.rewrite-prompt.output }}
+
+        Complexity result:
+        {{ steps.complexity-score.output }}
+
+        Available text-generation models:
+        {{ runtime.text_generation_models }}
+      instructions: Select the most capable available text-generation model for this task without overprovisioning.
+
+  - name: execute-task
+    model: "{{ steps.model-broker.output.selectedValue }}"
+    nomcp: true
+    userPrompt: |
+      Answer the rewritten request below. Use the original request only to
+      preserve the user’s intent.
+
+      Original request:
+      {{ inputs.prompt }}
+
+      Rewritten request:
+      {{ steps.rewrite-prompt.output }}
+    contract:
+      - Directly addresses the rewritten task and the user's original intent.
+      - Does not invent logs, source code, runtime details, or other unavailable facts.
+      - Provides actionable steps and complete examples where appropriate.
+      - Contains no TODO placeholders or truncated sections.
+
+  - name: verify-conformance
+    model: Kev-4B-Q8_0
+    nomcp: true
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: noul
+      questionID: conforms
+      state: |
+        Output under review:
+        {{ steps.execute-task.output }}
+
+        Required contract:
+        {{ steps.execute-task.contract }}
+      instructions: Does the output strictly satisfy every required contract criterion without inventing unavailable facts or leaving placeholders?
+      criteria:
+        "true": Every contract criterion is satisfied.
+        "false": One or more contract criteria are missing or violated.
+
+  - name: adherence-score
+    model: Kev-4B-Q8_0
+    nomcp: true
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: score
+      questionID: adherence_score
+      state: |
+        Output under review:
+        {{ steps.execute-task.output }}
+
+        Required contract:
+        {{ steps.execute-task.contract }}
+      instructions: Rate strict adherence to the required contract from critical violations to complete compliance.
+      criteria:
+        - Critical contract violations remain.
+        - Major contract criteria are missing.
+        - Partially compliant with notable omissions.
+        - Minor issues only.
+        - Fully compliant.
+
+  - name: remediate-conformance
+    model: "{{ steps.model-broker.output.selectedValue }}"
+    nomcp: true
+    when:
+      decision: verify-conformance
+      equals: "false"
+    userPrompt: |
+      Correct the previous response so it satisfies every contract criterion.
+      Return the complete replacement response only.
+
+      Contract:
+      {{ steps.execute-task.contract }}
+
+      Previous response:
+      {{ steps.execute-task.output }}
+
+  - name: remediate-score
+    model: "{{ steps.model-broker.output.selectedValue }}"
+    nomcp: true
+    when:
+      decision: adherence-score
+      maxScore: 2.999
+    userPrompt: |
+      Improve the previous response so that it fully satisfies the contract.
+      Return the complete replacement response only.
+
+      Contract:
+      {{ steps.execute-task.contract }}
+
+      Previous response:
+      {{ steps.execute-task.output }}

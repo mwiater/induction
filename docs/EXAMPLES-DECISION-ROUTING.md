@@ -35,7 +35,7 @@ config: induction.yaml
 
 steps:
   - name: route-report
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
     userPrompt: |
       Choose the single most important review focus for this software
@@ -142,7 +142,7 @@ config: induction.yaml
 
 steps:
   - name: outage-duration
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
     systemPrompt: |
       You are a Jev-style decision model. Apply only the stated criterion to
@@ -167,7 +167,7 @@ steps:
       topLogprobs: 20
 
   - name: refrigerator-temperature
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
     systemPrompt: |
       You are a Jev-style decision model. Apply only the stated criterion to
@@ -192,7 +192,7 @@ steps:
       topLogprobs: 20
 
   - name: perishable-foods
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
     systemPrompt: |
       You are a Jev-style decision model. Apply only the stated criterion to
@@ -215,7 +215,7 @@ steps:
       topLogprobs: 20
 
   - name: unsafe-temperature-duration
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
     systemPrompt: |
       You are a Jev-style decision model. Do not infer a temperature history

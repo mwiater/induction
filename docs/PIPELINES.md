@@ -47,7 +47,7 @@ asked to generate JSON or an explanation. Ordinary steps without `decision:`
 remain normal generative steps.
 
 Use a Jev decision model for decision steps. The example below names the
-server preset `JEV5K-v0.3-4B-Q8_0`; it corresponds to the JevK5 v0.3 4B Q8_0
+server preset `Kev-4B-Q8_0`; it corresponds to the Kev 4B Q8_0
 GGUF listed in [the model card](https://huggingface.co/alibiserikbay/JevK5-GGUF).
 Configure the llama.cpp server to expose the selected preset under the model ID
 in the pipeline. Generative analysis steps can use another general-purpose
@@ -63,7 +63,7 @@ an invented score.
 
 ```yaml
 - name: classify-issue
-  model: JEV5K-v0.3-4B-Q8_0
+  model: Kev-4B-Q8_0
   userPrompt: |
     Classify the primary concern. Return only A, B, C, or D.
     A = security

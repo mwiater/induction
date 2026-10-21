@@ -58,6 +58,9 @@ func (c *Client) doDecision(ctx context.Context, req *ChatRequest) (*Interaction
 		return nil, fmt.Errorf("decision configuration is required")
 	}
 	cfg := effectiveDecision(PipelineStep{Decision: req.Decision, Classification: req.Classification})
+	if strings.EqualFold(strings.TrimSpace(cfg.Endpoint), "systemone") {
+		return c.doSystemOneDecision(ctx, req, cfg)
+	}
 	if cfg.TopLogprobs == 0 {
 		copy := *cfg
 		copy.TopLogprobs = 20

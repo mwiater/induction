@@ -975,6 +975,13 @@ func (m *consoleModel) startPipelineStep(index int) tea.Cmd {
 	}
 	step := m.pipeline.Steps[index]
 	m.pipelineStep = index
+	if renderedModel, err := renderPipelineReferencesFor(step.Model, m.pipelineOutputs, m.pipelineInputs, nil, ""); err != nil {
+		return func() tea.Msg {
+			return consoleTurnResult{err: fmt.Errorf("pipeline step %q model: %w", step.Name, err)}
+		}
+	} else {
+		step.Model = renderedModel
+	}
 	if step.When != nil {
 		passed, err := evaluatePipelineCondition(step.When, m.pipelineOutputs)
 		if err != nil {
@@ -982,6 +989,12 @@ func (m *consoleModel) startPipelineStep(index int) tea.Cmd {
 		}
 		if !passed {
 			note := fmt.Sprintf("Skipped step %q: decision %q did not match %q or its thresholds.", step.Name, step.When.Decision, step.When.Equals)
+			if step.When.Equals == "" && step.When.MinScore != nil {
+				note = fmt.Sprintf("Skipped step %q: decision %q did not meet minimum score %.2f.", step.Name, step.When.Decision, *step.When.MinScore)
+			}
+			if step.When.Equals == "" && step.When.MaxScore != nil {
+				note = fmt.Sprintf("Skipped step %q: decision %q exceeded maximum score %.2f.", step.Name, step.When.Decision, *step.When.MaxScore)
+			}
 			m.messages = append(m.messages, consoleMessage{role: "assistant", content: note})
 			m.request.Messages = append(m.request.Messages, Message{Role: "assistant", Content: note})
 			m.pipelineOutputs[step.Name], _ = json.Marshal(map[string]any{"type": "skipped", "reason": note})
@@ -1215,6 +1228,55 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	}
 	step.UserPrompt = renderedPrompt
 	step.SystemPrompt = renderedSystem
+	renderedModel, err := renderPipelineReferencesFor(step.Model, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
+	if err != nil {
+		m.err = fmt.Errorf("pipeline step %q model: %w", step.Name, err)
+		m.pipelineRunning = false
+		m.refreshTranscript()
+		return nil
+	}
+	step.Model = renderedModel
+	if step.Decision != nil {
+		decision := *step.Decision
+		if strings.TrimSpace(decision.CandidatesFrom) != "" {
+			value, resolveErr := resolvePipelineReferenceFor(strings.TrimSpace(decision.CandidatesFrom), m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
+			if resolveErr != nil {
+				m.err = fmt.Errorf("pipeline step %q decision candidates: %w", step.Name, resolveErr)
+				m.pipelineRunning = false
+				m.refreshTranscript()
+				return nil
+			}
+			candidates, convertErr := pipelineDecisionCandidates(value)
+			if convertErr != nil {
+				m.err = fmt.Errorf("pipeline step %q decision candidates: %w", step.Name, convertErr)
+				m.pipelineRunning = false
+				m.refreshTranscript()
+				return nil
+			}
+			decision.Candidates = candidates
+		}
+		if state, ok := decision.State.(string); ok {
+			renderedState, renderErr := renderPipelineReferencesFor(state, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
+			if renderErr != nil {
+				m.err = fmt.Errorf("pipeline step %q: decision state: %w", step.Name, renderErr)
+				m.pipelineRunning = false
+				m.refreshTranscript()
+				return nil
+			}
+			decision.State = renderedState
+		}
+		if decision.Instructions != "" {
+			renderedInstructions, renderErr := renderPipelineReferencesFor(decision.Instructions, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
+			if renderErr != nil {
+				m.err = fmt.Errorf("pipeline step %q: decision instructions: %w", step.Name, renderErr)
+				m.pipelineRunning = false
+				m.refreshTranscript()
+				return nil
+			}
+			decision.Instructions = renderedInstructions
+		}
+		step.Decision = &decision
+	}
 	m.client.logf("pipeline: submitting step %d/%d name=%q model=%q system_prompt=%q user_prompt=%q image=%q document=%q response_format=%#v json_schema=%#v", index+1, len(m.pipeline.Steps), step.Name, step.Model, step.SystemPrompt, step.UserPrompt, step.Image, step.Document, step.ResponseFormat, step.JSONSchema)
 	m.err = nil
 	m.request.Model = step.Model
@@ -2154,6 +2216,12 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 		if err != nil {
 			return nil, err
 		}
+		if prompt := strings.TrimSpace(client.opts.initialChatPrompt); prompt != "" {
+			model.pipelineInputs["prompt"] = prompt
+		}
+		if err := preparePipelineRuntimeContext(runCtx, client, client.opts.pipeline, model.pipelineInputs); err != nil {
+			return nil, err
+		}
 	}
 	model.session, err = newUnsavedChatSession(request)
 	if client.opts.initialModelSelection {
@@ -2268,6 +2336,12 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 	if client.opts.pipeline != nil {
 		model.pipelineInputs, err = preparePipelineRuntimeInputs(client.opts.pipeline.Inputs)
 		if err != nil {
+			return err
+		}
+		if prompt := strings.TrimSpace(client.opts.initialChatPrompt); prompt != "" {
+			model.pipelineInputs["prompt"] = prompt
+		}
+		if err := preparePipelineRuntimeContext(runCtx, client, client.opts.pipeline, model.pipelineInputs); err != nil {
 			return err
 		}
 	}

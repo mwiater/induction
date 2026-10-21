@@ -1,14 +1,96 @@
 package induction
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	kg "github.com/mwiater/induction/internal/knowledgegraph"
 )
+
+// preparePipelineRuntimeContext adds live model metadata and step contracts to
+// the template context. It is intentionally opt-in so ordinary pipelines do
+// not depend on /v1/models being available.
+func preparePipelineRuntimeContext(ctx context.Context, client *Client, pipeline *Pipeline, inputs map[string]any) error {
+	steps := make(map[string]any)
+	needsCatalog := false
+	for _, step := range pipeline.Steps {
+		steps[step.Name] = map[string]any{"contract": step.Contract, "quality": step.Quality}
+		values := []string{step.Model, step.UserPrompt, step.SystemPrompt, step.ForEach}
+		if step.Decision != nil {
+			values = append(values, step.Decision.StateString(), step.Decision.Instructions, step.Decision.CandidatesFrom)
+		}
+		for _, value := range values {
+			if strings.Contains(value, "runtime.active_model_catalog") || strings.Contains(value, "runtime.text_generation_models") {
+				needsCatalog = true
+			}
+		}
+	}
+	inputs["steps"] = steps
+	if !needsCatalog {
+		return nil
+	}
+	if client == nil {
+		return fmt.Errorf("pipeline runtime model catalog requires a client")
+	}
+	catalog, err := client.ListModelCatalog(ctx)
+	if err != nil {
+		return fmt.Errorf("load runtime model catalog: %w", err)
+	}
+	all := make(map[string]any, len(catalog))
+	text := make(map[string]any, len(catalog))
+	for _, model := range catalog {
+		metadata := map[string]any{"id": model.ID, "capabilities": model.Capabilities, "inputModalities": model.InputModes, "outputModalities": model.OutputModes}
+		all[model.ID] = metadata
+		if !hasOutputMode(model.OutputModes, "decisions") && !hasOutputMode(model.OutputModes, "embeddings") && !looksLikeDecisionModel(model.ID) {
+			text[model.ID] = modelCatalogSummary(model)
+		}
+	}
+	inputs["runtime"] = map[string]any{"active_model_catalog": all, "text_generation_models": text}
+	return nil
+}
+
+func (d DecisionConfig) StateString() string {
+	if value, ok := d.State.(string); ok {
+		return value
+	}
+	data, _ := json.Marshal(d.State)
+	return string(data)
+}
+
+func hasOutputMode(modes []string, wanted string) bool {
+	for _, mode := range modes {
+		if strings.EqualFold(mode, wanted) {
+			return true
+		}
+	}
+	return false
+}
+
+func looksLikeDecisionModel(id string) bool {
+	id = strings.ToLower(strings.TrimSpace(id))
+	for _, marker := range []string{"kev", "jev", "julia", "laya", "openjev", "lev"} {
+		if strings.Contains(id, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func modelCatalogSummary(model ModelCatalogEntry) string {
+	features := []string{"text generation"}
+	if model.Capabilities.ImageInput || hasOutputMode(model.InputModes, "image") || hasOutputMode(model.InputModes, "vision") {
+		features = append(features, "vision input")
+	}
+	if model.Capabilities.AudioInput || hasOutputMode(model.InputModes, "audio") {
+		features = append(features, "audio input")
+	}
+	return strings.Join(features, ", ")
+}
 
 // preparePipelineRuntimeInputs creates the authoritative runtime collection
 // exposed as inputs.documents.chunks. Existing document attachment handling is

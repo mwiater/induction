@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -15,6 +16,7 @@ import (
 type Pipeline struct {
 	Name   string         `yaml:"name"`
 	Config string         `yaml:"config,omitempty"`
+	Prompt string         `yaml:"prompt,omitempty"`
 	Steps  []PipelineStep `yaml:"steps"`
 	Inputs *InputSet      `yaml:"inputs,omitempty"`
 	Batch  *BatchConfig   `yaml:"batch,omitempty"`
@@ -64,6 +66,7 @@ type PipelineStep struct {
 	Retry          *PipelineRetry        `yaml:"retry,omitempty"`
 	Transform      string                `yaml:"transform,omitempty"`
 	Input          map[string]any        `yaml:"input,omitempty"`
+	Contract       []string              `yaml:"contract,omitempty"`
 	ForEach        string                `yaml:"forEach,omitempty"`
 	As             string                `yaml:"as,omitempty"`
 }
@@ -102,8 +105,18 @@ type ClassificationConfig struct {
 
 // DecisionConfig configures a bounded next-token decision.
 type DecisionConfig struct {
-	Candidates  map[string]string `yaml:"candidates"`
-	TopLogprobs int               `yaml:"topLogprobs,omitempty"`
+	Candidates     map[string]string `yaml:"candidates"`
+	CandidatesFrom string            `yaml:"candidatesFrom,omitempty"`
+	Criteria       any               `yaml:"criteria,omitempty"`
+	TopLogprobs    int               `yaml:"topLogprobs,omitempty"`
+	// Endpoint selects the decision protocol. The default is the legacy
+	// chat-completions token/logprob implementation; systemone uses the
+	// native llama.cpp TypeSafe-compatible decision endpoint.
+	Endpoint     string `yaml:"endpoint,omitempty"`
+	Type         string `yaml:"type,omitempty"`
+	State        any    `yaml:"state,omitempty"`
+	Instructions string `yaml:"instructions,omitempty"`
+	QuestionID   string `yaml:"questionID,omitempty"`
 }
 
 // WhenCondition gates a pipeline step on an earlier decision result.
@@ -112,6 +125,8 @@ type WhenCondition struct {
 	Equals        string   `yaml:"equals"`
 	MinConfidence *float64 `yaml:"minConfidence,omitempty"`
 	MinMargin     *float64 `yaml:"minMargin,omitempty"`
+	MinScore      *float64 `yaml:"minScore,omitempty"`
+	MaxScore      *float64 `yaml:"maxScore,omitempty"`
 }
 
 func effectiveDecision(step PipelineStep) *DecisionConfig {
@@ -122,6 +137,34 @@ func effectiveDecision(step PipelineStep) *DecisionConfig {
 		return &DecisionConfig{Candidates: step.Classification.Candidates, TopLogprobs: step.Classification.TopLogprobs}
 	}
 	return nil
+}
+
+func pipelineDecisionCandidates(value any) (map[string]string, error) {
+	result := make(map[string]string)
+	switch catalog := value.(type) {
+	case map[string]string:
+		for id, description := range catalog {
+			result[id] = description
+		}
+	case map[string]any:
+		for id, metadata := range catalog {
+			if description, ok := metadata.(string); ok {
+				result[id] = description
+				continue
+			}
+			encoded, err := json.Marshal(metadata)
+			if err != nil {
+				return nil, err
+			}
+			result[id] = string(encoded)
+		}
+	default:
+		return nil, fmt.Errorf("expected a model catalog object, got %T", value)
+	}
+	if len(result) < 2 {
+		return nil, fmt.Errorf("model catalog contains fewer than two candidates")
+	}
+	return result, nil
 }
 
 func evaluatePipelineCondition(condition *WhenCondition, outputs map[string]json.RawMessage) (bool, error) {
@@ -139,7 +182,7 @@ func evaluatePipelineCondition(condition *WhenCondition, outputs map[string]json
 	if result.Type != "decision" {
 		return false, fmt.Errorf("step %q did not produce a decision result", condition.Decision)
 	}
-	if result.SelectedValue != condition.Equals {
+	if condition.Equals != "" && result.SelectedValue != condition.Equals {
 		return false, nil
 	}
 	if condition.MinConfidence != nil && result.Confidence < *condition.MinConfidence {
@@ -147,6 +190,18 @@ func evaluatePipelineCondition(condition *WhenCondition, outputs map[string]json
 	}
 	if condition.MinMargin != nil && result.Margin < *condition.MinMargin {
 		return false, nil
+	}
+	if condition.MinScore != nil {
+		score, err := strconv.ParseFloat(result.SelectedValue, 64)
+		if err != nil || score < *condition.MinScore {
+			return false, nil
+		}
+	}
+	if condition.MaxScore != nil {
+		score, err := strconv.ParseFloat(result.SelectedValue, 64)
+		if err != nil || score > *condition.MaxScore {
+			return false, nil
+		}
 	}
 	return true, nil
 }
@@ -288,6 +343,9 @@ func (p *Pipeline) Validate() error {
 				return fmt.Errorf("steps[%d].quality must define at least one check", i)
 			}
 		}
+		if step.Contract != nil && len(step.Contract) == 0 {
+			return fmt.Errorf("steps[%d].contract must contain at least one criterion", i)
+		}
 		if step.Retry != nil {
 			if err := validatePipelineRetry(step, "."); err != nil {
 				return fmt.Errorf("steps[%d]: %w", i, err)
@@ -334,7 +392,7 @@ func (p *Pipeline) Validate() error {
 		if step.Decision != nil && step.Classification != nil {
 			return fmt.Errorf("steps[%d]: decision and classification cannot both be specified", i)
 		}
-		if step.Decision != nil && step.Decision.TopLogprobs == 0 {
+		if step.Decision != nil && !strings.EqualFold(strings.TrimSpace(step.Decision.Endpoint), "systemone") && step.Decision.TopLogprobs == 0 {
 			step.Decision.TopLogprobs = 20
 			p.Steps[i].Decision = step.Decision
 		}
@@ -347,18 +405,24 @@ func (p *Pipeline) Validate() error {
 			if step.ResponseFormat != nil || step.JSONSchema != nil {
 				return fmt.Errorf("steps[%d]: decision cannot be combined with responseFormat or jsonSchema", i)
 			}
-			if len(decision.Candidates) < 2 {
-				return fmt.Errorf("steps[%d]: decision requires at least two candidates", i)
-			}
-			for candidate, label := range decision.Candidates {
-				if strings.TrimSpace(candidate) == "" {
-					return fmt.Errorf("steps[%d]: decision candidate key cannot be empty", i)
+			if strings.EqualFold(strings.TrimSpace(decision.Endpoint), "systemone") {
+				if err := validateSystemOneDecisionConfig(decision); err != nil {
+					return fmt.Errorf("steps[%d]: %w", i, err)
 				}
-				if strings.TrimSpace(label) == "" {
-					return fmt.Errorf("steps[%d]: decision value for candidate %q cannot be empty", i, candidate)
+			} else {
+				if len(decision.Candidates) < 2 {
+					return fmt.Errorf("steps[%d]: decision requires at least two candidates", i)
+				}
+				for candidate, label := range decision.Candidates {
+					if strings.TrimSpace(candidate) == "" {
+						return fmt.Errorf("steps[%d]: decision candidate key cannot be empty", i)
+					}
+					if strings.TrimSpace(label) == "" {
+						return fmt.Errorf("steps[%d]: decision value for candidate %q cannot be empty", i, candidate)
+					}
 				}
 			}
-			if decision.TopLogprobs < len(decision.Candidates) {
+			if !strings.EqualFold(strings.TrimSpace(decision.Endpoint), "systemone") && decision.TopLogprobs < len(decision.Candidates) {
 				return fmt.Errorf("steps[%d]: decision topLogprobs must be at least the number of candidates", i)
 			}
 			if step.Parameters != nil && step.Parameters.MaxTokens != nil && *step.Parameters.MaxTokens != 1 {
@@ -367,13 +431,22 @@ func (p *Pipeline) Validate() error {
 		}
 		if step.When != nil {
 			condition := step.When
-			if strings.TrimSpace(condition.Decision) == "" || strings.TrimSpace(condition.Equals) == "" {
+			if strings.TrimSpace(condition.Decision) == "" {
+				return fmt.Errorf("steps[%d]: when.decision and when.equals are required", i)
+			}
+			if strings.TrimSpace(condition.Equals) == "" && condition.MinScore == nil && condition.MaxScore == nil {
 				return fmt.Errorf("steps[%d]: when.decision and when.equals are required", i)
 			}
 			for name, threshold := range map[string]*float64{"minConfidence": condition.MinConfidence, "minMargin": condition.MinMargin} {
 				if threshold != nil && (math.IsNaN(*threshold) || math.IsInf(*threshold, 0) || *threshold < 0 || *threshold > 1) {
 					return fmt.Errorf("steps[%d]: when.%s must be in [0,1]", i, name)
 				}
+			}
+			if condition.MinScore != nil && (math.IsNaN(*condition.MinScore) || math.IsInf(*condition.MinScore, 0) || *condition.MinScore < 0 || *condition.MinScore > 10) {
+				return fmt.Errorf("steps[%d]: when.minScore must be between 0 and 10", i)
+			}
+			if condition.MaxScore != nil && (math.IsNaN(*condition.MaxScore) || math.IsInf(*condition.MaxScore, 0) || *condition.MaxScore < 0 || *condition.MaxScore > 10) {
+				return fmt.Errorf("steps[%d]: when.maxScore must be between 0 and 10", i)
 			}
 			position, exists := positions[condition.Decision]
 			if !exists {
@@ -387,15 +460,24 @@ func (p *Pipeline) Validate() error {
 			if refDecision == nil {
 				return fmt.Errorf("steps[%d]: when reference %q is not a decision step", i, condition.Decision)
 			}
-			known := false
-			for _, value := range refDecision.Candidates {
-				if value == condition.Equals {
-					known = true
-					break
+			if condition.Equals != "" {
+				known := false
+				if strings.EqualFold(strings.TrimSpace(refDecision.Endpoint), "systemone") {
+					_, known = refDecision.Candidates[condition.Equals]
+					if !known && strings.EqualFold(strings.TrimSpace(refDecision.Type), "noul") && (condition.Equals == "true" || condition.Equals == "false") {
+						known = true
+					}
+				} else {
+					for _, value := range refDecision.Candidates {
+						if value == condition.Equals {
+							known = true
+							break
+						}
+					}
 				}
-			}
-			if !known {
-				return fmt.Errorf("steps[%d]: when.equals %q is not a value of decision %q", i, condition.Equals, condition.Decision)
+				if !known && refDecision.CandidatesFrom == "" {
+					return fmt.Errorf("steps[%d]: when.equals %q is not a value of decision %q", i, condition.Equals, condition.Decision)
+				}
 			}
 		}
 		if step.ResponseFormat != nil {
@@ -461,7 +543,15 @@ func resolveInputSetPaths(input *InputSet, base string) {
 // language used by pipeline artifacts. It catches future-step references
 // before Bubble Tea starts model loading.
 func validatePipelineReferences(step PipelineStep, index int, prior map[string]bool, positions map[string]int) error {
-	values := []string{step.UserPrompt, step.SystemPrompt, step.ForEach}
+	values := []string{step.Model, step.UserPrompt, step.SystemPrompt, step.ForEach}
+	values = append(values, step.Contract...)
+	if step.Decision != nil {
+		values = append(values, step.Decision.Instructions)
+		values = append(values, step.Decision.CandidatesFrom)
+		if state, ok := step.Decision.State.(string); ok {
+			values = append(values, state)
+		}
+	}
 	for _, value := range values {
 		for pos := 0; pos < len(value); {
 			start := strings.Index(value[pos:], "{{")
@@ -475,7 +565,7 @@ func validatePipelineReferences(step PipelineStep, index int, prior map[string]b
 			}
 			end += start + 2
 			expr := strings.TrimSpace(value[start+2 : end])
-			if expr == "item" || expr == step.As || strings.HasPrefix(expr, step.As+".") || strings.HasPrefix(expr, "inputs.documents.chunks") {
+			if expr == "item" || expr == step.As || strings.HasPrefix(expr, step.As+".") || strings.HasPrefix(expr, "inputs.documents.chunks") || strings.HasPrefix(expr, "inputs.prompt") || strings.HasPrefix(expr, "runtime.") {
 				pos = end + 2
 				continue
 			}
@@ -483,7 +573,7 @@ func validatePipelineReferences(step PipelineStep, index int, prior map[string]b
 				return fmt.Errorf("steps[%d]: unsupported reference %q", index, expr)
 			}
 			parts := strings.Split(expr, ".")
-			if len(parts) < 3 || parts[2] != "output" && parts[2] != "items" {
+			if len(parts) < 3 || parts[2] != "output" && parts[2] != "items" && parts[2] != "contract" && parts[2] != "quality" {
 				return fmt.Errorf("steps[%d]: unsupported reference %q", index, expr)
 			}
 			name := parts[1]

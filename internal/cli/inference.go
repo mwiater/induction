@@ -55,8 +55,8 @@ func runInference(ctx context.Context, f inferenceFlags, in io.Reader, out io.Wr
 		return errors.New("--document and --documents cannot be combined")
 	}
 	if f.pipeline != "" {
-		if f.model != "" || f.userPrompt != "" || f.systemPrompt != "" || f.responseFormat != "" || f.jsonSchema != "" || f.image != "" || f.document != "" || f.documents != "" || f.nomcp || f.autosubmit || f.autoexit || f.parameterOverrides {
-			return errors.New("--pipeline cannot be combined with direct inference flags")
+		if f.model != "" || f.systemPrompt != "" || f.responseFormat != "" || f.jsonSchema != "" || f.image != "" || f.document != "" || f.documents != "" || f.nomcp || f.autosubmit || f.autoexit || f.parameterOverrides {
+			return errors.New("--pipeline cannot be combined with these direct inference flags")
 		}
 		p, err := induction.LoadPipeline(f.pipeline)
 		if err != nil {
@@ -65,11 +65,18 @@ func runInference(ctx context.Context, f inferenceFlags, in io.Reader, out io.Wr
 		if len(p.Steps) == 0 {
 			return errors.New("pipeline has no steps")
 		}
+		prompt := strings.TrimSpace(p.Prompt)
+		if prompt == "" {
+			prompt = strings.TrimSpace(f.userPrompt)
+		}
+		if prompt == "" {
+			return errors.New("pipeline requires a top-level prompt or --userPrompt")
+		}
 		configPath := f.config
 		if strings.TrimSpace(p.Config) != "" {
 			configPath = p.Config
 		}
-		options := []induction.ClientOption{induction.WithConfigPath(configPath), induction.WithPipeline(p), induction.WithAutoExitAfterInitialChat(true)}
+		options := []induction.ClientOption{induction.WithConfigPath(configPath), induction.WithPipeline(p), induction.WithAutoExitAfterInitialChat(true), induction.WithInitialChatPrompt(prompt, true)}
 		pipelineReq := &induction.ChatRequest{Model: p.Steps[0].Model}
 		applyParameters(pipelineReq, f)
 		cfg, err := induction.LoadConfig(configPath)

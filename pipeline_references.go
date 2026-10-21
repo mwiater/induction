@@ -83,6 +83,25 @@ func resolvePipelineReferenceFor(expr string, outputs map[string]json.RawMessage
 		}
 		return value, nil
 	}
+	if strings.HasPrefix(expr, "runtime.") {
+		parts := strings.Split(expr, ".")
+		root, ok := inputs["runtime"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("runtime context is unavailable")
+		}
+		var value any = root
+		for _, field := range parts[1:] {
+			obj, ok := value.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("reference %q traverses a non-object", expr)
+			}
+			value, ok = obj[field]
+			if !ok {
+				return nil, fmt.Errorf("reference %q field %q is missing", expr, field)
+			}
+		}
+		return value, nil
+	}
 	if !strings.HasPrefix(expr, "steps.") {
 		return nil, fmt.Errorf("unsupported reference %q", expr)
 	}
@@ -98,6 +117,21 @@ func resolvePipelineReferenceFor(expr string, outputs map[string]json.RawMessage
 		var value any
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, err
+		}
+		return value, nil
+	}
+	if parts[2] == "contract" || parts[2] == "quality" {
+		stepContext, ok := inputs["steps"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("pipeline step metadata is unavailable")
+		}
+		metadata, ok := stepContext[parts[1]].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("step %q metadata is unavailable", parts[1])
+		}
+		value, ok := metadata[parts[2]]
+		if !ok {
+			return nil, fmt.Errorf("step %q has no %s", parts[1], parts[2])
 		}
 		return value, nil
 	}

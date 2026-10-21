@@ -417,7 +417,7 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 	current := c.loadedModel.Load()
 	if current != nil && *current == model {
 		c.loadedModel.Store(&model)
-		return c.warmupModel(ctx, model)
+		return c.warmupLoadedModel(ctx, model)
 	}
 
 	payload, err := json.Marshal(map[string]string{"model": model})
@@ -440,7 +440,7 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 		// the legacy model listing.
 		if loaded, checkErr := c.modelIsLoaded(ctx, model); checkErr == nil && loaded {
 			c.loadedModel.Store(&model)
-			return c.warmupModel(ctx, model)
+			return c.warmupLoadedModel(ctx, model)
 		}
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
@@ -449,7 +449,7 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 		// and lets the UI proceed just as an inference request would.
 		if loaded, checkErr := c.modelIsLoaded(ctx, model); checkErr == nil && loaded {
 			c.loadedModel.Store(&model)
-			return c.warmupModel(ctx, model)
+			return c.warmupLoadedModel(ctx, model)
 		}
 		body, _ := io.ReadAll(resp.Body)
 		message := strings.TrimSpace(string(body))
@@ -474,7 +474,7 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 				if runtimeModel.ID == model && runtimeModel.State == ModelRuntimeLoaded {
 					c.loadedModel.Store(&model)
 					c.recordModelLoadDuration(model, time.Since(start))
-					return c.warmupModel(ctx, model)
+					return c.warmupLoadedModel(ctx, model)
 				}
 			}
 		}
@@ -482,7 +482,7 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 		if checkErr == nil && loaded {
 			c.loadedModel.Store(&model)
 			c.recordModelLoadDuration(model, time.Since(start))
-			return c.warmupModel(ctx, model)
+			return c.warmupLoadedModel(ctx, model)
 		}
 		select {
 		case <-ctx.Done():
@@ -490,6 +490,32 @@ func (c *Client) loadModel(ctx context.Context, model string) error {
 		case <-ticker.C:
 		}
 	}
+}
+
+func (c *Client) warmupLoadedModel(ctx context.Context, model string) error {
+	if c.isNativeDecisionModel(ctx, model) {
+		// Native decision models are evaluated through /v1/systemone and do not
+		// necessarily implement text generation.
+		return nil
+	}
+	return c.warmupModel(ctx, model)
+}
+
+func (c *Client) isNativeDecisionModel(ctx context.Context, model string) bool {
+	records, err := c.fetchModelRecords(ctx, false)
+	if err != nil {
+		return false
+	}
+	runtime, ok := runtimeModelByID(records, model)
+	if !ok {
+		return false
+	}
+	for _, mode := range runtime.OutputModes {
+		if strings.EqualFold(strings.TrimSpace(mode), "decisions") {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Client) recordModelLoadDuration(model string, duration time.Duration) {

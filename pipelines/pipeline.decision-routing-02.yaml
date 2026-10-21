@@ -3,103 +3,92 @@ config: induction.yaml
 
 steps:
   - name: outage-duration
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
-    systemPrompt: |
-      You are a Jev-style decision model. Apply only the stated criterion to
-      the supplied facts. Choose the best matching option. Do not explain.
-    userPrompt: |
-      Problem: A family lost power during a storm. The outage lasted six
-      hours. The refrigerator door stayed closed. An appliance thermometer
-      read 46°F (8°C) when power returned. The refrigerator contains raw
-      chicken, milk, and leftovers. No thermometer history shows when its
-      temperature first rose above 40°F (4°C).
-
-      Criterion: Did the power outage last more than four hours?
-      Return only the option token:
-      A = over_four_hours
-      B = four_hours_or_less
-      C = unknown
+    systemPrompt: You are a careful food-safety decision model.
+    userPrompt: Did the power outage last more than four hours?
     decision:
+      endpoint: systemone
+      type: choice
+      state:
+        outage_duration_hours: 6
+        refrigerator_door_stayed_closed: true
+        refrigerator_temperature_when_power_returned_f: 46
+        refrigerator_temperature_history_available: false
+        refrigerator_contents:
+          - raw chicken
+          - milk
+          - leftovers
+      instructions: Did the power outage last more than four hours?
       candidates:
-        A: over_four_hours
-        B: four_hours_or_less
-        C: unknown
-      topLogprobs: 20
+        over_four_hours: The outage lasted more than four hours.
+        four_hours_or_less: The outage lasted four hours or less.
+        unknown: The outage duration cannot be determined from the facts.
 
   - name: refrigerator-temperature
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
-    systemPrompt: |
-      You are a Jev-style decision model. Apply only the stated criterion to
-      the supplied facts. Choose the best matching option. Do not explain.
-    userPrompt: |
-      Problem facts: The power outage lasted six hours. The refrigerator
-      door stayed closed. When power returned, an appliance thermometer
-      read 46°F (8°C). No thermometer history shows when its temperature
-      first rose above 40°F (4°C).
-
-      Criterion: Was the measured refrigerator temperature above 40°F
-      (4°C) when power returned?
-      Return only the option token:
-      A = above_40F
-      B = at_or_below_40F
-      C = unknown
+    systemPrompt: You are a careful food-safety decision model.
+    userPrompt: Was the measured refrigerator temperature above 40°F when power returned?
     decision:
+      endpoint: systemone
+      type: choice
+      state:
+        outage_duration_hours: 6
+        refrigerator_door_stayed_closed: true
+        refrigerator_temperature_when_power_returned_f: 46
+        refrigerator_temperature_history_available: false
+        refrigerator_contents:
+          - raw chicken
+          - milk
+          - leftovers
+      instructions: Was the measured refrigerator temperature above 40°F when power returned?
       candidates:
-        A: above_40F
-        B: at_or_below_40F
-        C: unknown
-      topLogprobs: 20
+        above_40F: The measured refrigerator temperature was above 40°F when power returned.
+        at_or_below_40F: The measured refrigerator temperature was at or below 40°F when power returned.
+        unknown: The measured refrigerator temperature cannot be determined from the facts.
 
   - name: perishable-foods
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
-    systemPrompt: |
-      You are a Jev-style decision model. Apply only the stated criterion to
-      the supplied facts. Choose the best matching option. Do not explain.
-    userPrompt: |
-      Problem facts: The refrigerator contains raw chicken, milk, and
-      leftovers.
-
-      Criterion: Does the refrigerator contain perishable food covered by
-      power-outage food-safety guidance?
-      Return only the option token:
-      A = perishable_food_present
-      B = no_perishable_food
-      C = unknown
+    systemPrompt: You are a careful food-safety decision model.
+    userPrompt: Does the refrigerator contain perishable food covered by power-outage food-safety guidance?
     decision:
+      endpoint: systemone
+      type: choice
+      state:
+        refrigerator_contents:
+          - raw chicken
+          - milk
+          - leftovers
+      instructions: Does the refrigerator contain perishable food covered by power-outage food-safety guidance?
       candidates:
-        A: perishable_food_present
-        B: no_perishable_food
-        C: unknown
-      topLogprobs: 20
+        perishable_food_present: The refrigerator contains perishable food such as raw chicken, milk, or leftovers.
+        no_perishable_food: The refrigerator contains no perishable food covered by the guidance.
+        unknown: Whether perishable food is present cannot be determined from the facts.
 
   - name: unsafe-temperature-duration
-    model: JEV5K-v0.3-4B-Q8_0
+    model: Kev-4B-Q8_0
     nomcp: true
-    systemPrompt: |
-      You are a Jev-style decision model. Do not infer a temperature history
-      from a single thermometer reading. Choose unknown when the stated facts
-      do not establish the duration.
-    userPrompt: |
-      Problem facts: The outage lasted six hours. The refrigerator door
-      stayed closed. The thermometer read 46°F (8°C) when power returned.
-      There is no thermometer history showing when the temperature first
-      rose above 40°F (4°C).
-
-      Criterion: Do the facts establish that the food was above 40°F (4°C)
-      for four hours or more?
-      Return only the option token:
-      A = four_hours_or_more_established
-      B = less_than_four_hours_established
-      C = duration_unknown
+    systemPrompt: Do not infer a temperature history from a single thermometer reading. Choose unknown when the stated facts do not establish the duration.
+    userPrompt: Do the facts establish that the food was above 40°F for four hours or more?
     decision:
+      endpoint: systemone
+      type: choice
+      state:
+        outage_duration_hours: 6
+        refrigerator_door_stayed_closed: true
+        refrigerator_temperature_when_power_returned_f: 46
+        refrigerator_temperature_history_available: false
+        refrigerator_contents:
+          - raw chicken
+          - milk
+          - leftovers
+      instructions: Do the facts establish that the food was above 40°F for four hours or more?
       candidates:
-        A: four_hours_or_more_established
-        B: less_than_four_hours_established
-        C: duration_unknown
-      topLogprobs: 20
+        four_hours_or_more_established: The facts establish that food was above 40°F for four hours or more.
+        less_than_four_hours_established: The facts establish that food was above 40°F for less than four hours.
+        duration_unknown: The facts do not establish how long the food was at or above 40°F.
 
   - name: food-safety-decision-tree
     model: Qwen-3.5-9B-MTP-General-Q8_0

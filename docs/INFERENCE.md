@@ -74,7 +74,7 @@ the configured set; `confidence` is the selected probability and `margin` is
 the difference from the runner-up. A decision requires the non-streaming
 snapshot API; `GenerateStreamingSnapshot` returns an error for decisions.
 Use a Jev decision model for this task. The example model ID
-`JEV5K-v0.3-4B-Q8_0` refers to the JevK5 v0.3 4B Q8_0 GGUF in
+`Kev-4B-Q8_0` refers to the Kev 4B Q8_0 GGUF in
 [the model card](https://huggingface.co/alibiserikbay/JevK5-GGUF); the server
 must expose the configured model ID.
 
@@ -96,7 +96,7 @@ func decide(ctx context.Context, client *induction.Client) (*induction.DecisionR
         TopLogprobs: 20,
     }
     snapshot, err := client.GenerateSnapshot(ctx, &induction.ChatRequest{
-        Model: "JEV5K-v0.3-4B-Q8_0",
+        Model: "Kev-4B-Q8_0",
         Messages: []induction.Message{{Role: "user", Content: "Classify this material."}},
         Decision: decision,
     })
