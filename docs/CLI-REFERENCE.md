@@ -99,6 +99,13 @@ the corresponding configured/model defaults when explicitly provided.
 | `--max-tokens NUMBER` | `0` (unset) | Request maximum token override. |
 | `--repeat-penalty NUMBER` | `0` (unset) | Request repeat-penalty override. |
 | `--seed NUMBER` | `0` (unset) | Request seed override. |
+| `--min-p NUMBER` | `0` (unset) | Request minimum-probability sampling threshold. |
+| `--xtc-probability NUMBER` | `0` (unset) | Request XTC token-exclusion probability. |
+| `--xtc-threshold NUMBER` | `0` (unset) | Request XTC probability threshold. |
+| `--typical-p NUMBER` | `0` (unset) | Request typical sampling probability mass. |
+| `--presence-penalty NUMBER` | `0` (unset) | Penalize tokens based on whether they have appeared. |
+| `--frequency-penalty NUMBER` | `0` (unset) | Penalize tokens based on how often they have appeared. |
+| `--repeat-last-n NUMBER` | `0` (unset) | Number of recent tokens considered by repeat-penalty sampling. |
 | `--autosubmit` | `false` | Submit `--userPrompt` automatically. Requires a non-empty `--userPrompt`. |
 | `--autoexit` | `false` | Exit after the automated response and session save. Requires `--autosubmit`. |
 | `--nomcp` | `false` | Disable configured MCP servers for this inference. |
@@ -106,6 +113,10 @@ the corresponding configured/model defaults when explicitly provided.
 `--image` cannot be combined with `--document` or `--documents`; `--document`
 and `--documents` cannot be combined. `--pipeline` cannot be combined with the
 direct inference flags.
+
+All request parameter flags are optional. An omitted flag is not included in
+the inference request, so the model/server default is preserved. Explicit
+values of `0` are sent when the flag is supplied.
 
 ### Pipeline generation (`induction pipeline generate`)
 

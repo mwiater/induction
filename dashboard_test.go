@@ -22,7 +22,7 @@ func TestBuildDashboardMetricsGroupsSnapshotsBySnapshotModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if metrics.Source.SessionsLoaded != 1 || metrics.Source.SnapshotsSeen != 4 || metrics.Source.SnapshotsIncluded != 3 || metrics.Source.SnapshotsSkipped != 1 {
+	if metrics.Source.SessionsLoaded != 1 || metrics.Source.UniqueSessionIDs != 1 || metrics.Source.ObservedSessionIDs != 1 || metrics.Source.SnapshotsSeen != 4 || metrics.Source.SnapshotsIncluded != 3 || metrics.Source.SnapshotsSkipped != 1 {
 		t.Fatalf("unexpected source counts: %+v", metrics.Source)
 	}
 	if len(metrics.Models) != 2 || metrics.Models[0].ModelID != "model-a" || metrics.Models[0].SnapshotCount != 2 || metrics.Models[0].SessionCount != 1 || metrics.Models[1].ModelID != "model-b" {
@@ -30,6 +30,59 @@ func TestBuildDashboardMetricsGroupsSnapshotsBySnapshotModel(t *testing.T) {
 	}
 	if metrics.Models[0].Observations[0].Session.SnapshotIndex != 2 {
 		t.Fatalf("observations were not sorted by collection time: %+v", metrics.Models[0].Observations)
+	}
+}
+
+func TestDashboardV2CatalogAndLoadEventDeduplication(t *testing.T) {
+	directory := t.TempDir()
+	id := "00000000-0000-0000-0000-000000000099"
+	session := &ChatSession{Version: chatSessionVersion, ID: id, Type: sessionTypeDirect, Model: "model", Snapshots: []*ModelSnapshot{
+		{ModelID: "model", ModelLoadTime: 2 * time.Second, Props: &PropsData{Raw: `{"context_size":4096,"model_path":"/private/model.gguf","chat_template":"private template"}`}},
+		{ModelID: "model", ModelLoadTime: 2 * time.Second, Props: &PropsData{Raw: `{"context_size":4096,"chat_template":"private template"}`}},
+		{ModelID: "model", Props: &PropsData{Raw: `{"context_size":8192}`}},
+	}}
+	writeTestSession(t, directory, session)
+	metrics, err := buildDashboardMetricsFromDirectories(directory, filepath.Join(directory, "missing-evals"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metrics.SchemaVersion != 2 || metrics.Source.UniqueSessionIDs != 1 || metrics.Source.ObservedSessionIDs != 1 || len(metrics.RuntimeConfigs) != 2 || len(metrics.LoadEvents) != 1 {
+		t.Fatalf("unexpected v2 summary: %+v", metrics)
+	}
+	obs := metrics.Models[0].Observations
+	if obs[0].RuntimeConfigID != obs[1].RuntimeConfigID || obs[2].RuntimeConfigID == obs[0].RuntimeConfigID || obs[1].LoadTimeMS != nil {
+		t.Fatalf("configuration variation or load deduplication lost: %+v", obs)
+	}
+	encoded, err := json.Marshal(metrics)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"chat_template", "/private/model.gguf"} {
+		if strings.Contains(string(encoded), forbidden) {
+			t.Fatalf("sensitive metadata in export: %s", encoded)
+		}
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(encoded, &wire); err != nil {
+		t.Fatal(err)
+	}
+	models := wire["models"].([]any)
+	observations := models[0].(map[string]any)["observations"].([]any)
+	if _, exists := observations[0].(map[string]any)["runtime"]; exists {
+		t.Fatal("runtime duplicated in observation")
+	}
+}
+
+func TestDashboardSourceReconcilesSessionsWithoutObservations(t *testing.T) {
+	directory := t.TempDir()
+	writeTestSession(t, directory, &ChatSession{Version: chatSessionVersion, ID: "00000000-0000-0000-0000-000000000100", Type: sessionTypeDirect, Model: "model", Snapshots: []*ModelSnapshot{}})
+	writeTestSession(t, directory, &ChatSession{Version: chatSessionVersion, ID: "00000000-0000-0000-0000-000000000101", Type: sessionTypeDirect, Model: "model", Snapshots: []*ModelSnapshot{{ModelID: "model"}}})
+	metrics, err := buildDashboardMetricsFromDirectories(directory, filepath.Join(directory, "missing-evals"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metrics.Source.SessionFiles != 2 || metrics.Source.UniqueSessionIDs != 2 || metrics.Source.ObservedSessionIDs != 1 || metrics.Source.SessionsWithoutObservations != 1 {
+		t.Fatalf("unreconciled source counts: %+v", metrics.Source)
 	}
 }
 
@@ -148,7 +201,7 @@ func TestWriteDashboardHTMLEmbedsMetricsInTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := string(contents)
-	if strings.Contains(output, "// insert data/dashboard/session_metrics.json") || !strings.Contains(output, "const DASHBOARD_DATA = {\n  \"schema_version\": 1") {
+	if strings.Contains(output, "// insert data/dashboard/session_metrics.json") || !strings.Contains(output, "const DASHBOARD_DATA = {\n  \"schema_version\": 2") {
 		t.Fatalf("dashboard data was not embedded: %q", output)
 	}
 }
@@ -159,12 +212,12 @@ func TestDashboardTemplateUsesRecommendationView(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := string(contents)
-	for _, marker := range []string{`data-view="overview"`, `data-view="performance"`, `data-view="behavior"`, `data-view="models"`, `data-view="recommendations"`, `data-view="variables"`, `id="modelRecommendations"`, `id="performanceFingerprintInsights"`, `id="modelFingerprintInsights"`, `id="fingerprintStartupPrompt"`, `id="fingerprintUnexpectedInsights"`, `aria-hidden="true"`, `buildFingerprintModelStats`, `FINGERPRINT_SMALL_SAMPLE_THRESHOLD`, `FINGERPRINT_HIGH_SAMPLE_THRESHOLD`} {
+	for _, marker := range []string{`data-view="overview"`, `data-view="performance"`, `data-view="behavior"`, `data-view="models"`, `data-view="recommendations"`, `data-view="variables"`, `id="globalFilters"`, `id="inspector"`, `id="variablesTableBody"`, `id="recommendation"`, `id="recommendationOrbit"`, `rec-evidence`, `signalPulse`, `prefers-reduced-motion`, `id="radar"`, `id="timeBreakdown"`} {
 		if !strings.Contains(output, marker) {
 			t.Fatalf("dashboard template is missing fingerprint marker %q", marker)
 		}
 	}
-	for _, marker := range []string{`data-view="fingerprints"`, `data-view="experimental-01"`, `<section id="fingerprints"`, `<section id="experimental-01"`} {
+	for _, marker := range []string{`data-view="fingerprints"`, `data-view="experimental-01"`, `<section id="fingerprints"`, `<section id="experimental-01"`, `experimental01Genome`, `experimental01LatencyOrigami`, `https://cdn.`} {
 		if strings.Contains(output, marker) {
 			t.Fatalf("retired dashboard destination remains active: %q", marker)
 		}

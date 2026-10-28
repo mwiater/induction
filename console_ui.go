@@ -158,6 +158,7 @@ type consoleModel struct {
 	pipelineFanoutIndex      int
 	pipelineFanoutStep       int
 	pipelineQualityRetries   map[int]int
+	pipelineQualityFeedback  string
 	pipelineRetryState       *pipelineRetryState
 	pipelineRetryGateRequest *ChatRequest
 	exitSaving               bool
@@ -255,9 +256,12 @@ func (m consoleModel) Init() tea.Cmd {
 		}
 		loadCtx, cancel := context.WithTimeout(m.ctx, m.timeout)
 		defer cancel()
-		_, err := m.client.ensureModelLoaded(loadCtx, m.request.Model)
+		loadTime, err := m.client.ensureModelLoaded(loadCtx, m.request.Model)
 		if err != nil {
 			return consoleModelLoadedMsg{err: err}
+		}
+		if loadTime > 0 {
+			m.client.recordModelLoadDuration(m.request.Model, loadTime)
 		}
 		props, _ := m.client.fetchPropsReady(loadCtx, m.request.Model)
 		slots, _ := m.client.fetchSlotsReady(loadCtx, m.request.Model)
@@ -276,7 +280,9 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case consoleModelLoadedMsg:
 		if msg.err != nil {
 			m.client.logf("ui: initial model load failed model=%q error=%v", m.request.Model, msg.err)
-			m.pipelineRunning = false
+			if m.pipeline != nil {
+				return &m, m.failPipeline(fmt.Errorf("pipeline model %q failed to load: %w", m.request.Model, msg.err))
+			}
 			m.err = msg.err
 			// A failed or timed-out load must never leave the chat input
 			// permanently disabled. The user can retry through Ctrl-M or exit
@@ -374,7 +380,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.pipelineStep >= 0 && m.pipelineStep < len(m.pipeline.Steps) {
 					msg.err = fmt.Errorf("pipeline step %q: %w", m.pipeline.Steps[m.pipelineStep].Name, msg.err)
 				}
-				m.pipelineRunning = false
+				return m, m.failPipeline(msg.err)
 			} else {
 				m.client.logf("inference: failed model=%q error=%v", msg.model, msg.err)
 			}
@@ -392,10 +398,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.content = recoverStructuredPipelineContent(step, msg.content, msg.snapshot)
 			if strings.TrimSpace(msg.content) == "" {
 				m.client.logf("pipeline: step %d/%d returned empty output model=%q", m.pipelineStep+1, len(m.pipeline.Steps), msg.model)
-				m.pipelineRunning = false
-				m.err = fmt.Errorf("pipeline step %q returned empty output", step.Name)
-				m.refreshTranscript()
-				return m, nil
+				return m, m.failPipeline(fmt.Errorf("pipeline step %q returned empty output", step.Name))
 			}
 			if step.Quality != nil {
 				if qualityErr := validatePipelineQuality(msg.content, step.Quality); qualityErr != nil {
@@ -407,10 +410,9 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if attempt < step.Quality.MaxRetries {
 							attempt++
 							m.pipelineQualityRetries[m.pipelineStep] = attempt
-							feedback := fmt.Sprintf("QUALITY RETRY %d/%d: The previous draft failed validation: %s. Rewrite the complete chapter from the beginning. Preserve the required heading and all canon facts; output only finished chapter prose.", attempt, step.Quality.MaxRetries, qualityErr)
+							feedback := pipelineQualityRetryFeedback(step.Quality, msg.content, qualityErr, attempt)
 							m.client.logf("pipeline: step %q quality check failed; retrying %d/%d: %v", step.Name, attempt, step.Quality.MaxRetries, qualityErr)
-							m.request.Messages = append(m.request.Messages, Message{Role: "user", Content: feedback})
-							m.messages = append(m.messages, consoleMessage{role: "user", content: feedback})
+							m.pipelineQualityFeedback = feedback
 							m.sessionDirty = true
 							m.sessionStatus = fmt.Sprintf("Retrying %s (%d/%d)", step.Name, attempt, step.Quality.MaxRetries)
 							m.refreshTranscript()
@@ -418,10 +420,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 					m.client.logf("pipeline: step %q quality check failed after retries: %v", step.Name, qualityErr)
-					m.pipelineRunning = false
-					m.err = fmt.Errorf("pipeline step %q failed quality checks: %w", step.Name, qualityErr)
-					m.refreshTranscript()
-					return m, nil
+					return m, m.failPipeline(fmt.Errorf("pipeline step %q failed quality checks: %w", step.Name, qualityErr))
 				}
 				if m.pipelineQualityRetries != nil {
 					delete(m.pipelineQualityRetries, m.pipelineStep)
@@ -430,10 +429,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if effectiveDecision(step) != nil {
 				var result DecisionResult
 				if err := json.Unmarshal([]byte(msg.content), &result); err != nil || result.Type != "decision" {
-					m.pipelineRunning = false
-					m.err = fmt.Errorf("pipeline step %q returned an invalid decision result", step.Name)
-					m.refreshTranscript()
-					return m, nil
+					return m, m.failPipeline(fmt.Errorf("pipeline step %q returned an invalid decision result", step.Name))
 				}
 				m.pipelineOutputs[step.Name] = append(json.RawMessage(nil), []byte(msg.content)...)
 				displayContent = fmt.Sprintf("Decision: %s\nConfidence: %.2f%%\nMargin: %.2f%%", result.SelectedValue, result.Confidence*100, result.Margin*100)
@@ -459,26 +455,17 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 					m.client.logf("pipeline: step %q validation error: %v\nsource chunk:\n%s\nraw response:\n%s", step.Name, err, chunk, msg.content)
-					m.pipelineRunning = false
-					m.err = fmt.Errorf("pipeline step %q: %w", step.Name, err)
-					m.refreshTranscript()
-					return m, nil
+					return m, m.failPipeline(fmt.Errorf("pipeline step %q: %w", step.Name, err))
 				}
 				msg.content = string(normalized)
 			}
 			if step.Output != nil && strings.EqualFold(step.Output.Type, "json") {
 				if !json.Valid([]byte(msg.content)) {
-					m.pipelineRunning = false
-					m.err = fmt.Errorf("pipeline step %q returned invalid JSON: %q", step.Name, previewPipelineOutput(msg.content))
-					m.refreshTranscript()
-					return m, nil
+					return m, m.failPipeline(fmt.Errorf("pipeline step %q returned invalid JSON: %q", step.Name, previewPipelineOutput(msg.content)))
 				}
 				var parsed json.RawMessage
 				if err := json.Unmarshal([]byte(msg.content), &parsed); err != nil {
-					m.pipelineRunning = false
-					m.err = fmt.Errorf("pipeline step %q returned invalid JSON: %w", step.Name, err)
-					m.refreshTranscript()
-					return m, nil
+					return m, m.failPipeline(fmt.Errorf("pipeline step %q returned invalid JSON: %w", step.Name, err))
 				}
 				if step.ForEach != "" && m.pipelineFanoutStep == m.pipelineStep {
 					m.pipelineFanoutOutputs = append(m.pipelineFanoutOutputs, append(json.RawMessage(nil), parsed...))
@@ -499,10 +486,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						_, err = persistPipelineArtifact(m.pipelineRunID, step.Name, artifactPath, "application/json", artifactData)
 					}
 					if err != nil {
-						m.pipelineRunning = false
-						m.err = fmt.Errorf("pipeline step %q: persist artifact: %w", step.Name, err)
-						m.refreshTranscript()
-						return m, nil
+						return m, m.failPipeline(fmt.Errorf("pipeline step %q: persist artifact: %w", step.Name, err))
 					}
 				}
 			}
@@ -516,20 +500,14 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					_, err = persistPipelineArtifact(m.pipelineRunID, step.Name, artifactPath, mediaType, []byte(msg.content))
 				}
 				if err != nil {
-					m.pipelineRunning = false
-					m.err = fmt.Errorf("pipeline step %q: persist artifact: %w", step.Name, err)
-					m.refreshTranscript()
-					return m, nil
+					return m, m.failPipeline(fmt.Errorf("pipeline step %q: persist artifact: %w", step.Name, err))
 				}
 			}
 			if step.ResponseFormat != nil {
 				typeName := strings.ToLower(strings.TrimSpace(step.ResponseFormat.Type))
 				if (typeName == "json" || typeName == "json_object" || typeName == "json_schema") && !isJSONObject(msg.content) {
 					m.client.logf("pipeline: step %d/%d returned invalid JSON object", m.pipelineStep+1, len(m.pipeline.Steps))
-					m.pipelineRunning = false
-					m.err = fmt.Errorf("pipeline step %q returned invalid JSON object", step.Name)
-					m.refreshTranscript()
-					return m, nil
+					return m, m.failPipeline(fmt.Errorf("pipeline step %q returned invalid JSON object", step.Name))
 				}
 			}
 		}
@@ -577,6 +555,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sessionStatus = "Save failed: " + msg.err.Error()
 			if msg.exit {
 				m.exitSaving = false
+				return m, tea.Quit
 			}
 			return m, nil
 		}
@@ -666,16 +645,14 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.modelLoading = ""
 		if msg.err != nil {
 			m.client.logf("ui: model switch failed model=%q error=%v", msg.model, msg.err)
-			m.pipelineRunning = false
 			m.pipelineRetryGateRequest = nil
 			if m.pipeline != nil {
-				m.err = fmt.Errorf("pipeline model %q failed to load: %w", msg.model, msg.err)
+				pipelineErr := fmt.Errorf("pipeline model %q failed to load: %w", msg.model, msg.err)
 				m.sessionView = sessionViewChat
 				m.loading = false
 				m.input.Prompt = " " + renderWhiteIcon(DefaultUnicode.Star) + " You: "
 				m.input.Focus()
-				m.refreshTranscript()
-				return m, textinput.Blink
+				return m, m.failPipeline(pipelineErr)
 			}
 			m.sessionStatus = "Model load failed: " + msg.err.Error()
 			m.sessionView = sessionViewModels
@@ -1144,12 +1121,10 @@ func (m *consoleModel) applyPipelineRetryAction(step PipelineStep, state *pipeli
 			m.sessionStatus = fmt.Sprintf("Accepted %s with retry warning", step.Name)
 			return false, nil
 		}
-		m.pipelineRunning = false
 		m.pipelineRetryState = nil
-		m.err = fmt.Errorf("pipeline step %q retry_exhausted after attempt %d: %s", step.Name, state.attempt, reason)
+		pipelineErr := fmt.Errorf("pipeline step %q retry_exhausted after attempt %d: %s", step.Name, state.attempt, reason)
 		m.client.logf("pipeline: step=%q retry exhausted attempt=%d reason=%s diagnostics=%s", step.Name, state.attempt, reason, diagnostics)
-		m.refreshTranscript()
-		return true, nil
+		return true, m.failPipeline(pipelineErr)
 	}
 	state.attempt++
 	feedback := fmt.Sprintf("RETRY ATTEMPT %d OF %d — COMPLETE REPLACEMENT REQUIRED\nYour previous response was not accepted.\nReason: %s", state.attempt, r.MaxAttempts, reason)
@@ -1214,26 +1189,17 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	}
 	renderedPrompt, err := renderPipelineReferencesFor(step.UserPrompt, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
 	if err != nil {
-		m.err = fmt.Errorf("pipeline step %q: %w", step.Name, err)
-		m.pipelineRunning = false
-		m.refreshTranscript()
-		return nil
+		return m.failPipeline(fmt.Errorf("pipeline step %q: %w", step.Name, err))
 	}
 	renderedSystem, err := renderPipelineReferencesFor(step.SystemPrompt, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
 	if err != nil {
-		m.err = fmt.Errorf("pipeline step %q: %w", step.Name, err)
-		m.pipelineRunning = false
-		m.refreshTranscript()
-		return nil
+		return m.failPipeline(fmt.Errorf("pipeline step %q: %w", step.Name, err))
 	}
 	step.UserPrompt = renderedPrompt
 	step.SystemPrompt = renderedSystem
 	renderedModel, err := renderPipelineReferencesFor(step.Model, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
 	if err != nil {
-		m.err = fmt.Errorf("pipeline step %q model: %w", step.Name, err)
-		m.pipelineRunning = false
-		m.refreshTranscript()
-		return nil
+		return m.failPipeline(fmt.Errorf("pipeline step %q model: %w", step.Name, err))
 	}
 	step.Model = renderedModel
 	if step.Decision != nil {
@@ -1241,37 +1207,25 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		if strings.TrimSpace(decision.CandidatesFrom) != "" {
 			value, resolveErr := resolvePipelineReferenceFor(strings.TrimSpace(decision.CandidatesFrom), m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
 			if resolveErr != nil {
-				m.err = fmt.Errorf("pipeline step %q decision candidates: %w", step.Name, resolveErr)
-				m.pipelineRunning = false
-				m.refreshTranscript()
-				return nil
+				return m.failPipeline(fmt.Errorf("pipeline step %q decision candidates: %w", step.Name, resolveErr))
 			}
 			candidates, convertErr := pipelineDecisionCandidates(value)
 			if convertErr != nil {
-				m.err = fmt.Errorf("pipeline step %q decision candidates: %w", step.Name, convertErr)
-				m.pipelineRunning = false
-				m.refreshTranscript()
-				return nil
+				return m.failPipeline(fmt.Errorf("pipeline step %q decision candidates: %w", step.Name, convertErr))
 			}
 			decision.Candidates = candidates
 		}
 		if state, ok := decision.State.(string); ok {
 			renderedState, renderErr := renderPipelineReferencesFor(state, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
 			if renderErr != nil {
-				m.err = fmt.Errorf("pipeline step %q: decision state: %w", step.Name, renderErr)
-				m.pipelineRunning = false
-				m.refreshTranscript()
-				return nil
+				return m.failPipeline(fmt.Errorf("pipeline step %q: decision state: %w", step.Name, renderErr))
 			}
 			decision.State = renderedState
 		}
 		if decision.Instructions != "" {
 			renderedInstructions, renderErr := renderPipelineReferencesFor(decision.Instructions, m.pipelineOutputs, m.pipelineInputs, currentItem, step.As)
 			if renderErr != nil {
-				m.err = fmt.Errorf("pipeline step %q: decision instructions: %w", step.Name, renderErr)
-				m.pipelineRunning = false
-				m.refreshTranscript()
-				return nil
+				return m.failPipeline(fmt.Errorf("pipeline step %q: decision instructions: %w", step.Name, renderErr))
 			}
 			decision.Instructions = renderedInstructions
 		}
@@ -1294,6 +1248,13 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	m.request.ReasoningControl = nil
 	m.request.RepeatPenalty = nil
 	m.request.Seed = nil
+	m.request.MinP = nil
+	m.request.XTCProbability = nil
+	m.request.XTCThreshold = nil
+	m.request.TypicalP = nil
+	m.request.PresencePenalty = nil
+	m.request.FrequencyPenalty = nil
+	m.request.RepeatLastN = nil
 	if step.ResponseFormat != nil {
 		m.request.ResponseFormat = step.ResponseFormat
 	}
@@ -1316,10 +1277,18 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		m.request.MaxTokens = step.Parameters.MaxTokens
 		m.request.RepeatPenalty = step.Parameters.RepeatPenalty
 		m.request.Seed = step.Parameters.Seed
+		m.request.MinP = step.Parameters.MinP
+		m.request.XTCProbability = step.Parameters.XTCProbability
+		m.request.XTCThreshold = step.Parameters.XTCThreshold
+		m.request.TypicalP = step.Parameters.TypicalP
+		m.request.PresencePenalty = step.Parameters.PresencePenalty
+		m.request.FrequencyPenalty = step.Parameters.FrequencyPenalty
+		m.request.RepeatLastN = step.Parameters.RepeatLastN
 	}
 	if step.Temperature != nil {
 		m.request.Temperature = step.Temperature
 	}
+	m.refreshSidebar()
 	if decision := effectiveDecision(step); decision != nil {
 		m.request.Decision = decision
 		if step.Parameters == nil || step.Parameters.MaxTokens == nil {
@@ -1339,10 +1308,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		inputContent, imageName, documentName, err := inputContent(*m.pipeline.Inputs, step)
 		if err != nil {
 			m.client.logf("pipeline: step %q prepare inputs failed: %v", step.Name, err)
-			m.err = fmt.Errorf("pipeline step %q: prepare inputs: %w", step.Name, err)
-			m.pipelineRunning = false
-			m.refreshTranscript()
-			return nil
+			return m.failPipeline(fmt.Errorf("pipeline step %q: prepare inputs: %w", step.Name, err))
 		}
 		m.request.ImageFilename = imageName
 		m.request.DocumentFilename = documentName
@@ -1352,10 +1318,7 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		dataURL, err := ImageDataURL(step.Image, DefaultAttachmentMaxBytes)
 		if err != nil {
 			m.client.logf("pipeline: step %q prepare image %q failed: %v", step.Name, step.Image, err)
-			m.err = fmt.Errorf("pipeline step %q: prepare image: %w", step.Name, err)
-			m.pipelineRunning = false
-			m.refreshTranscript()
-			return nil
+			return m.failPipeline(fmt.Errorf("pipeline step %q: prepare image: %w", step.Name, err))
 		}
 		content = []ContentPart{{Type: "text", Text: step.UserPrompt}, {Type: "image_url", ImageURL: &ImageURLPart{URL: dataURL, Detail: "low"}}}
 	} else if step.Document != "" {
@@ -1363,23 +1326,22 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 		documentText, err := ExtractPDFText(step.Document, DefaultAttachmentMaxBytes)
 		if err != nil {
 			m.client.logf("pipeline: step %q extract document %q failed: %v", step.Name, step.Document, err)
-			m.err = fmt.Errorf("pipeline step %q: extract document: %w", step.Name, err)
-			m.pipelineRunning = false
-			m.refreshTranscript()
-			return nil
+			return m.failPipeline(fmt.Errorf("pipeline step %q: extract document: %w", step.Name, err))
 		}
 		_, filename, err := FileDataURL(step.Document, DefaultAttachmentMaxBytes)
 		if err != nil {
 			m.client.logf("pipeline: step %q prepare document %q failed: %v", step.Name, step.Document, err)
-			m.err = fmt.Errorf("pipeline step %q: prepare document: %w", step.Name, err)
-			m.pipelineRunning = false
-			m.refreshTranscript()
-			return nil
+			return m.failPipeline(fmt.Errorf("pipeline step %q: prepare document: %w", step.Name, err))
 		}
 		content = []ContentPart{{Type: "text", Text: step.UserPrompt}, {Type: "text", Text: "Document filename: " + filename + "\n\nExtracted document text:\n" + documentText}}
 	}
 	m.request.Messages = append(m.request.Messages, Message{Role: "user", Content: content})
 	m.messages = append(m.messages, consoleMessage{role: "user", content: step.UserPrompt})
+	if m.pipelineQualityFeedback != "" {
+		m.request.Messages = append(m.request.Messages, Message{Role: "user", Content: m.pipelineQualityFeedback})
+		m.messages = append(m.messages, consoleMessage{role: "user", content: m.pipelineQualityFeedback})
+		m.pipelineQualityFeedback = ""
+	}
 	m.waiting = true
 	if m.modelOverlay != nil {
 		m.modelOverlay.StartInference(step.Model)
@@ -1389,6 +1351,30 @@ func (m *consoleModel) submitPipelineStep(index int) tea.Cmd {
 	m.sessionStatus = fmt.Sprintf("Pipeline step %d/%d: %s", index+1, len(m.pipeline.Steps), step.Name)
 	m.refreshTranscript()
 	return m.runTurn(m.request)
+}
+
+// failPipeline records a terminal pipeline error in the session before ending
+// the console run. This keeps batch wrappers from mistaking a halted pipeline
+// for an interactive session that is still waiting for input.
+func (m *consoleModel) failPipeline(err error) tea.Cmd {
+	if err == nil {
+		err = fmt.Errorf("pipeline failed")
+	}
+	m.pipelineRunning = false
+	m.waiting = false
+	m.err = err
+	m.sessionStatus = "Pipeline failed: " + err.Error()
+	if m.session != nil {
+		m.syncSessionFromRequest()
+		m.session.Error = err.Error()
+		m.sessionDirty = true
+		m.sessionLoading = true
+		m.input.Blur()
+		m.refreshTranscript()
+		return saveSessionCmd(m.client, m.session, true)
+	}
+	m.refreshTranscript()
+	return tea.Quit
 }
 
 // addPipelineSystemPrompt keeps pipeline instructions compatible with chat
@@ -1572,7 +1558,11 @@ func loadModelCmd(client *Client, ctx context.Context, timeout time.Duration, mo
 		var err error
 		if strings.TrimSpace(previous) != "" && previous != model {
 			client.logf("runtime: switching model previous=%q target=%q", previous, model)
-			_, err = client.SwitchModel(loadCtx, model)
+			var result *SwitchResult
+			result, err = client.SwitchModel(loadCtx, model)
+			if err == nil && result.Load != nil && result.Load.Changed {
+				client.recordModelLoadDuration(model, result.Load.Duration)
+			}
 		} else {
 			err = client.loadModel(loadCtx, model)
 		}
@@ -1931,7 +1921,7 @@ func (m *consoleModel) refreshTranscript() {
 
 var sidebarKeys = []string{
 	"n_ctx", "speculative", "is_processing", "seed", "temperature", "top_k", "top_p", "min_p",
-	"repeat_last_n", "repeat_penalty", "presence_penalty", "frequency_penalty", "dry_multiplier",
+	"typical_p", "xtc_probability", "xtc_threshold", "repeat_last_n", "repeat_penalty", "presence_penalty", "frequency_penalty", "dry_multiplier",
 	"dry_base", "dry_allowed_length", "dry_penalty_last_n", "max_tokens", "n_predict", "n_keep",
 	"n_discard", "stream", "reasoning_in_content", "speculative.types",
 }
@@ -1965,6 +1955,27 @@ func (m *consoleModel) refreshSidebar() {
 	}
 	if m.request.Seed != nil {
 		fields["seed"] = *m.request.Seed
+	}
+	if m.request.MinP != nil {
+		fields["min_p"] = *m.request.MinP
+	}
+	if m.request.XTCProbability != nil {
+		fields["xtc_probability"] = *m.request.XTCProbability
+	}
+	if m.request.XTCThreshold != nil {
+		fields["xtc_threshold"] = *m.request.XTCThreshold
+	}
+	if m.request.TypicalP != nil {
+		fields["typical_p"] = *m.request.TypicalP
+	}
+	if m.request.PresencePenalty != nil {
+		fields["presence_penalty"] = *m.request.PresencePenalty
+	}
+	if m.request.FrequencyPenalty != nil {
+		fields["frequency_penalty"] = *m.request.FrequencyPenalty
+	}
+	if m.request.RepeatLastN != nil {
+		fields["repeat_last_n"] = *m.request.RepeatLastN
 	}
 	keys := append([]string(nil), sidebarKeys...)
 	sort.Strings(keys)

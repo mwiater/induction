@@ -73,11 +73,29 @@ func TestDecisionRoutingPipelinesUseSystemOne(t *testing.T) {
 				continue
 			}
 			decisionCount++
-			if step.Decision.Endpoint != "systemone" || step.Decision.Type != "choice" {
-				t.Fatalf("%s step %q is not a System One choice: %#v", name, step.Name, step.Decision)
+			if step.Decision.Endpoint != "systemone" {
+				t.Fatalf("%s step %q is not a System One decision: %#v", name, step.Name, step.Decision)
 			}
-			if len(step.Decision.Candidates) < 2 || step.Decision.State == nil || step.Decision.Instructions == "" {
+			if step.Decision.State == nil || step.Decision.Instructions == "" {
 				t.Fatalf("%s step %q has incomplete native decision config: %#v", name, step.Name, step.Decision)
+			}
+			switch step.Decision.Type {
+			case "choice":
+				if len(step.Decision.Candidates) < 2 && step.Decision.CandidatesFrom == "" {
+					t.Fatalf("%s step %q has incomplete choice config: %#v", name, step.Name, step.Decision)
+				}
+			case "noul":
+				criteria, ok := step.Decision.Criteria.(map[string]interface{})
+				if !ok || criteria["true"] == "" || criteria["false"] == "" {
+					t.Fatalf("%s step %q has incomplete noul config: %#v", name, step.Name, step.Decision)
+				}
+			case "score":
+				criteria, ok := step.Decision.Criteria.([]interface{})
+				if !ok || len(criteria) < 2 || len(criteria) > 10 {
+					t.Fatalf("%s step %q has incomplete score config: %#v", name, step.Name, step.Decision)
+				}
+			default:
+				t.Fatalf("%s step %q has unsupported System One type %q", name, step.Name, step.Decision.Type)
 			}
 		}
 		if decisionCount == 0 {

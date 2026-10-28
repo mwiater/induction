@@ -209,12 +209,19 @@ func evaluatePipelineCondition(condition *WhenCondition, outputs map[string]json
 // PipelineParameters contains the generation parameter overrides supported by
 // the inference CLI. Nil fields preserve the model/server defaults.
 type PipelineParameters struct {
-	Temperature   *float64 `yaml:"temperature,omitempty"`
-	TopP          *float64 `yaml:"topP,omitempty"`
-	TopK          *int     `yaml:"topK,omitempty"`
-	MaxTokens     *int     `yaml:"maxTokens,omitempty"`
-	RepeatPenalty *float64 `yaml:"repeatPenalty,omitempty"`
-	Seed          *int     `yaml:"seed,omitempty"`
+	Temperature      *float64 `yaml:"temperature,omitempty"`
+	TopP             *float64 `yaml:"topP,omitempty"`
+	TopK             *int     `yaml:"topK,omitempty"`
+	MaxTokens        *int     `yaml:"maxTokens,omitempty"`
+	RepeatPenalty    *float64 `yaml:"repeatPenalty,omitempty"`
+	Seed             *int     `yaml:"seed,omitempty"`
+	MinP             *float64 `yaml:"minP,omitempty"`
+	XTCProbability   *float64 `yaml:"xtcProbability,omitempty"`
+	XTCThreshold     *float64 `yaml:"xtcThreshold,omitempty"`
+	TypicalP         *float64 `yaml:"typicalP,omitempty"`
+	PresencePenalty  *float64 `yaml:"presencePenalty,omitempty"`
+	FrequencyPenalty *float64 `yaml:"frequencyPenalty,omitempty"`
+	RepeatLastN      *int     `yaml:"repeatLastN,omitempty"`
 }
 
 // LoadPipeline reads, validates, and normalizes a pipeline. Attachment paths

@@ -32,6 +32,7 @@ type ChatSession struct {
 	UpdatedAt        time.Time        `json:"updated_at"`
 	Model            string           `json:"model"`
 	FinalOutput      string           `json:"final_output"`
+	Error            string           `json:"error,omitempty"`
 	BatchID          string           `json:"batch_id,omitempty"`
 	BatchItemID      string           `json:"batch_item_id,omitempty"`
 	Messages         []Message        `json:"messages"`

@@ -62,3 +62,15 @@ func validatePipelineQuality(content string, quality *PipelineQuality) error {
 func countPipelineWords(value string) int {
 	return len(strings.FieldsFunc(value, func(r rune) bool { return unicode.IsSpace(r) || r == '\u2014' }))
 }
+
+func pipelineQualityRetryFeedback(quality *PipelineQuality, draft string, qualityErr error, attempt int) string {
+	intro := fmt.Sprintf("QUALITY RETRY %d/%d: The previous draft failed validation: %s.", attempt, quality.MaxRetries, qualityErr)
+	if quality.MinWords > 0 && countPipelineWords(draft) < quality.MinWords {
+		length := fmt.Sprintf("at least %d words", quality.MinWords)
+		if quality.MaxWords > 0 {
+			length += fmt.Sprintf(" and at most %d words", quality.MaxWords)
+		}
+		return fmt.Sprintf("%s Expand the draft below into a complete replacement of %s. Develop the existing scenes with action, dialogue, and sensory detail; preserve the required heading and canon facts. Output only the complete revised text.\n\nPREVIOUS DRAFT:\n%s", intro, length, strings.TrimSpace(draft))
+	}
+	return intro + " Rewrite the complete output from the beginning. Preserve all required headings and canon facts; output only the finished text."
+}

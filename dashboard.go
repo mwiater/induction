@@ -3,6 +3,8 @@ package induction
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,7 +20,7 @@ import (
 )
 
 const (
-	DashboardSchemaVersion               = 1
+	DashboardSchemaVersion               = 2
 	DefaultDashboardSessionsDirectory    = sessionDirectory
 	DefaultDashboardEvalResultsDirectory = "data/evals/results"
 	DefaultDashboardEvalConfigPath       = "inspect_evals.yaml"
@@ -35,22 +37,47 @@ type DashboardGenerateOptions struct {
 }
 
 type DashboardMetrics struct {
-	SchemaVersion int                  `json:"schema_version"`
-	GeneratedAt   time.Time            `json:"generated_at"`
-	Source        DashboardSource      `json:"source"`
-	Models        []DashboardModelData `json:"models"`
+	SchemaVersion  int                      `json:"schema_version"`
+	GeneratedAt    time.Time                `json:"generated_at"`
+	Source         DashboardSource          `json:"source"`
+	RuntimeConfigs []DashboardRuntimeConfig `json:"runtime_configs,omitempty"`
+	LoadEvents     []DashboardLoadEvent     `json:"load_events,omitempty"`
+	Models         []DashboardModelData     `json:"models"`
+}
+
+// DashboardRuntimeConfig preserves changes in configuration across observations.
+type DashboardRuntimeConfig struct {
+	ID      string           `json:"id"`
+	ModelID string           `json:"model_id"`
+	Runtime DashboardRuntime `json:"runtime"`
+}
+
+// DashboardLoadEvent is one server lifecycle transition, not one inference.
+type DashboardLoadEvent struct {
+	ID                   string    `json:"id"`
+	ModelID              string    `json:"model_id"`
+	SessionID            string    `json:"session_id"`
+	SnapshotIndex        int       `json:"snapshot_index"`
+	RuntimeConfigID      string    `json:"runtime_config_id"`
+	AssociatedSnapshotAt time.Time `json:"associated_snapshot_at"`
+	DurationMS           float64   `json:"duration_ms"`
+	Source               string    `json:"source"`
+	Kind                 string    `json:"kind"`
 }
 type DashboardSource struct {
-	Directory         string `json:"directory"`
-	SessionFiles      int    `json:"session_files"`
-	SessionsLoaded    int    `json:"sessions_loaded"`
-	SnapshotsSeen     int    `json:"snapshots_seen"`
-	SnapshotsIncluded int    `json:"snapshots_included"`
-	SnapshotsSkipped  int    `json:"snapshots_skipped"`
-	Models            int    `json:"models"`
-	EvalFilesSeen     int    `json:"eval_files_seen,omitempty"`
-	EvalsIncluded     int    `json:"evals_included,omitempty"`
-	EvalsSkipped      int    `json:"evals_skipped,omitempty"`
+	Directory                   string `json:"directory"`
+	SessionFiles                int    `json:"session_files"`
+	SessionsLoaded              int    `json:"sessions_loaded"`
+	UniqueSessionIDs            int    `json:"unique_session_ids"`
+	ObservedSessionIDs          int    `json:"observed_session_ids"`
+	SessionsWithoutObservations int    `json:"sessions_without_observations"`
+	SnapshotsSeen               int    `json:"snapshots_seen"`
+	SnapshotsIncluded           int    `json:"snapshots_included"`
+	SnapshotsSkipped            int    `json:"snapshots_skipped"`
+	Models                      int    `json:"models"`
+	EvalFilesSeen               int    `json:"eval_files_seen,omitempty"`
+	EvalsIncluded               int    `json:"evals_included,omitempty"`
+	EvalsSkipped                int    `json:"evals_skipped,omitempty"`
 }
 type DashboardModelData struct {
 	ModelID         string                         `json:"model_id"`
@@ -100,20 +127,35 @@ type DashboardEvalAggregate struct {
 	Method string  `json:"method"`
 }
 type DashboardSnapshotObservation struct {
-	Session      DashboardSessionProvenance `json:"session"`
-	CollectedAt  time.Time                  `json:"collected_at"`
-	InputType    string                     `json:"input_type,omitempty"`
-	OutputType   string                     `json:"output_type,omitempty"`
-	LoadTimeMS   *float64                   `json:"load_time_ms,omitempty"`
-	Conversation DashboardConversation      `json:"conversation"`
-	Tools        DashboardToolUsage         `json:"tools"`
-	Response     DashboardResponse          `json:"response"`
-	Tokens       *DashboardTokens           `json:"tokens,omitempty"`
-	Performance  *DashboardPerformance      `json:"performance,omitempty"`
-	Speculative  *DashboardSpeculative      `json:"speculative,omitempty"`
-	Runtime      DashboardRuntime           `json:"runtime"`
-	Metrics      map[string]any             `json:"metrics,omitempty"`
+	Session         DashboardSessionProvenance `json:"session"`
+	CollectedAt     time.Time                  `json:"collected_at"`
+	InputType       string                     `json:"input_type,omitempty"`
+	OutputType      string                     `json:"output_type,omitempty"`
+	LoadTimeMS      *float64                   `json:"load_time_ms,omitempty"`
+	RuntimeConfigID string                     `json:"runtime_config_id,omitempty"`
+	Conversation    DashboardConversation      `json:"conversation"`
+	Tools           DashboardToolUsage         `json:"tools"`
+	Response        DashboardResponse          `json:"response"`
+	Tokens          *DashboardTokens           `json:"tokens,omitempty"`
+	Performance     *DashboardPerformance      `json:"performance,omitempty"`
+	Speculative     *DashboardSpeculative      `json:"speculative,omitempty"`
+	Runtime         DashboardRuntime           `json:"runtime"`
+	Metrics         map[string]any             `json:"metrics,omitempty"`
 }
+
+// MarshalJSON keeps schema-v1-style standalone observations readable while
+// schema-v2 model observations refer to the runtime catalog once.
+func (o DashboardSnapshotObservation) MarshalJSON() ([]byte, error) {
+	type plain DashboardSnapshotObservation
+	if o.RuntimeConfigID == "" {
+		return json.Marshal(plain(o))
+	}
+	return json.Marshal(struct {
+		plain
+		Runtime *DashboardRuntime `json:"runtime,omitempty"`
+	}{plain: plain(o)})
+}
+
 type DashboardToolUsage struct {
 	ApplicationToolsAvailable bool                `json:"application_tools_available"`
 	MCPToolsAvailable         bool                `json:"mcp_tools_available"`
@@ -173,10 +215,8 @@ type DashboardSpeculative struct {
 type DashboardRuntime struct {
 	TotalSlots         *int           `json:"total_slots,omitempty"`
 	ContextSize        *int           `json:"context_size,omitempty"`
-	ModelPath          string         `json:"model_path,omitempty"`
 	ModelAlias         string         `json:"model_alias,omitempty"`
 	BuildInfo          string         `json:"build_info,omitempty"`
-	ChatTemplate       string         `json:"chat_template,omitempty"`
 	Modalities         []string       `json:"modalities,omitempty"`
 	VisionCapable      *bool          `json:"vision_capable,omitempty"`
 	GenerationSettings map[string]any `json:"generation_settings,omitempty"`
@@ -495,7 +535,12 @@ func mergeDashboardEval(metrics *DashboardMetrics, result *dashboardEvalResult) 
 
 func buildDashboardMetrics(sources []dashboardSessionSource, source DashboardSource, ignoredModels map[string]bool) (*DashboardMetrics, error) {
 	groups := make(map[string]*dashboardModelBuilder)
+	configs := make(map[string]DashboardRuntimeConfig)
+	loadEvents := []DashboardLoadEvent{}
+	seenSessions := make(map[string]struct{})
 	for _, item := range sources {
+		included := false
+		lastLoadKey := ""
 		for index, snapshot := range item.session.Snapshots {
 			if snapshot == nil || strings.TrimSpace(snapshot.ModelID) == "" {
 				source.SnapshotsSkipped++
@@ -509,6 +554,29 @@ func buildDashboardMetrics(sources []dashboardSessionSource, source DashboardSou
 			if !ok {
 				source.SnapshotsSkipped++
 				continue
+			}
+			included = true
+			seenSessions[item.session.ID] = struct{}{}
+			configJSON, err := json.Marshal(observation.Runtime)
+			if err != nil {
+				return nil, fmt.Errorf("encode runtime config: %w", err)
+			}
+			configSum := sha256.Sum256(append([]byte(snapshot.ModelID+"\x00"), configJSON...))
+			configID := hex.EncodeToString(configSum[:12])
+			configs[configID] = DashboardRuntimeConfig{ID: configID, ModelID: snapshot.ModelID, Runtime: observation.Runtime}
+			observation.RuntimeConfigID = configID
+			// Tool loops can propagate the original lifecycle duration to their
+			// final snapshot. Export that repeated duration as one event.
+			if observation.LoadTimeMS != nil && *observation.LoadTimeMS > 0 {
+				loadKey := fmt.Sprintf("%s\x00%s\x00%g", snapshot.ModelID, configID, *observation.LoadTimeMS)
+				if lastLoadKey != loadKey {
+					loadEvents = append(loadEvents, DashboardLoadEvent{ID: fmt.Sprintf("%s:%d:%s", item.session.ID, index, snapshot.ModelID), ModelID: snapshot.ModelID, SessionID: item.session.ID, SnapshotIndex: index, RuntimeConfigID: configID, AssociatedSnapshotAt: snapshot.CollectedAt, DurationMS: *observation.LoadTimeMS, Source: "client_observed_lifecycle_transition", Kind: "unknown"})
+				} else {
+					observation.LoadTimeMS = nil
+				}
+				lastLoadKey = loadKey
+			} else {
+				lastLoadKey = ""
 			}
 			group := groups[snapshot.ModelID]
 			if group == nil {
@@ -527,11 +595,21 @@ func buildDashboardMetrics(sources []dashboardSessionSource, source DashboardSou
 				}
 			}
 		}
+		if !included {
+			source.SessionsWithoutObservations++
+		}
 	}
 	models := finalizeDashboardModels(groups)
 	source.SnapshotsIncluded = source.SnapshotsSeen - source.SnapshotsSkipped
 	source.Models = len(models)
-	return &DashboardMetrics{SchemaVersion: DashboardSchemaVersion, Source: source, Models: models}, nil
+	source.UniqueSessionIDs = len(sources)
+	source.ObservedSessionIDs = len(seenSessions)
+	orderedConfigs := make([]DashboardRuntimeConfig, 0, len(configs))
+	for _, config := range configs {
+		orderedConfigs = append(orderedConfigs, config)
+	}
+	sort.Slice(orderedConfigs, func(i, j int) bool { return orderedConfigs[i].ID < orderedConfigs[j].ID })
+	return &DashboardMetrics{SchemaVersion: DashboardSchemaVersion, Source: source, RuntimeConfigs: orderedConfigs, LoadEvents: loadEvents, Models: models}, nil
 }
 
 func dashboardObservation(session *ChatSession, snapshot *ModelSnapshot, index int) (DashboardSnapshotObservation, bool) {
@@ -803,7 +881,7 @@ func extractDashboardRuntime(props *PropsData) DashboardRuntime {
 			break
 		}
 	}
-	for key, target := range map[string]*string{"model_path": &result.ModelPath, "model_alias": &result.ModelAlias, "build_info": &result.BuildInfo, "chat_template": &result.ChatTemplate} {
+	for key, target := range map[string]*string{"model_alias": &result.ModelAlias, "build_info": &result.BuildInfo} {
 		if value, ok := findString(raw, key); ok {
 			*target = value
 		}

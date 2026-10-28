@@ -4,7 +4,7 @@ config: induction.yaml
 
 steps:
   - name: parse-log
-    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    model: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-UD-Q4_K_XL
     nomcp: true
     systemPrompt: You are a conservative incident-data analyst. Treat the supplied log lines as the only source and preserve exact values.
     userPrompt: |
@@ -16,7 +16,7 @@ steps:
       the observable pattern without claiming a root cause.
 
   - name: produce-incident-summary
-    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
+    model: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-UD-Q4_K_XL
     nomcp: true
     systemPrompt: You produce a concise incident summary from the preceding structured log analysis. Separate observations from hypotheses.
     userPrompt: |

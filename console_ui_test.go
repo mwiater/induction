@@ -383,6 +383,38 @@ func TestSidebarFieldsAreFlattenedAndStable(t *testing.T) {
 	}
 }
 
+func TestSidebarShowsPipelineGenerationOverrides(t *testing.T) {
+	minP, xtcProbability, xtcThreshold, typicalP := 0.02, 0.35, 0.10, 1.0
+	presencePenalty, frequencyPenalty := 0.0, 0.0
+	repeatLastN := 64
+	m := newConsoleModel(context.Background(), nil, ChatRequest{
+		Model:            "model",
+		MinP:             &minP,
+		XTCProbability:   &xtcProbability,
+		XTCThreshold:     &xtcThreshold,
+		TypicalP:         &typicalP,
+		PresencePenalty:  &presencePenalty,
+		FrequencyPenalty: &frequencyPenalty,
+		RepeatLastN:      &repeatLastN,
+	}, 0, 32, consoleNonStreaming)
+	m.width, m.height = 100, 60
+	m.resize()
+	content := m.sidebar.View()
+	for _, want := range []string{
+		"min_p: 0.02",
+		"xtc_probability: 0.35",
+		"xtc_threshold: 0.1",
+		"typical_p: 1",
+		"presence_penalty: 0",
+		"frequency_penalty: 0",
+		"repeat_last_n: 64",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("sidebar does not contain request parameter %q: %q", want, content)
+		}
+	}
+}
+
 func TestConsoleFooterRemainsFullWidth(t *testing.T) {
 	m := newConsoleModel(context.Background(), nil, ChatRequest{Model: "model"}, 0, 24, consoleNonStreaming)
 	m.session = &ChatSession{ID: "f434d4f6-db44-4b67-9391-cb63c1861d12"}

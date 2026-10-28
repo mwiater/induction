@@ -1,12 +1,11 @@
 name: decision-routing-03-system-one-primitives
 config: induction.yaml
-prompt: "My Go service is stuck. Please figure out what I should do."
 
 steps:
   - name: input-triage
     model: Kev-4B-Q8_0
     nomcp: true
-    userPrompt: "{{ inputs.prompt }}"
+    userPrompt: "My Go service is stuck. Please figure out what I should do."
     decision:
       endpoint: systemone
       type: noul

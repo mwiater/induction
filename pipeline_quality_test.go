@@ -1,6 +1,8 @@
 package induction
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -32,6 +34,17 @@ func TestValidatePipelineQuality(t *testing.T) {
 	}
 }
 
+func TestPipelineQualityRetryFeedbackIncludesShortDraft(t *testing.T) {
+	quality := &PipelineQuality{MinWords: 1100, MaxWords: 1600, MaxRetries: 2}
+	draft := "## Part 1: The Face of the Anomaly\n\nEvelyn opened the clock."
+	feedback := pipelineQualityRetryFeedback(quality, draft, validatePipelineQuality(draft, quality), 1)
+	for _, want := range []string{"QUALITY RETRY 1/2", "at least 1100 words and at most 1600 words", "PREVIOUS DRAFT:", draft} {
+		if !strings.Contains(feedback, want) {
+			t.Fatalf("feedback missing %q: %s", want, feedback)
+		}
+	}
+}
+
 func TestPipelineQualityValidation(t *testing.T) {
 	valid := 1200
 	maxRetries := 2
@@ -45,17 +58,50 @@ func TestPipelineQualityValidation(t *testing.T) {
 	}
 }
 
-func TestNovelgenLocalPipelineLoadsWithQualityContracts(t *testing.T) {
-	p, err := LoadPipeline("pipelines/pipeline.novelgen.local.yaml")
-	if err != nil {
-		t.Fatalf("novel pipeline failed to load: %v", err)
+func TestLoadPipelineWithChapterQualityContracts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "chapters.yaml")
+	data := `name: chapter-quality-fixture
+steps:
+  - name: chapter-01
+    model: test-model
+    userPrompt: Write the first chapter.
+    quality:
+      minWords: 8
+      exactHeading: '# Chapter 1: Opening'
+      requiredPhrases: [Evelyn]
+      forbiddenPhrases: ['the chapter ends']
+      maxRetries: 2
+  - name: chapter-02
+    model: test-model
+    userPrompt: Write the second chapter.
+    quality:
+      minWords: 8
+      exactHeading: '# Chapter 2: Arrival'
+      requiredPhrases: [railway]
+      maxRetries: 2
+`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatalf("write pipeline fixture: %v", err)
 	}
-	if len(p.Steps) != 28 {
-		t.Fatalf("step count = %d, want 28", len(p.Steps))
+	p, err := LoadPipeline(path)
+	if err != nil {
+		t.Fatalf("chapter pipeline failed to load: %v", err)
+	}
+	if len(p.Steps) != 2 {
+		t.Fatalf("step count = %d, want 2", len(p.Steps))
 	}
 	for _, step := range p.Steps {
-		if len(step.Name) == len("chapter-01") && strings.HasPrefix(step.Name, "chapter-") && step.Quality == nil {
+		if step.Quality == nil {
 			t.Fatalf("chapter %q has no quality contract", step.Name)
 		}
+		if step.Quality.MinWords != 8 || step.Quality.MaxRetries != 2 {
+			t.Fatalf("chapter %q quality contract was not decoded: %+v", step.Name, step.Quality)
+		}
+	}
+	if err := validatePipelineQuality("# Chapter 1: Opening\n\nEvelyn entered the railway station and listened to the rain outside.", p.Steps[0].Quality); err != nil {
+		t.Fatalf("loaded quality contract rejected a valid chapter: %v", err)
+	}
+	if err := validatePipelineQuality("# Chapter 1: Opening\n\nThe chapter ends in the railway station after the rain outside.", p.Steps[0].Quality); err == nil {
+		t.Fatal("loaded quality contract accepted a forbidden phrase")
 	}
 }

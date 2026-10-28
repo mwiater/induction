@@ -249,7 +249,7 @@ Shows a compact multimodal pipeline with an image attachment, MCP disabled, expl
 
 ### 2. Steps
 
-- **analyze-input:** Analyzes the image in detail using custom temperature, topP, topK, token, repeat-penalty, and seed settings.
+- **analyze-input:** Analyzes the image in detail using custom sampling parameters, including temperature, topP, topK, token, repeat-penalty, seed, minP, XTC, typicalP, presence/frequency penalties, and repeatLastN.
 - **return-json:** Serializes the accumulated analysis into the exact schema using a separate lower-temperature parameter set.
 
 ### 3. Expected final output

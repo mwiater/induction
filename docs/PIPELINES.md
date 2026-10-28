@@ -37,6 +37,68 @@ step can serialize the accumulated conversation into the artifact. Model steps
 may use `responseFormat`, `jsonSchema`, or a grammar. Transform steps use
 registered deterministic operations and receive values through `input`.
 
+### Generation parameters
+
+A model step can optionally override generation parameters with `parameters`:
+
+```yaml
+steps:
+  - name: answer
+    model: MODEL
+    userPrompt: Answer the question.
+    parameters:
+      temperature: 1.2
+      topP: 0.98
+      topK: 40
+      maxTokens: 2048
+      repeatPenalty: 1.05
+      seed: 42
+      minP: 0.02
+      xtcProbability: 0.35
+      xtcThreshold: 0.10
+      typicalP: 1.0
+      presencePenalty: 0.0
+      frequencyPenalty: 0.0
+      repeatLastN: 64
+```
+
+The supported parameter names and meanings are:
+
+| YAML field | Definition |
+| --- | --- |
+| `temperature` | Sampling randomness. |
+| `topP` | Nucleus sampling probability mass. |
+| `topK` | Limits sampling to the highest-scoring K tokens. |
+| `maxTokens` | Maximum number of generated tokens. |
+| `repeatPenalty` | Penalty applied to repeated tokens. |
+| `seed` | Random seed for reproducible sampling where supported. |
+| `minP` | Minimum token probability relative to the most likely token. |
+| `xtcProbability` | Probability of applying XTC token exclusion. |
+| `xtcThreshold` | XTC probability threshold used when excluding tokens. |
+| `typicalP` | Typical-sampling probability mass. |
+| `presencePenalty` | Penalizes a token if it has appeared previously. |
+| `frequencyPenalty` | Penalizes a token according to how often it has appeared. |
+| `repeatLastN` | Number of recent tokens considered by repeat-penalty sampling. |
+
+Every field is optional. If a field is absent, it is omitted from the request
+and the model/server default is used. Explicit zero values are retained and
+sent; they are not treated as absent. The server/model ultimately determines
+which parameter values are valid.
+
+`temperature` is also supported as a legacy top-level step field. Prefer the
+`parameters` mapping when configuring multiple generation parameters.
+
+### Pipeline failures and sessions
+
+When a pipeline step fails—for example, because it returns empty output,
+invalid structured output, fails validation, or cannot load its model—Induction
+records the terminal error in the pipeline session's `error` field, persists
+the session under `.sessions/<session-id>.json`, and ends that console run.
+The process returns a failure status so wrappers can report the failed pipeline.
+Scripts that iterate over multiple pipelines, such as
+[`pipelines/runAllPipelines.sh`](../pipelines/runAllPipelines.sh), can then
+continue with the next pipeline while retaining the failed session for review.
+
 ## Decision steps and conditional routing
 
 Use `decision:` when the answer is one of a small, known set of values and

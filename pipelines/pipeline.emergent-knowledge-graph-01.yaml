@@ -9,7 +9,7 @@ inputs:
 
 steps:
   - name: profile-lens
-    model: Qwen-3.5-9B-MTP-General-Q4_K_M
+    model: Qwen-3.8-27B-Reasoning-Q4_K_M
     nomcp: true
     parameters:
       maxTokens: 1024
@@ -31,7 +31,7 @@ steps:
   - name: extract-observations
     forEach: "{{ inputs.documents.chunks }}"
     as: chunk
-    model: Qwen-3.5-9B-MTP-General-Q4_K_M
+    model: Qwen-3.8-27B-Reasoning-Q4_K_M
     temperature: 0.1
     nomcp: true
     parameters:
@@ -81,7 +81,7 @@ steps:
   - name: resolve-entities
     forEach: "{{ steps.entity-candidates.output.candidates }}"
     as: candidate
-    model: Qwen-3.5-9B-MTP-General-Q4_K_M
+    model: Qwen-3.8-27B-Reasoning-Q4_K_M
     temperature: 0.0
     nomcp: true
     parameters:
@@ -135,7 +135,7 @@ steps:
       artifact: preliminary-graph.json
 
   - name: induce-graph-semantics
-    model: Qwen-3.5-9B-MTP-General-Q4_K_M
+    model: Qwen-3.8-27B-Reasoning-Q4_K_M
     temperature: 0.1
     nomcp: true
     parameters:

@@ -16,6 +16,7 @@ func TestChatSessionRoundTripAndRename(t *testing.T) {
 		t.Fatal(err)
 	}
 	original.Snapshots = []*ModelSnapshot{{ModelID: "model", Messages: []Message{{Role: "user", Content: "Hello"}}, Interaction: []Interaction{{Content: "Hi", ReasoningContent: "thinking", Response: "raw"}}}}
+	original.Error = `pipeline step "profile-lens" returned empty output`
 	if err := saveChatSessionToDir(directory, original); err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +25,7 @@ func TestChatSessionRoundTripAndRename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Title != "Go Interfaces" || loaded.Model != "model" || len(loaded.Messages) != 1 || len(loaded.Snapshots) != 1 || len(loaded.Snapshots[0].Interaction) != 1 || loaded.Snapshots[0].Interaction[0].Content != "Hi" {
+	if loaded.Title != "Go Interfaces" || loaded.Model != "model" || loaded.Error == "" || len(loaded.Messages) != 1 || len(loaded.Snapshots) != 1 || len(loaded.Snapshots[0].Interaction) != 1 || loaded.Snapshots[0].Interaction[0].Content != "Hi" {
 		t.Fatalf("unexpected session: %#v", loaded)
 	}
 	created := loaded.CreatedAt

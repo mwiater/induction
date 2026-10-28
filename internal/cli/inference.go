@@ -18,12 +18,13 @@ import (
 )
 
 type inferenceFlags struct {
-	config, model, userPrompt, systemPrompt, responseFormat, jsonSchema string
-	image, document, documents, pipeline                                string
-	parameterOverrides, autosubmit, autoexit, nomcp                     bool
-	temperature, topP, repeatPenalty                                    float64
-	topK, maxTokens, seed                                               int
-	parameterSet                                                        map[string]bool
+	config, model, userPrompt, systemPrompt, responseFormat, jsonSchema  string
+	image, document, documents, pipeline                                 string
+	parameterOverrides, autosubmit, autoexit, nomcp                      bool
+	temperature, topP, repeatPenalty, minP, xtcProbability, xtcThreshold float64
+	typicalP, presencePenalty, frequencyPenalty                          float64
+	topK, maxTokens, seed, repeatLastN                                   int
+	parameterSet                                                         map[string]bool
 }
 
 func addInferenceFlags(root *cobra.Command, f *inferenceFlags) {
@@ -42,6 +43,13 @@ func addInferenceFlags(root *cobra.Command, f *inferenceFlags) {
 	root.Flags().IntVar(&f.maxTokens, "max-tokens", 0, "request maximum token override")
 	root.Flags().Float64Var(&f.repeatPenalty, "repeat-penalty", 0, "request repeat-penalty override")
 	root.Flags().IntVar(&f.seed, "seed", 0, "request seed override")
+	root.Flags().Float64Var(&f.minP, "min-p", 0, "request min-p override")
+	root.Flags().Float64Var(&f.xtcProbability, "xtc-probability", 0, "request XTC probability override")
+	root.Flags().Float64Var(&f.xtcThreshold, "xtc-threshold", 0, "request XTC threshold override")
+	root.Flags().Float64Var(&f.typicalP, "typical-p", 0, "request typical-p override")
+	root.Flags().Float64Var(&f.presencePenalty, "presence-penalty", 0, "request presence-penalty override")
+	root.Flags().Float64Var(&f.frequencyPenalty, "frequency-penalty", 0, "request frequency-penalty override")
+	root.Flags().IntVar(&f.repeatLastN, "repeat-last-n", 0, "request repeat-last-n override")
 	root.Flags().BoolVar(&f.autosubmit, "autosubmit", false, "submit --userPrompt automatically")
 	root.Flags().BoolVar(&f.autoexit, "autoexit", false, "exit after the automated response and session save")
 	root.Flags().BoolVar(&f.nomcp, "nomcp", false, "disable configured MCP servers for this inference")
@@ -65,12 +73,9 @@ func runInference(ctx context.Context, f inferenceFlags, in io.Reader, out io.Wr
 		if len(p.Steps) == 0 {
 			return errors.New("pipeline has no steps")
 		}
-		prompt := strings.TrimSpace(p.Prompt)
+		prompt := pipelineInitialPrompt(p, f.userPrompt)
 		if prompt == "" {
-			prompt = strings.TrimSpace(f.userPrompt)
-		}
-		if prompt == "" {
-			return errors.New("pipeline requires a top-level prompt or --userPrompt")
+			return errors.New("pipeline requires a top-level prompt, --userPrompt, or a first-step userPrompt")
 		}
 		configPath := f.config
 		if strings.TrimSpace(p.Config) != "" {
@@ -202,6 +207,22 @@ func runInference(ctx context.Context, f inferenceFlags, in io.Reader, out io.Wr
 		return runMCP(ctx, req, in, out, options...)
 	}
 	return runApplicationTools(ctx, req, in, out, options...)
+}
+
+func pipelineInitialPrompt(p *induction.Pipeline, userPrompt string) string {
+	if p == nil {
+		return strings.TrimSpace(userPrompt)
+	}
+	if prompt := strings.TrimSpace(p.Prompt); prompt != "" {
+		return prompt
+	}
+	if prompt := strings.TrimSpace(userPrompt); prompt != "" {
+		return prompt
+	}
+	if len(p.Steps) > 0 {
+		return strings.TrimSpace(p.Steps[0].UserPrompt)
+	}
+	return ""
 }
 
 func refreshModelListCache(ctx context.Context, cfg *induction.Config) {
@@ -374,5 +395,26 @@ func applyParameters(req *induction.ChatRequest, f inferenceFlags) {
 	}
 	if f.parameterSet["seed"] {
 		req.Seed = intPtr(f.seed)
+	}
+	if f.parameterSet["min-p"] {
+		req.MinP = floatPtr(f.minP)
+	}
+	if f.parameterSet["xtc-probability"] {
+		req.XTCProbability = floatPtr(f.xtcProbability)
+	}
+	if f.parameterSet["xtc-threshold"] {
+		req.XTCThreshold = floatPtr(f.xtcThreshold)
+	}
+	if f.parameterSet["typical-p"] {
+		req.TypicalP = floatPtr(f.typicalP)
+	}
+	if f.parameterSet["presence-penalty"] {
+		req.PresencePenalty = floatPtr(f.presencePenalty)
+	}
+	if f.parameterSet["frequency-penalty"] {
+		req.FrequencyPenalty = floatPtr(f.frequencyPenalty)
+	}
+	if f.parameterSet["repeat-last-n"] {
+		req.RepeatLastN = intPtr(f.repeatLastN)
 	}
 }

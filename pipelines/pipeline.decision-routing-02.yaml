@@ -6,10 +6,19 @@ steps:
     model: Kev-4B-Q8_0
     nomcp: true
     systemPrompt: You are a careful food-safety decision model.
-    userPrompt: Did the power outage last more than four hours?
+    userPrompt: |
+      Assess this refrigerator food-safety case after a power outage. Use the
+      supplied facts, preserve uncertainty about temperature history, and
+      provide a cautious recommendation for the perishable foods.
+
+      Facts: the outage lasted 6 hours, the refrigerator door stayed closed,
+      the measured temperature when power returned was 46°F, temperature
+      history is unavailable, and the contents are raw chicken, milk, and
+      leftovers.
     decision:
       endpoint: systemone
       type: choice
+      questionID: outage_duration
       state:
         outage_duration_hours: 6
         refrigerator_door_stayed_closed: true
@@ -33,6 +42,7 @@ steps:
     decision:
       endpoint: systemone
       type: choice
+      questionID: refrigerator_temperature
       state:
         outage_duration_hours: 6
         refrigerator_door_stayed_closed: true
@@ -56,6 +66,7 @@ steps:
     decision:
       endpoint: systemone
       type: choice
+      questionID: perishable_foods
       state:
         refrigerator_contents:
           - raw chicken
@@ -75,6 +86,7 @@ steps:
     decision:
       endpoint: systemone
       type: choice
+      questionID: unsafe_temperature_duration
       state:
         outage_duration_hours: 6
         refrigerator_door_stayed_closed: true
@@ -132,3 +144,92 @@ steps:
 
       Guidance source:
       https://www.fda.gov/food/buy-store-serve-safe-food/food-and-water-safety-during-power-outages-and-floods
+
+      Required output contract:
+      - Print all four decision levels with every candidate, normalized probability, and selected value.
+      - Clearly distinguish measured facts from unknown temperature history.
+      - Give a cautious recommendation for raw chicken, milk, and leftovers.
+      - Do not use smell or appearance as a safety test.
+      - Do not present model probabilities as medical certainty.
+    contract:
+      - Includes all four decision levels and every candidate branch.
+      - Reports each selected value and normalized probability.
+      - Clearly preserves the unknown temperature-history fact.
+      - Provides cautious recommendations for raw chicken, milk, and leftovers.
+      - Does not use smell or appearance as a safety test.
+      - Does not present probabilities as medical certainty.
+
+  - name: food-safety-conformance
+    model: Kev-4B-Q8_0
+    nomcp: true
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: noul
+      questionID: conforms
+      state: |
+        Food-safety decision tree:
+        {{ steps.food-safety-decision-tree.output }}
+
+        Required contract:
+        {{ steps.food-safety-decision-tree.contract }}
+      instructions: Does the food-safety decision tree satisfy every required contract criterion without inventing facts or overstating certainty?
+      criteria:
+        "true": Every required decision, uncertainty, recommendation, and safety caveat is present.
+        "false": One or more required decisions, uncertainty statements, recommendations, or safety caveats is missing or unsupported.
+
+  - name: food-safety-score
+    model: Kev-4B-Q8_0
+    nomcp: true
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: score
+      questionID: safety_quality
+      state: |
+        Food-safety decision tree:
+        {{ steps.food-safety-decision-tree.output }}
+
+        Required contract:
+        {{ steps.food-safety-decision-tree.contract }}
+      instructions: Rate the decision tree's factual grounding, uncertainty handling, completeness, and practical safety guidance.
+      criteria:
+        - The output is unsafe, unsupported, or unusable.
+        - Major safety or factual requirements are missing.
+        - The output is partially useful but has notable omissions.
+        - The output is cautious and mostly complete with minor issues.
+        - The output is fully grounded, complete, cautious, and practical.
+
+  - name: remediate-food-safety
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    when:
+      decision: food-safety-conformance
+      equals: "false"
+    userPrompt: |
+      Rewrite the decision tree so it satisfies every required contract
+      criterion. Preserve the supplied facts and unknown temperature history.
+      Return the complete replacement decision tree only.
+
+      Required contract:
+      {{ steps.food-safety-decision-tree.contract }}
+
+      Previous decision tree:
+      {{ steps.food-safety-decision-tree.output }}
+
+  - name: remediate-food-safety-score
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    nomcp: true
+    when:
+      decision: food-safety-score
+      maxScore: 2.999
+    userPrompt: |
+      Improve the decision tree so it is fully grounded, complete, cautious,
+      and practical. Return the complete replacement decision tree only.
+
+      Required contract:
+      {{ steps.food-safety-decision-tree.contract }}
+
+      Previous decision tree:
+      {{ steps.remediate-food-safety.output }}
+      {{ steps.food-safety-decision-tree.output }}

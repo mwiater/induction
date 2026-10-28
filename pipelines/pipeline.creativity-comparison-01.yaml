@@ -1,0 +1,353 @@
+# JPEG creativity v2: same generation prompt across profiles; no maxTokens overrides.
+# Technical audit distinguishes syntax, feasibility, and novelty.
+name: jpeg-creative-rate-distortion-v2
+config: induction.yaml
+steps:
+- name: baseline
+  model: GPT-OSS-120B-UD-Q4_K_XL
+  nomcp: true
+  systemPrompt: |-
+    You are researching new algorithms for an ENCODER that emits ordinary 8-bit baseline sequential DCT JPEG. The unchanged decoder is the only decoder. Objective: minimize actual complete .jpg file bytes while matching a specified perceptual quality threshold against the uncompressed source. Decoded pixels MAY differ from source pixels; this is ordinary lossy compression, not a compatibility violation.
+
+    Be genuinely inventive but mechanistic. Do not invent JPEG syntax, make impossibility claims without proof, or claim proven novelty or compression gains. A new search method is feasible but is not automatically a fundamentally new compression mechanism. Encode-side learning, search, or expensive computation is allowed; no model, metadata, dictionary, or sidecar may be needed by the decoder. Do not use any earlier pipeline output as inspiration: respond only to the request below.
+  userPrompt: |-
+    RESEARCH TASK: Invent FIVE distinct, falsifiable encoder-side research hypotheses that could reduce total baseline JPEG bytes at MATCHED perceptual quality against a strong modern encoder (MozJPEG or jpegli). Focus on surprising but plausible algorithms rather than new names for existing methods.
+
+    LEGAL DESIGN SPACE: source-domain preprocessing that still preserves matched perceptual quality; image-dependent choice of globally signaled JPEG quantization tables; legal per-block quantized DCT coefficient choices under shared tables; DC prediction-aware coefficient choices; legal scan/component configuration; legal canonical Huffman tables; co-optimization across these decisions. Any proposed setting must obey 8-bit baseline sequential JPEG limits. There is NO requirement to preserve quantized coefficients or exact output pixels. Do not rely on per-block quantization tables or chroma subsampling switches that cannot be signaled in baseline syntax. JPEG DHT symbols need not be numerically sorted; a Huffman optimization is not by itself novel.
+
+    INVENTIVE SEARCH: Try five DIFFERENT causal mechanisms, not five parameterizations of one Q-table or coefficient-search family. Prefer underexplored interactions, constrained optimization principles, or cross-domain mechanisms that translate to concrete encoder variables. Avoid mere repackaging of trellis RDO, common masking, Huffman optimization, and learned perceptual tuning. Those may be components, but identify the actual new hypothesis. If the idea is essentially a faster optimization search, label it honestly rather than claiming new compression capability.
+
+    For each of five numbered ideas, use these compact fields:
+    - NAME and NOVEL HYPOTHESIS (one sentence)
+    - LEGAL JPEG DEGREES OF FREEDOM (exact encoder variables, syntax implications)
+    - MECHANISM (2-4 operational steps; include an equation or objective when useful)
+    - CAUSAL RATE-DISTORTION CLAIM (why bytes might decrease at the same perceptual quality; account for headers/tables)
+    - NEAREST KNOWN FAMILY and DISTINCTIVE DIFFERENCE (possible overlap, not verified prior art)
+    - FAILURE MODE and COMPUTE COST
+    - FALSIFICATION TEST (smallest experiment, matched-quality comparison versus MozJPEG and jpegli)
+
+    Make each proposal specific enough to prototype. About 110-150 words per idea. Do not promise a positive result. If a proposal cannot identify a legal encoder variable and a test, discard it and invent a replacement before answering.
+  parameters:
+    temperature: 0.95
+    topP: 0.95
+    topK: 40
+    minP: 0.03
+    xtcProbability: 0.0
+    xtcThreshold: 0.1
+    typicalP: 1.0
+    repeatPenalty: 1.05
+    presencePenalty: 0.0
+    frequencyPenalty: 0.0
+    repeatLastN: 64
+    seed: 42
+- name: high-creativity
+  model: GPT-OSS-120B-UD-Q4_K_XL
+  nomcp: true
+  systemPrompt: |-
+    You are researching new algorithms for an ENCODER that emits ordinary 8-bit baseline sequential DCT JPEG. The unchanged decoder is the only decoder. Objective: minimize actual complete .jpg file bytes while matching a specified perceptual quality threshold against the uncompressed source. Decoded pixels MAY differ from source pixels; this is ordinary lossy compression, not a compatibility violation.
+
+    Be genuinely inventive but mechanistic. Do not invent JPEG syntax, make impossibility claims without proof, or claim proven novelty or compression gains. A new search method is feasible but is not automatically a fundamentally new compression mechanism. Encode-side learning, search, or expensive computation is allowed; no model, metadata, dictionary, or sidecar may be needed by the decoder. Do not use any earlier pipeline output as inspiration: respond only to the request below.
+  userPrompt: |-
+    RESEARCH TASK: Invent FIVE distinct, falsifiable encoder-side research hypotheses that could reduce total baseline JPEG bytes at MATCHED perceptual quality against a strong modern encoder (MozJPEG or jpegli). Focus on surprising but plausible algorithms rather than new names for existing methods.
+
+    LEGAL DESIGN SPACE: source-domain preprocessing that still preserves matched perceptual quality; image-dependent choice of globally signaled JPEG quantization tables; legal per-block quantized DCT coefficient choices under shared tables; DC prediction-aware coefficient choices; legal scan/component configuration; legal canonical Huffman tables; co-optimization across these decisions. Any proposed setting must obey 8-bit baseline sequential JPEG limits. There is NO requirement to preserve quantized coefficients or exact output pixels. Do not rely on per-block quantization tables or chroma subsampling switches that cannot be signaled in baseline syntax. JPEG DHT symbols need not be numerically sorted; a Huffman optimization is not by itself novel.
+
+    INVENTIVE SEARCH: Try five DIFFERENT causal mechanisms, not five parameterizations of one Q-table or coefficient-search family. Prefer underexplored interactions, constrained optimization principles, or cross-domain mechanisms that translate to concrete encoder variables. Avoid mere repackaging of trellis RDO, common masking, Huffman optimization, and learned perceptual tuning. Those may be components, but identify the actual new hypothesis. If the idea is essentially a faster optimization search, label it honestly rather than claiming new compression capability.
+
+    For each of five numbered ideas, use these compact fields:
+    - NAME and NOVEL HYPOTHESIS (one sentence)
+    - LEGAL JPEG DEGREES OF FREEDOM (exact encoder variables, syntax implications)
+    - MECHANISM (2-4 operational steps; include an equation or objective when useful)
+    - CAUSAL RATE-DISTORTION CLAIM (why bytes might decrease at the same perceptual quality; account for headers/tables)
+    - NEAREST KNOWN FAMILY and DISTINCTIVE DIFFERENCE (possible overlap, not verified prior art)
+    - FAILURE MODE and COMPUTE COST
+    - FALSIFICATION TEST (smallest experiment, matched-quality comparison versus MozJPEG and jpegli)
+
+    Make each proposal specific enough to prototype. About 110-150 words per idea. Do not promise a positive result. If a proposal cannot identify a legal encoder variable and a test, discard it and invent a replacement before answering.
+  parameters:
+    temperature: 1.05
+    topP: 0.97
+    topK: 40
+    minP: 0.02
+    xtcProbability: 0.0
+    xtcThreshold: 0.1
+    typicalP: 1.0
+    repeatPenalty: 1.05
+    presencePenalty: 0.0
+    frequencyPenalty: 0.0
+    repeatLastN: 64
+    seed: 43
+- name: xtc-creativity
+  model: GPT-OSS-120B-UD-Q4_K_XL
+  nomcp: true
+  systemPrompt: |-
+    You are researching new algorithms for an ENCODER that emits ordinary 8-bit baseline sequential DCT JPEG. The unchanged decoder is the only decoder. Objective: minimize actual complete .jpg file bytes while matching a specified perceptual quality threshold against the uncompressed source. Decoded pixels MAY differ from source pixels; this is ordinary lossy compression, not a compatibility violation.
+
+    Be genuinely inventive but mechanistic. Do not invent JPEG syntax, make impossibility claims without proof, or claim proven novelty or compression gains. A new search method is feasible but is not automatically a fundamentally new compression mechanism. Encode-side learning, search, or expensive computation is allowed; no model, metadata, dictionary, or sidecar may be needed by the decoder. Do not use any earlier pipeline output as inspiration: respond only to the request below.
+  userPrompt: |-
+    RESEARCH TASK: Invent FIVE distinct, falsifiable encoder-side research hypotheses that could reduce total baseline JPEG bytes at MATCHED perceptual quality against a strong modern encoder (MozJPEG or jpegli). Focus on surprising but plausible algorithms rather than new names for existing methods.
+
+    LEGAL DESIGN SPACE: source-domain preprocessing that still preserves matched perceptual quality; image-dependent choice of globally signaled JPEG quantization tables; legal per-block quantized DCT coefficient choices under shared tables; DC prediction-aware coefficient choices; legal scan/component configuration; legal canonical Huffman tables; co-optimization across these decisions. Any proposed setting must obey 8-bit baseline sequential JPEG limits. There is NO requirement to preserve quantized coefficients or exact output pixels. Do not rely on per-block quantization tables or chroma subsampling switches that cannot be signaled in baseline syntax. JPEG DHT symbols need not be numerically sorted; a Huffman optimization is not by itself novel.
+
+    INVENTIVE SEARCH: Try five DIFFERENT causal mechanisms, not five parameterizations of one Q-table or coefficient-search family. Prefer underexplored interactions, constrained optimization principles, or cross-domain mechanisms that translate to concrete encoder variables. Avoid mere repackaging of trellis RDO, common masking, Huffman optimization, and learned perceptual tuning. Those may be components, but identify the actual new hypothesis. If the idea is essentially a faster optimization search, label it honestly rather than claiming new compression capability.
+
+    For each of five numbered ideas, use these compact fields:
+    - NAME and NOVEL HYPOTHESIS (one sentence)
+    - LEGAL JPEG DEGREES OF FREEDOM (exact encoder variables, syntax implications)
+    - MECHANISM (2-4 operational steps; include an equation or objective when useful)
+    - CAUSAL RATE-DISTORTION CLAIM (why bytes might decrease at the same perceptual quality; account for headers/tables)
+    - NEAREST KNOWN FAMILY and DISTINCTIVE DIFFERENCE (possible overlap, not verified prior art)
+    - FAILURE MODE and COMPUTE COST
+    - FALSIFICATION TEST (smallest experiment, matched-quality comparison versus MozJPEG and jpegli)
+
+    Make each proposal specific enough to prototype. About 110-150 words per idea. Do not promise a positive result. If a proposal cannot identify a legal encoder variable and a test, discard it and invent a replacement before answering.
+  parameters:
+    temperature: 1.0
+    topP: 0.97
+    topK: 40
+    minP: 0.02
+    xtcProbability: 0.15
+    xtcThreshold: 0.1
+    typicalP: 1.0
+    repeatPenalty: 1.05
+    presencePenalty: 0.0
+    frequencyPenalty: 0.0
+    repeatLastN: 64
+    seed: 44
+- name: critique
+  model: GPT-OSS-120B-UD-Q4_K_XL
+  nomcp: true
+  systemPrompt: |-
+    You are an adversarial JPEG engineer auditing proposed encoder algorithms, not producing new ones. Review exactly 15 entries grouped by baseline, high-creativity, and xtc-creativity. Treat claims as hypotheses.
+
+    Separate THREE questions: (A) syntax/decoder compatibility, (B) mathematical/implementation plausibility, (C) possible prior-art overlap. These are NOT equivalent. Changing reconstructed pixels and choosing alternative quantized DCT coefficients are permitted in lossy baseline JPEG. A legal choice need not reproduce the source exactly. Do NOT claim JPEG Huffman symbols must appear in increasing numeric order, that a component can use only one table in the entire file, or that DC optimization is invalid just because it changes pixels. Equally, do not assume arbitrary per-block sampling factors or per-block DQT selection are legal: demand an actual compliant signaling path.
+
+    Declare REJECT only for a demonstrable fatal problem, with the exact violated JPEG constraint or mathematical contradiction. Where insufficient detail or uncertain standards/prior art exists, use INVESTIGATE, not a confident rejection. Prior-art similarity lowers novelty, not JPEG compatibility. Do not assert two optimizers are mathematically equivalent without showing the shared objective/feasible set. Do not claim to have consulted papers or executed codecs.
+
+    Identify conceptual duplicates across groups, even if names differ. Give actionable checks, not speculative cures.
+  userPrompt: |-
+    AUDIT 15 ORIGINAL PROPOSALS (all groups receive the identical user prompt):
+    BASELINE:
+    {{ steps.baseline.output }}
+    HIGH-CREATIVITY:
+    {{ steps.high-creativity.output }}
+    XTC-CREATIVITY:
+    {{ steps.xtc-creativity.output }}
+
+    For each idea use one line or short paragraph with ID B1-B5, H1-H5 or X1-X5; verdict PASS / REVISE / INVESTIGATE / REJECT; compatibility rationale; mathematical feasibility; nearest plausible prior-art family; one decisive test. Mark uncertain claims UNCERTAIN. Group conceptually identical ideas into research families and identify duplicates; do not use the sampling-profile label to infer quality. Do not replace or merge original IDs.
+  parameters:
+    temperature: 0.2
+    topP: 0.9
+    seed: 100
+- name: revise
+  model: GPT-OSS-120B-UD-Q4_K_XL
+  nomcp: true
+  systemPrompt: You are a JPEG research editor. Preserve all 15 original idea IDs and their causal hypotheses.
+    Apply technical corrections from critique; never convert a REJECT into an unrelated idea, and never
+    silently turn possible prior art into verified originality. When critique seems overconfident, preserve
+    the idea with status INVESTIGATE and describe the precise check needed. Legal lossy changes to output
+    pixels or quantized DCT coefficients are not disqualifying. Rephrase vague claims as concrete legal
+    encoder decisions and falsifiable experiments. Keep output short enough for downstream scoring. No
+    benchmark results or literature searches have been performed.
+  userPrompt: |-
+    ORIGINAL IDEAS:
+    BASELINE:
+    {{ steps.baseline.output }}
+    HIGH-CREATIVITY:
+    {{ steps.high-creativity.output }}
+    XTC-CREATIVITY:
+    {{ steps.xtc-creativity.output }}
+
+    TECHNICAL AUDIT:
+    {{ steps.critique.output }}
+
+    Return exactly 3 sections (BASELINE, HIGH-CREATIVITY, XTC-CREATIVITY) with exactly five numbered entries each in original order. For every entry: original idea name; PASS/REVISE/INVESTIGATE/REJECT; one-sentence LEGAL ENCODER OPERATION; CORE ALGORITHM; CAUSAL BYTE-SAVINGS HYPOTHESIS; probable prior-art family; decisive experiment; fatal or unresolved concern. Keep each to ~75-100 words. Do not fabricate a replacement concept.
+  parameters:
+    temperature: 0.3
+    topP: 0.9
+    seed: 101
+- name: evaluate
+  model: GPT-OSS-120B-UD-Q4_K_XL
+  nomcp: true
+  systemPrompt: |-
+    You evaluate unverified research hypotheses for standard 8-bit baseline sequential JPEG encoder improvement at matched perceptual quality. Do not confuse JPEG syntax validity with novelty, perceptual distortion, or prior art. JPEG may change reconstructed pixels and coefficient choices legally. A component's valid selection of a shared DQT is not inherently a syntax error, but claims of arbitrary per-block DQT switches require exact legal signaling. Huffman DHT symbols are not required to be in numerical ascending order. A suspected connection to trellis/RDO is an overlap warning, not mathematical proof of equivalence.
+
+    Reject as incompatible ONLY if a specific decoder/bitstream rule is necessarily broken or a custom decoder/side channel is required. If legal behavior is plausible but underspecified, mark REVISE and state the missing proof. Use REJECT for demonstrated physically/mathematically impossible mechanisms or untestable ones only if they cannot be revised without replacing the essential idea. An idea may be ordinary prior art yet still feasible and JPEG-compatible: reduce originality score instead of falsifying feasibility. Make clear that no novelty or improvement has been verified.
+
+    Rate on 0-10: predicted rate-distortion advantage at matched perceptual quality (30%), distinctive algorithmic originality (25%), technical feasibility (25%), falsifiability/prototype testability (15%), and encoding practicality (5%). WeightedScore = 0.30*RD + 0.25*originality + 0.25*feasibility + 0.15*testability + 0.05*practicality. Round to 2 decimals. For an actually REJECTED idea set weightedScore=0 (criterion estimates may remain nonzero). Do NOT score originality as high simply because you cannot recall prior art. Distinguish a new optimization heuristic from a new coding degree of freedom. Prefer feasible ideas to eye-catching nonsense. Treat profile identity as irrelevant to quality. Separate sampling profile success from critique/revision effects; one run proves neither.
+  userPrompt: |-
+    OBJECTIVE: Minimum total bytes in standard baseline JPEG at the same perceptual quality against MozJPEG AND jpegli. No experiments or prior-art search have occurred.
+
+    ORIGINAL GROUPS (source provenance):
+    BASELINE:
+    {{ steps.baseline.output }}
+    HIGH-CREATIVITY:
+    {{ steps.high-creativity.output }}
+    XTC-CREATIVITY:
+    {{ steps.xtc-creativity.output }}
+
+    AUDIT:
+    {{ steps.critique.output }}
+    REVISED IDEAS:
+    {{ steps.revise.output }}
+
+    Evaluate exactly B1-B5, H1-H5, X1-X5. Check preservation of original mechanisms before rating revised ideas. For every entry, give status PASS, REVISE, or REJECT, compatibility and feasibility booleans, testability, criterion scores, concise technical rationale, *suspected* related work to investigate, and the smallest falsification experiment. If prior-art evidence or JPEG interpretation is uncertain, choose REVISE and explain what must be verified: do not invent a violation or assert mathematical identity without proof.
+
+    Calculate each group mean including actual rejections as zero. Choose bestIdea among non-REJECT entries and bestGroup by group average. In samplingAssessment discuss conceptual diversity, duplicates, and profile differences; no causal claim about XTC since seeds and other settings also differ. In benchmarkPlan propose matched-rate-distortion JPEG testing against MozJPEG and jpegli, fixed image corpus and color preprocessing, JPEG decode validation, real file sizes including markers, Butteraugli/SSIMULACRA2, blinded human inspection, and time/RAM. Make limitations explicit: no benchmarks, no verified novelty, and judge-model uncertainty. Output exactly the requested JSON schema.
+  responseFormat:
+    type: json_object
+  jsonSchema:
+    type: object
+    properties:
+      evaluations:
+        type: array
+        minItems: 15
+        maxItems: 15
+        items:
+          type: object
+          properties:
+            group:
+              type: string
+              enum:
+              - baseline
+              - high-creativity
+              - xtc-creativity
+            ideaNumber:
+              type: integer
+              minimum: 1
+              maximum: 5
+            ideaName:
+              type: string
+            status:
+              type: string
+              enum:
+              - PASS
+              - REVISE
+              - REJECT
+            jpegCompatible:
+              type: boolean
+            feasibleMechanism:
+              type: boolean
+            falsifiable:
+              type: boolean
+            rateDistortionPotential:
+              type: integer
+              minimum: 0
+              maximum: 10
+            algorithmicOriginality:
+              type: integer
+              minimum: 0
+              maximum: 10
+            technicalFeasibility:
+              type: integer
+              minimum: 0
+              maximum: 10
+            prototypeTestability:
+              type: integer
+              minimum: 0
+              maximum: 10
+            computationalPracticality:
+              type: integer
+              minimum: 0
+              maximum: 10
+            weightedScore:
+              type: number
+              minimum: 0
+              maximum: 10
+            rationale:
+              type: string
+            potentialPriorArt:
+              type: string
+            firstExperiment:
+              type: string
+          required:
+          - group
+          - ideaNumber
+          - ideaName
+          - status
+          - jpegCompatible
+          - feasibleMechanism
+          - falsifiable
+          - rateDistortionPotential
+          - algorithmicOriginality
+          - technicalFeasibility
+          - prototypeTestability
+          - computationalPracticality
+          - weightedScore
+          - rationale
+          - potentialPriorArt
+          - firstExperiment
+          additionalProperties: false
+      groupAverages:
+        type: object
+        properties:
+          baseline:
+            type: number
+            minimum: 0
+            maximum: 10
+          highCreativity:
+            type: number
+            minimum: 0
+            maximum: 10
+          xtcCreativity:
+            type: number
+            minimum: 0
+            maximum: 10
+        required:
+        - baseline
+        - highCreativity
+        - xtcCreativity
+        additionalProperties: false
+      bestIdea:
+        anyOf:
+        - type: object
+          properties:
+            group:
+              type: string
+              enum:
+              - baseline
+              - high-creativity
+              - xtc-creativity
+            ideaNumber:
+              type: integer
+              minimum: 1
+              maximum: 5
+            ideaName:
+              type: string
+            weightedScore:
+              type: number
+              minimum: 0
+              maximum: 10
+          required:
+          - group
+          - ideaNumber
+          - ideaName
+          - weightedScore
+          additionalProperties: false
+        - type: 'null'
+      bestGroup:
+        type: string
+        enum:
+        - baseline
+        - high-creativity
+        - xtc-creativity
+        - none
+      benchmarkPlan:
+        type: string
+      samplingAssessment:
+        type: string
+      limitations:
+        type: string
+    required:
+    - evaluations
+    - groupAverages
+    - bestIdea
+    - bestGroup
+    - benchmarkPlan
+    - samplingAssessment
+    - limitations
+    additionalProperties: false
+  parameters:
+    temperature: 0.2
+    topP: 0.9
+    seed: 102

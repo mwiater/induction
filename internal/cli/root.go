@@ -42,7 +42,7 @@ func NewRootCommand() *cobra.Command {
 				return runRootChat(cmd, configPath, args[0], true)
 			}
 			inference.parameterSet = map[string]bool{}
-			for _, name := range []string{"temperature", "top-p", "top-k", "max-tokens", "repeat-penalty", "seed"} {
+			for _, name := range []string{"temperature", "top-p", "top-k", "max-tokens", "repeat-penalty", "seed", "min-p", "xtc-probability", "xtc-threshold", "typical-p", "presence-penalty", "frequency-penalty", "repeat-last-n"} {
 				inference.parameterSet[name] = cmd.Flags().Changed(name)
 			}
 			inference.parameterOverrides = false

@@ -61,6 +61,23 @@ func TestDocumentFlagsAreMutuallyExclusive(t *testing.T) {
 	}
 }
 
+func TestPipelineInitialPromptPrecedence(t *testing.T) {
+	pipeline := &induction.Pipeline{
+		Prompt: " embedded prompt ",
+		Steps:  []induction.PipelineStep{{UserPrompt: "first step prompt"}},
+	}
+	if got := pipelineInitialPrompt(pipeline, "flag prompt"); got != "embedded prompt" {
+		t.Fatalf("embedded prompt = %q", got)
+	}
+	pipeline.Prompt = ""
+	if got := pipelineInitialPrompt(pipeline, " flag prompt "); got != "flag prompt" {
+		t.Fatalf("flag prompt = %q", got)
+	}
+	if got := pipelineInitialPrompt(pipeline, ""); got != "first step prompt" {
+		t.Fatalf("first step prompt = %q", got)
+	}
+}
+
 func TestApplyOutputFormat(t *testing.T) {
 	req := &induction.ChatRequest{}
 	err := applyOutputFormat(req, inferenceFlags{

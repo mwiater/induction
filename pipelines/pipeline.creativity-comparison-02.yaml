@@ -1,0 +1,280 @@
+name: creativity-comparison
+config: induction.yaml
+
+# Change this prompt to test another creative problem.
+# The creative stages use the same request with deliberately different,
+# moderate sampling profiles. Later stages red-team and revise the candidates.
+steps:
+  - name: baseline
+    model: Ornith-1.0-35B-UD-Q4_K_M
+    nomcp: true
+    systemPrompt: &creative_system |
+      You are an inventive research assistant. Propose surprising, diverse,
+      internally coherent ideas that address the user's request.
+      Combine two distant physical domains in each idea, but make the
+      mechanism physically interpretable. Specify a real stored state, how it
+      is written, how it is read, whether it can be rewritten, and how it
+      fails. Avoid merely renaming an existing storage technology.
+      Do not refer to any other pipeline step or earlier generated answers.
+      Focus only on the original request in this step's user prompt.
+    userPrompt: &creative_request |
+      Invent five unconventional ways to store digital information without
+      relying on magnetic disks, flash memory, optical discs, or DNA storage.
+      Aim for ideas that are novel yet physically interpretable.
+
+      Return exactly five numbered ideas. For each, include:
+      - Name
+      - Operating mechanism
+      - What makes it unconventional
+      - Biggest technical obstacle
+      - Potential practical use
+      - Write/read/retention behavior
+
+      Keep each idea concise (approximately 80-120 words).
+    parameters:
+      temperature: 0.95
+      topP: 0.95
+      topK: 40
+      minP: 0.03
+      xtcProbability: 0.0
+      xtcThreshold: 0.1
+      typicalP: 1.0
+      repeatPenalty: 1.05
+      presencePenalty: 0.0
+      frequencyPenalty: 0.0
+      repeatLastN: 64
+      seed: 42
+
+  - name: high-creativity
+    model: Ornith-1.0-35B-UD-Q4_K_M
+    nomcp: true
+    systemPrompt: *creative_system
+    userPrompt: *creative_request
+    parameters:
+      temperature: 1.05
+      topP: 0.97
+      topK: 40
+      minP: 0.02
+      xtcProbability: 0.0
+      xtcThreshold: 0.1
+      typicalP: 1.0
+      repeatPenalty: 1.05
+      presencePenalty: 0.0
+      frequencyPenalty: 0.0
+      repeatLastN: 64
+      seed: 43
+
+  - name: xtc-creativity
+    model: Ornith-1.0-35B-UD-Q4_K_M
+    nomcp: true
+    systemPrompt: *creative_system
+    userPrompt: *creative_request
+    parameters:
+      temperature: 1.0
+      topP: 0.97
+      topK: 40
+      minP: 0.02
+      xtcProbability: 0.15
+      xtcThreshold: 0.1
+      typicalP: 1.0
+      repeatPenalty: 1.05
+      presencePenalty: 0.0
+      frequencyPenalty: 0.0
+      repeatLastN: 64
+      seed: 44
+
+  - name: critique
+    model: Ornith-1.0-35B-UD-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a rigorous red-team reviewer of speculative physical storage
+      concepts. Do not generate replacement ideas. Check each candidate for
+      hidden use of magnetic, flash, optical-disc, or DNA storage; a missing
+      physical state; an impossible or underspecified write/read path;
+      confusion between volatile and nonvolatile behavior; poor endurance,
+      density, addressing, or error tolerance; and claims that are simply
+      conventional technologies under new names. Preserve genuinely novel
+      mechanisms. Return concise, actionable corrections grouped by source.
+    userPrompt: |
+      ORIGINAL REQUEST:
+      Invent five unconventional ways to store digital information without
+      relying on magnetic disks, flash memory, optical discs, or DNA storage.
+      Aim for ideas that are novel yet physically interpretable.
+
+      BASELINE CANDIDATES:
+      {{ steps.baseline.output }}
+
+      HIGH-CREATIVITY CANDIDATES:
+      {{ steps.high-creativity.output }}
+
+      XTC-CREATIVITY CANDIDATES:
+      {{ steps.xtc-creativity.output }}
+
+      Review all 15 candidates. For each, list the most important physical
+      inconsistency or missing detail and one concrete repair suggestion.
+
+  - name: revise
+    model: Ornith-1.0-35B-UD-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are a technical editor improving speculative inventions. Revise
+      each candidate using the red-team feedback while preserving its central
+      unconventional mechanism. Make the physical state, write path, read
+      path, rewrite behavior, retention, and main failure mode explicit.
+      Do not collapse ideas into conventional magnetic, flash, optical-disc,
+      or DNA storage. Return exactly five numbered ideas for each group,
+      retaining the group names and idea order.
+    userPrompt: |
+      ORIGINAL REQUEST:
+      Invent five unconventional ways to store digital information without
+      relying on magnetic disks, flash memory, optical discs, or DNA storage.
+      Aim for ideas that are novel yet physically interpretable.
+
+      BASELINE CANDIDATES:
+      {{ steps.baseline.output }}
+
+      HIGH-CREATIVITY CANDIDATES:
+      {{ steps.high-creativity.output }}
+
+      XTC-CREATIVITY CANDIDATES:
+      {{ steps.xtc-creativity.output }}
+
+      RED-TEAM FEEDBACK:
+      {{ steps.critique.output }}
+
+      Rewrite all 15 ideas. For each include: Name, Operating mechanism,
+      What makes it unconventional, Biggest technical obstacle, Potential
+      practical use, and Write/read/retention behavior. Keep each concise.
+
+  - name: evaluate
+    model: Ornith-1.0-35B-UD-Q4_K_M
+    nomcp: true
+    systemPrompt: |
+      You are an impartial evaluator of unconventional technical ideas.
+      Assess each idea independently, without favoring any sampling profile.
+      Evaluate novelty (25%), cross-domain originality (20%), mechanism
+      coherence (25%), practical potential (15%), and feasibility (15%).
+      Give integer scores from 1 to 10 and calculate a weighted total on
+      a 0-10 scale. Distinguish genuine innovation from random nonsense.
+      A speculative but coherent mechanism can score well on novelty even
+      when feasibility is limited. Do not invent evidence of prior art.
+      Return only a JSON object matching the requested schema.
+    userPrompt: |
+      ORIGINAL CREATIVE REQUEST:
+      Invent five unconventional ways to store digital information without
+      relying on magnetic disks, flash memory, optical discs, or DNA storage.
+      Aim for ideas that are novel yet physically interpretable.
+
+      REVISED RESULTS:
+      {{ steps.revise.output }}
+
+      The revised output contains the baseline, high-creativity, and
+      xtc-creativity groups in that order. Score the 15 revised ideas,
+      preserving their group and idea numbers.
+
+      Score all five ideas in each group, 15 ideas total.
+      Each score object must contain the five criteria and the correctly
+      calculated weighted score. Calculate group averages from the five
+      weighted scores in each group. Identify the highest-scoring idea and
+      the best group by average score. Explain whether more aggressive
+      sampling and the critique pass improved idea quality in this single run.
+      Treat this as an exploratory comparison, not proof of a general effect.
+    responseFormat:
+      type: json_object
+    jsonSchema:
+      type: object
+      properties:
+        evaluations:
+          type: array
+          items:
+            type: object
+            properties:
+              group:
+                type: string
+                enum: [baseline, high-creativity, xtc-creativity]
+              ideaNumber:
+                type: integer
+                minimum: 1
+                maximum: 5
+              ideaName:
+                type: string
+              novelty:
+                type: integer
+                minimum: 1
+                maximum: 10
+              crossDomainOriginality:
+                type: integer
+                minimum: 1
+                maximum: 10
+              mechanismCoherence:
+                type: integer
+                minimum: 1
+                maximum: 10
+              practicalPotential:
+                type: integer
+                minimum: 1
+                maximum: 10
+              feasibility:
+                type: integer
+                minimum: 1
+                maximum: 10
+              weightedScore:
+                type: number
+                minimum: 0
+                maximum: 10
+              rationale:
+                type: string
+            required:
+              - group
+              - ideaNumber
+              - ideaName
+              - novelty
+              - crossDomainOriginality
+              - mechanismCoherence
+              - practicalPotential
+              - feasibility
+              - weightedScore
+              - rationale
+            additionalProperties: false
+        groupAverages:
+          type: object
+          properties:
+            baseline:
+              type: number
+              minimum: 0
+              maximum: 10
+            highCreativity:
+              type: number
+              minimum: 0
+              maximum: 10
+            xtcCreativity:
+              type: number
+              minimum: 0
+              maximum: 10
+          required: [baseline, highCreativity, xtcCreativity]
+          additionalProperties: false
+        highestScoringIdea:
+          type: object
+          properties:
+            group:
+              type: string
+            ideaNumber:
+              type: integer
+            ideaName:
+              type: string
+            weightedScore:
+              type: number
+          required: [group, ideaNumber, ideaName, weightedScore]
+          additionalProperties: false
+        bestGroup:
+          type: string
+          enum: [baseline, high-creativity, xtc-creativity]
+        samplingAssessment:
+          type: string
+      required:
+        - evaluations
+        - groupAverages
+        - highestScoringIdea
+        - bestGroup
+        - samplingAssessment
+      additionalProperties: false
