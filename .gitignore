@@ -2,6 +2,7 @@
 /.docker-build.log
 /.local
 /.pipeline-artifacts
+/.sandbox/
 /.sessions/
 /.venv-inspect
 /.vscode/

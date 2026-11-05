@@ -523,6 +523,11 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// currently selected model. Keep the stored snapshot authoritative.
 			msg.snapshot.ModelID = msg.model
 		}
+		if msg.snapshot != nil && m.pipeline != nil && m.pipelineStep >= 0 && m.pipelineStep < len(m.pipeline.Steps) {
+			index := m.pipelineStep
+			msg.snapshot.PipelineStepName = m.pipeline.Steps[index].Name
+			msg.snapshot.PipelineStepIndex = &index
+		}
 		if m.session != nil && msg.snapshot != nil {
 			m.session.Snapshots = append(m.session.Snapshots, msg.snapshot)
 			m.session.Model = msg.snapshot.ModelID
@@ -538,6 +543,12 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds := []tea.Cmd{textinput.Blink}
 		if m.session != nil {
 			m.syncSessionFromRequest()
+			if m.pipeline != nil && m.pipelineRunning && m.pipelineStep+1 >= len(m.pipeline.Steps) &&
+				!(m.pipelineFanoutStep == m.pipelineStep && m.pipelineFanoutIndex+1 < len(m.pipelineFanoutItems)) {
+				now := time.Now().UTC()
+				m.session.PipelineStatus = "completed"
+				m.session.CompletedAt = &now
+			}
 			m.sessionLoading = true
 			m.input.Blur()
 			cmds = append(cmds, saveSessionCmd(m.client, m.session, m.autoExitAfterInitialChat && m.pipeline == nil))
@@ -779,7 +790,7 @@ func (m consoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					updated := *m.session
 					session = &updated
 					session.Saved = true
-					configureSessionMode(session, m.pipeline)
+					err = configureSessionMode(session, m.pipeline)
 					session.Title = title
 					if m.pipeline != nil {
 						session.Title = m.pipeline.Name
@@ -933,7 +944,9 @@ func (m *consoleModel) createAndPersistSession() error {
 	if err != nil {
 		return err
 	}
-	configureSessionMode(m.session, m.pipeline)
+	if err := configureSessionMode(m.session, m.pipeline); err != nil {
+		return err
+	}
 	m.pipelineRunID = m.session.ID
 	m.client.logf("session: creating id=%q path=%q saved=%t pipeline=%t", m.session.ID, sessionPathForLog(m.session.ID), m.session.Saved, m.pipeline != nil)
 	if err := saveChatSession(m.session); err != nil {
@@ -1367,6 +1380,9 @@ func (m *consoleModel) failPipeline(err error) tea.Cmd {
 	if m.session != nil {
 		m.syncSessionFromRequest()
 		m.session.Error = err.Error()
+		now := time.Now().UTC()
+		m.session.PipelineStatus = "failed"
+		m.session.CompletedAt = &now
 		m.sessionDirty = true
 		m.sessionLoading = true
 		m.input.Blur()
@@ -2239,7 +2255,9 @@ func runConsoleChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.
 		model.session = nil
 		err = nil
 	} else {
-		configureSessionMode(model.session, client.opts.pipeline)
+		if err == nil {
+			err = configureSessionMode(model.session, client.opts.pipeline)
+		}
 		if model.session != nil {
 			model.pipelineRunID = model.session.ID
 			client.logf("session: creating id=%q path=%q saved=%t pipeline=%t", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved, client.opts.pipeline != nil)
@@ -2361,7 +2379,9 @@ func runConsoleMCPChat(ctx context.Context, req *ChatRequest, in io.Reader, out 
 		model.session = nil
 		err = nil
 	} else {
-		configureSessionMode(model.session, client.opts.pipeline)
+		if err == nil {
+			err = configureSessionMode(model.session, client.opts.pipeline)
+		}
 		if model.session != nil {
 			model.pipelineRunID = model.session.ID
 			client.logf("session: creating id=%q path=%q saved=%t mcp=true", model.session.ID, sessionPathForLog(model.session.ID), model.session.Saved)

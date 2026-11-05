@@ -50,7 +50,9 @@ func inferMCPStreamChatWithApproval(ctx context.Context, req *ChatRequest, in io
 	if err != nil {
 		return err
 	}
-	configureSessionMode(session, newClientFromConfig(ctx, cfg, options...).opts.pipeline)
+	if err := configureSessionMode(session, newClientFromConfig(ctx, cfg, options...).opts.pipeline); err != nil {
+		return err
+	}
 	if err := saveChatSession(session); err != nil {
 		return err
 	}
@@ -106,7 +108,9 @@ func InferMCPChatWithApproval(ctx context.Context, req *ChatRequest, in io.Reade
 		return err
 	}
 	snapshotClient := newClientFromConfig(ctx, cfg, options...)
-	configureSessionMode(session, snapshotClient.opts.pipeline)
+	if err := configureSessionMode(session, snapshotClient.opts.pipeline); err != nil {
+		return err
+	}
 	if err := saveChatSession(session); err != nil {
 		return err
 	}

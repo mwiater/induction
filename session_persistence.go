@@ -1,6 +1,8 @@
 package induction
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -35,10 +39,23 @@ type ChatSession struct {
 	Error            string           `json:"error,omitempty"`
 	BatchID          string           `json:"batch_id,omitempty"`
 	BatchItemID      string           `json:"batch_item_id,omitempty"`
+	Pipeline         *SessionPipeline `json:"pipeline,omitempty"`
+	PipelineStatus   string           `json:"pipeline_status,omitempty"`
+	CompletedAt      *time.Time       `json:"completed_at,omitempty"`
 	Messages         []Message        `json:"messages"`
 	Snapshots        []*ModelSnapshot `json:"snapshots"`
 	imageFilename    string
 	documentFilename string
+}
+
+// SessionPipeline identifies the exact pipeline configuration used for a run.
+// File paths are absolute; SHA256 hashes the original file bytes for file
+// pipelines and the YAML encoding of the in-memory configuration otherwise.
+type SessionPipeline struct {
+	Name   string `json:"name"`
+	Source string `json:"source"` // file or inline
+	Path   string `json:"path,omitempty"`
+	SHA256 string `json:"sha256"`
 }
 
 // ChatSessionSummary contains the metadata shown when listing saved chats.
@@ -106,15 +123,42 @@ func newUnsavedChatSession(request ChatRequest) (*ChatSession, error) {
 	return &ChatSession{Version: chatSessionVersion, ID: id, Type: sessionTypeDirect, CreatedAt: now, UpdatedAt: now, Model: request.Model, Messages: cloneMessages(request.Messages), imageFilename: request.ImageFilename, documentFilename: request.DocumentFilename}, nil
 }
 
-func configureSessionMode(session *ChatSession, pipeline *Pipeline) {
+func configureSessionMode(session *ChatSession, pipeline *Pipeline) error {
 	if session == nil {
-		return
+		return nil
 	}
 	session.Type = sessionTypeDirect
+	session.Pipeline = nil
+	session.PipelineStatus = ""
+	session.CompletedAt = nil
 	if pipeline != nil {
+		provenance := &SessionPipeline{Name: pipeline.Name}
+		if pipeline.FilePath != "" {
+			if pipeline.FileSHA256 == "" {
+				return errors.New("file-backed pipeline has no load-time SHA-256; load it with LoadPipeline")
+			}
+			path, err := filepath.Abs(pipeline.FilePath)
+			if err != nil {
+				return fmt.Errorf("resolve pipeline path: %w", err)
+			}
+			provenance.Source = "file"
+			provenance.Path = path
+			provenance.SHA256 = pipeline.FileSHA256
+		} else {
+			data, err := yaml.Marshal(pipeline)
+			if err != nil {
+				return fmt.Errorf("encode in-memory pipeline provenance: %w", err)
+			}
+			hash := sha256.Sum256(data)
+			provenance.Source = "inline"
+			provenance.SHA256 = hex.EncodeToString(hash[:])
+		}
 		session.Type = sessionTypePipeline
+		session.PipelineStatus = "running"
 		session.Title = pipeline.Name
+		session.Pipeline = provenance
 	}
+	return nil
 }
 
 func updateSessionFinalOutput(session *ChatSession) {
@@ -299,6 +343,44 @@ func validateChatSession(session *ChatSession) error {
 	}
 	if session.Type != sessionTypeDirect && session.Type != sessionTypePipeline {
 		return fmt.Errorf("invalid chat session type %q", session.Type)
+	}
+	if session.Type == sessionTypePipeline {
+		if session.Pipeline == nil || strings.TrimSpace(session.Pipeline.Name) == "" {
+			return errors.New("pipeline session requires pipeline provenance")
+		}
+		if session.Pipeline.Source != "file" && session.Pipeline.Source != "inline" {
+			return errors.New("pipeline session has invalid pipeline source")
+		}
+		if session.Pipeline.Source == "file" && !filepath.IsAbs(session.Pipeline.Path) {
+			return errors.New("file pipeline provenance requires an absolute path")
+		}
+		if session.Pipeline.Source == "inline" && session.Pipeline.Path != "" {
+			return errors.New("inline pipeline provenance cannot have a file path")
+		}
+		if len(session.Pipeline.SHA256) != 64 {
+			return errors.New("pipeline provenance requires a SHA-256 hash")
+		}
+		if _, err := hex.DecodeString(session.Pipeline.SHA256); err != nil {
+			return errors.New("pipeline provenance has invalid SHA-256 hash")
+		}
+		switch session.PipelineStatus {
+		case "": // sessions written by binaries predating explicit terminal status
+			if session.CompletedAt != nil {
+				return errors.New("legacy pipeline session cannot have completed_at")
+			}
+		case "running":
+			if session.CompletedAt != nil {
+				return errors.New("running pipeline session cannot have completed_at")
+			}
+		case "completed", "failed":
+			if session.CompletedAt == nil || session.CompletedAt.IsZero() {
+				return errors.New("terminal pipeline session requires completed_at")
+			}
+		default:
+			return errors.New("pipeline session requires a valid pipeline_status")
+		}
+	} else if session.Pipeline != nil {
+		return errors.New("direct session cannot have pipeline provenance")
 	}
 	if session.Saved {
 		if normalized, err := normalizeSessionTitle(session.Title); err != nil {

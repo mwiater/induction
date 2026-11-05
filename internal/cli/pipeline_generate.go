@@ -97,6 +97,7 @@ func newPipelineCommand(configPath *string) *cobra.Command {
 	generate.Flags().BoolVar(&force, "force", false, "overwrite an existing output file")
 	generate.Flags().BoolVar(&validate, "validate", false, "append a read-only final validation step")
 	pipeline.AddCommand(generate)
+	pipeline.AddCommand(newOptimizePipelineCommand(configPath))
 	return pipeline
 }
 

@@ -195,6 +195,55 @@ threshold reached ends reasoning.
 are stored as private JSON under `.sessions/`, and application diagnostics are
 written to `induction.log`.
 
+To clear local run data from the current working directory, run
+`induction sessions purge`. It permanently removes `.sessions/`,
+`.pipeline-artifacts/`, and `.batches/`; it does not remove pipeline YAML files.
+
+Each new pipeline session stores a `pipeline` object in its JSON with the
+pipeline name, source (`file` or `inline`), and SHA-256 hash. Sessions created
+from a YAML file also store its absolute path. The hash covers the exact file
+bytes loaded for that run, so sessions can be matched to a specific pipeline
+revision even if the file later changes. Inline pipelines have no file path;
+their hash covers their YAML-encoded configuration. Pipeline sessions without
+this provenance are rejected by the current session loader.
+
+For example, a file-backed session contains:
+
+```json
+"pipeline": {
+  "name": "example",
+  "source": "file",
+  "path": "/absolute/path/pipeline.example.yaml",
+  "sha256": "<64-character SHA-256 hex digest>"
+}
+```
+
+Pipeline sessions also record `pipeline_status` (`running`, `completed`, or
+`failed`) and `completed_at` for terminal runs. The pipeline optimizer uses
+only terminal sessions; older sessions without these fields need stable-file
+and terminal-content checks before they can be used.
+
+To propose an alternative pipeline using a local model and completed sessions:
+
+```bash
+induction pipeline optimize --pipeline pipelines/pipeline.prompt-optimization-01.yaml \
+  --source-root . --sessions auto
+# After reviewing the generated analysis, test it yourself:
+induction --pipeline pipelines/pipeline.prompt-optimization-01-alt-1.yaml
+# Then optimize that alternative using its own completed sessions:
+induction pipeline optimize --pipeline pipelines/pipeline.prompt-optimization-01-alt-1.yaml \
+  --source-root . --sessions auto
+```
+
+The optimizer writes numbered alternative YAML and analysis files. It validates
+YAML statically and never executes candidates or measures their performance.
+The report describes expected benefits as hypotheses. See the
+[CLI reference](docs/CLI-REFERENCE.md#pipeline-optimization-induction-pipeline-optimize)
+for options, matching rules, and troubleshooting.
+
+`--dry-run` is static-only: it does not contact llama.cpp, perform optimizer
+inference, load a model, generate a candidate, or create output files.
+
 
 ## Common commands
 

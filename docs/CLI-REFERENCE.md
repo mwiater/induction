@@ -32,6 +32,7 @@ commands require the `--beta` acknowledgement flag.
 | `induction pdf preview` | Preview extracted text from a PDF. |  |
 | `induction pipeline` | Create and work with pipelines. |  |
 | `induction pipeline generate` | Generate a runnable pipeline from a complex prompt. |  |
+| `induction pipeline optimize` | Analyze completed sessions and propose one validated alternative pipeline. |  |
 | `induction runtime` | Manage the server's runtime models. |  |
 | `induction runtime load MODEL` | Load a runtime model. |  |
 | `induction runtime status` | Show the server's runtime model state. |  |
@@ -40,10 +41,17 @@ commands require the `--beta` acknowledgement flag.
 | `induction server` | Inspect the configured inference server. |  |
 | `induction server inspect` | Inspect the configured inference server. |  |
 | `induction sessions` | Manage persisted inference sessions. |  |
-| `induction sessions clean` | Remove invalid persisted sessions. |  |
+| `induction sessions clean` | Remove old invalid session JSON and terminal pipeline sessions with null snapshots; preserve active sessions. |  |
 | `induction sessions inspect` | Replay a persisted chat session as an instant transcript. |  |
+| `induction sessions purge` | Permanently delete local `.sessions/`, `.pipeline-artifacts/`, and `.batches/` directories. |  |
 | `induction ui` | Preview console UI options. |  |
 | `induction ui theme` | Preview console UI theme colors and styles. |  |
+
+`induction sessions clean` preserves running pipeline sessions, including
+their initial `snapshots: null` files. It also preserves legacy pipeline
+sessions whose completion state is ambiguous. Invalid JSON and terminal
+pipeline sessions with null snapshots must be at least one minute old before
+cleanup deletes them. The command reports active or recent files it skipped.
 
 ## Flags
 
@@ -131,6 +139,57 @@ Exactly one of `--prompt` and `--prompt-file` is required. `--model` and
 | `--output PATH` | empty | Output pipeline YAML path. |
 | `--force` | `false` | Overwrite an existing output file. |
 | `--validate` | `false` | Append a read-only final validation step. |
+
+### Pipeline optimization (`induction pipeline optimize`)
+
+```bash
+induction pipeline optimize --pipeline pipelines/pipeline.prompt-optimization-01.yaml \
+  --sessions auto --source-root . --output-dir pipelines
+```
+
+The optimizer reads the target YAML, a matching source checkout, and **completed**
+pipeline sessions. It calls the configured local llama.cpp server for analysis
+and YAML generation, then validates the candidate with Induction's strict parser
+and static validator. It does not run the original or alternative pipeline.
+`--model` selects the optimizer model; by default the first model in the input
+pipeline is used. Candidate steps may use only model IDs already in the input
+pipeline; model swaps are not verified in this MVP.
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--pipeline PATH` | required | Input `.yaml` or `.yml` pipeline. |
+| `--sessions auto\|none` | `auto` | Discover completed sessions or use none. |
+| `--session ID` | none | Select a completed session by ID; repeatable. Overrides auto discovery unless `--sessions auto` is explicit. |
+| `--session-file PATH` | none | Select a completed session JSON file; repeatable. |
+| `--max-sessions N` | `10` | Evidence cap, from 1 to 50. |
+| `--source-root PATH` | current directory | Matching readable source checkout. |
+| `--output-dir PATH` | input directory | Existing directory for output files. |
+| `--model ID` | first pipeline model | Local model for optimizer inference. |
+| `--focus MODE` | `balanced` | `balanced`, `reliability`, `efficiency`, or `structure`. |
+| `--dry-run` | `false` | Perform static inspection only and print the input preview/report; do not contact llama.cpp, infer, load models, or create files. |
+| `--verbose` | `false` | Print optimizer stage progress, evidence counts, validation attempts, output warnings, and paths. |
+
+Auto matching prioritizes the exact pipeline SHA-256 saved in new sessions.
+Same-path and same-name matches are labeled unverified. Sessions marked
+`pipeline_status: running` are excluded. Sessions from older binaries without a
+terminal status are considered only after the file has been stable for at least
+one minute and contains a terminal error or all expected snapshots plus final
+output. An explicit in-flight session is rejected.
+
+Outputs are `{stem}-alt-{N}.yaml` and `{stem}-alt-{N}.analysis.md`, where N is
+one greater than the highest existing alternative for the family. Optimizing
+an alternative continues the same family number sequence. The analysis report
+contains evidence and a manual test plan; projected benefits are hypotheses.
+Run the candidate manually with `induction --pipeline <alternative path>` and
+use its completed sessions for the next iteration. See the
+[sample analysis report](SAMPLE-PIPELINE-OPTIMIZER-ANALYSIS.md).
+
+If no completed sessions match, the optimizer proceeds from pipeline and
+source evidence and says so in the report. It fails if the source checkout is
+missing, the candidate remains invalid after two repair attempts, the local
+model is unavailable, or the output directory is unsafe or unwritable. A dry
+run creates no output files. Session content and source comments are treated
+as untrusted data; reports contain bounded metadata, not full transcripts.
 
 ### PDF preview (`induction pdf preview`)
 

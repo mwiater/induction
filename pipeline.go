@@ -1,6 +1,8 @@
 package induction
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -23,6 +25,9 @@ type Pipeline struct {
 	// FilePath is the source file used to load this pipeline. It is kept out
 	// of the YAML representation and is used by the console UI for status.
 	FilePath string `yaml:"-"`
+	// FileSHA256 identifies the exact YAML bytes read by LoadPipeline. It is
+	// runtime metadata and is never emitted into pipeline YAML.
+	FileSHA256 string `yaml:"-"`
 }
 
 // InputSet is the complete set of external inputs for one pipeline run.
@@ -235,6 +240,16 @@ func LoadPipeline(path string) (*Pipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read pipeline %q: %w", path, err)
 	}
+	return ParsePipeline(data, path)
+}
+
+// ParsePipeline applies the same static parser and validation as LoadPipeline
+// to supplied YAML bytes without writing a pipeline file or running any step.
+// path determines how relative input and attachment paths are resolved.
+func ParsePipeline(data []byte, path string) (*Pipeline, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, fmt.Errorf("pipeline path is required")
+	}
 	var result Pipeline
 	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
 	decoder.KnownFields(true)
@@ -262,7 +277,13 @@ func LoadPipeline(path string) (*Pipeline, error) {
 			result.Steps[i].Document = filepath.Join(base, result.Steps[i].Document)
 		}
 	}
-	result.FilePath = path
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolve pipeline path %q: %w", path, err)
+	}
+	result.FilePath = absolutePath
+	hash := sha256.Sum256(data)
+	result.FileSHA256 = hex.EncodeToString(hash[:])
 	if err := result.Validate(); err != nil {
 		return nil, fmt.Errorf("validate pipeline %q: %w", path, err)
 	}

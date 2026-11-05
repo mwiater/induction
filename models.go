@@ -297,6 +297,10 @@ type MetricsData struct {
 type ModelSnapshot struct {
 	// ModelID identifies the model used for the snapshot.
 	ModelID string
+	// PipelineStepName and PipelineStepIndex identify the step that produced
+	// this snapshot. Direct inference leaves both fields empty/zero.
+	PipelineStepName  string `json:"pipeline_step_name,omitempty"`
+	PipelineStepIndex *int   `json:"pipeline_step_index,omitempty"`
 	// InputType classifies the request input as text, image, or vision.
 	InputType string `json:"inputType"`
 	// OutputType classifies the requested output constraint.

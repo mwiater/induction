@@ -1,0 +1,30 @@
+name: batch-document-analysis
+batch:
+  items:
+    - id: document-001
+      documents: [../data/fixtures/documents/fixture-01.pdf]
+    - id: document-002
+      documents: [../data/fixtures/documents/fixture-02.pdf]
+steps:
+  - name: extract
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    userPrompt: Identify the subject, purpose, and key facts in the document.
+    nomcp: true
+  - name: summarize
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    userPrompt: Produce a concise structured analysis.
+    nomcp: true
+  - name: return-json
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    systemPrompt: Return exactly one valid JSON object and no Markdown, commentary, or code fences.
+    userPrompt: Convert the preceding document summary into a concise valid JSON object. Preserve the summary data without adding unsupported claims.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: "{{source.basename}}.{{source.extension}}.json"
+    nomcp: true
+    retry:
+      maxAttempts: 2
+      validate:
+        json: true

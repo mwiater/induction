@@ -230,7 +230,7 @@ func newCleanSessionsCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Sessions scanned: %d\nSessions deleted: %d\nInvalid sessions deleted: %d\nNull-snapshot sessions deleted: %d\n", result.Scanned, result.Deleted, result.InvalidDeleted, result.NullSnapshotsDeleted)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Sessions scanned: %d\nSessions deleted: %d\nInvalid sessions deleted: %d\nNull-snapshot sessions deleted: %d\nActive or recent sessions skipped: %d\n", result.Scanned, result.Deleted, result.InvalidDeleted, result.NullSnapshotsDeleted, result.ActiveOrRecentSkipped)
 			return nil
 		},
 	}
@@ -240,6 +240,7 @@ func newSessionsCommand() *cobra.Command {
 	sessions := &cobra.Command{Use: "sessions", Short: "manage persisted inference sessions"}
 	sessions.AddCommand(newCleanSessionsCommand())
 	sessions.AddCommand(newInspectSessionCommand())
+	sessions.AddCommand(newPurgeSessionsCommand())
 	return sessions
 }
 

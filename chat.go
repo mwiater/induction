@@ -42,6 +42,9 @@ func InferChat(ctx context.Context, req *ChatRequest, in io.Reader, out io.Write
 	if err != nil {
 		return err
 	}
+	if err := configureSessionMode(session, client.opts.pipeline); err != nil {
+		return err
+	}
 	if err := saveChatSession(session); err != nil {
 		return err
 	}
@@ -106,6 +109,9 @@ func InferStreamChat(ctx context.Context, req *ChatRequest, in io.Reader, out io
 	defer monitor.stopKeepingOverlay()
 	session, err := newUnsavedChatSession(request)
 	if err != nil {
+		return err
+	}
+	if err := configureSessionMode(session, client.opts.pipeline); err != nil {
 		return err
 	}
 	if err := saveChatSession(session); err != nil {

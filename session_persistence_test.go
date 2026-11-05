@@ -1,6 +1,8 @@
 package induction
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -9,13 +11,88 @@ import (
 	"time"
 )
 
+func TestFilePipelineSessionProvenanceUsesLoadedBytes(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "pipeline.example.yaml")
+	contents := []byte("name: example\nsteps:\n  - name: draft\n    model: local-model\n    userPrompt: Write a draft\n")
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pipeline, err := LoadPipeline(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The stored hash must describe the loaded configuration even if the path
+	// changes before the session is written.
+	if err := os.WriteFile(path, []byte("changed"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	session, err := newUnsavedChatSession(ChatRequest{Model: "local-model"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := configureSessionMode(session, pipeline); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveChatSessionToDir(directory, session); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadChatSessionFromPath(filepath.Join(directory, session.ID+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256(contents)
+	if loaded.Pipeline == nil || loaded.Pipeline.Source != "file" || loaded.Pipeline.Path != path || loaded.Pipeline.SHA256 != hex.EncodeToString(hash[:]) || loaded.Pipeline.Name != "example" {
+		t.Fatalf("incorrect pipeline provenance: %#v", loaded.Pipeline)
+	}
+}
+
+func TestPipelineSessionRequiresExactProvenance(t *testing.T) {
+	session, err := newUnsavedChatSession(ChatRequest{Model: "model"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session.Type = sessionTypePipeline
+	session.Title = "example"
+	if err := saveChatSessionToDir(t.TempDir(), session); err == nil {
+		t.Fatal("pipeline session without provenance was saved")
+	}
+	if err := configureSessionMode(session, &Pipeline{Name: "example", FilePath: "pipeline.yaml"}); err == nil {
+		t.Fatal("file pipeline without load-time hash was accepted")
+	}
+	if err := configureSessionMode(session, &Pipeline{Name: "example", Steps: []PipelineStep{{Name: "draft", Model: "model", UserPrompt: "Draft"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if session.Pipeline == nil || session.Pipeline.Source != "inline" || len(session.Pipeline.SHA256) != 64 || session.Pipeline.Path != "" {
+		t.Fatalf("incorrect inline provenance: %#v", session.Pipeline)
+	}
+	if err := saveChatSessionToDir(t.TempDir(), session); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	session.PipelineStatus = "completed"
+	if err := saveChatSessionToDir(t.TempDir(), session); err == nil {
+		t.Fatal("terminal pipeline session without completed_at was saved")
+	}
+	session.CompletedAt = &now
+	if err := saveChatSessionToDir(t.TempDir(), session); err != nil {
+		t.Fatal(err)
+	}
+	session.PipelineStatus = ""
+	session.CompletedAt = nil
+	if err := saveChatSessionToDir(t.TempDir(), session); err != nil {
+		t.Fatalf("legacy provenance-bearing session rejected: %v", err)
+	}
+}
+
 func TestChatSessionRoundTripAndRename(t *testing.T) {
 	directory := t.TempDir()
 	original, err := newChatSession("  Go Interfaces  ", ChatRequest{Model: "model", Messages: []Message{{Role: "user", Content: "Hello"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	original.Snapshots = []*ModelSnapshot{{ModelID: "model", Messages: []Message{{Role: "user", Content: "Hello"}}, Interaction: []Interaction{{Content: "Hi", ReasoningContent: "thinking", Response: "raw"}}}}
+	stepIndex := 0
+	original.Snapshots = []*ModelSnapshot{{ModelID: "model", PipelineStepName: "draft", PipelineStepIndex: &stepIndex, Messages: []Message{{Role: "user", Content: "Hello"}}, Interaction: []Interaction{{Content: "Hi", ReasoningContent: "thinking", Response: "raw"}}}}
 	original.Error = `pipeline step "profile-lens" returned empty output`
 	if err := saveChatSessionToDir(directory, original); err != nil {
 		t.Fatal(err)
@@ -25,7 +102,7 @@ func TestChatSessionRoundTripAndRename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Title != "Go Interfaces" || loaded.Model != "model" || loaded.Error == "" || len(loaded.Messages) != 1 || len(loaded.Snapshots) != 1 || len(loaded.Snapshots[0].Interaction) != 1 || loaded.Snapshots[0].Interaction[0].Content != "Hi" {
+	if loaded.Title != "Go Interfaces" || loaded.Model != "model" || loaded.Error == "" || len(loaded.Messages) != 1 || len(loaded.Snapshots) != 1 || len(loaded.Snapshots[0].Interaction) != 1 || loaded.Snapshots[0].Interaction[0].Content != "Hi" || loaded.Snapshots[0].PipelineStepName != "draft" || loaded.Snapshots[0].PipelineStepIndex == nil || *loaded.Snapshots[0].PipelineStepIndex != 0 {
 		t.Fatalf("unexpected session: %#v", loaded)
 	}
 	created := loaded.CreatedAt
