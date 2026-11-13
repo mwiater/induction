@@ -213,13 +213,43 @@ func TestArgumentsAreRejectedBeforePreflight(t *testing.T) {
 
 func TestApplianceEndToEndSubprocess(t *testing.T) {
 	if os.Getenv("INDUCTION_APPLIANCE_SUBPROCESS") == "1" {
+		modelStates := map[string]string{
+			"Gemma-4-E4B-UNC-Q8_K_P":       "loaded",
+			"Granite-Vision-4.1-4B-Q4_K_M": "loaded",
+			"MiniCPM-V-4.7-35B-A3B-Q4_K_M": "loaded",
+		}
+		writeModels := func(w http.ResponseWriter) {
+			models := make([]map[string]any, 0, len(modelStates))
+			for id, state := range modelStates {
+				models = append(models, map[string]any{
+					"id":    id,
+					"state": state,
+					"architecture": map[string]any{
+						"input_modalities":  []string{"text", "image"},
+						"output_modalities": []string{"text"},
+					},
+				})
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": models})
+		}
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			switch r.URL.Path {
 			case "/health", "/v1/health":
 				_, _ = w.Write([]byte(`{}`))
-			case "/v1/models":
-				_, _ = w.Write([]byte(`{"data":[{"id":"Gemma-4-E4B-UNC-Q8_K_P","state":"loaded","architecture":{"input_modalities":["text","image","audio"],"output_modalities":["text"]}},{"id":"Granite-Vision-4.1-4B-Q4_K_M","state":"loaded","architecture":{"input_modalities":["text","image"],"output_modalities":["text"]}},{"id":"MiniCPM-V-4.7-35B-A3B-Q4_K_M","state":"loaded","architecture":{"input_modalities":["text","image"],"output_modalities":["text"]}}]}`))
+			case "/models", "/v1/models":
+				writeModels(w)
+			case "/models/load", "/models/unload":
+				var request struct {
+					Model string `json:"model"`
+				}
+				_ = json.NewDecoder(r.Body).Decode(&request)
+				if r.URL.Path == "/models/load" {
+					modelStates[request.Model] = "loaded"
+				} else {
+					modelStates[request.Model] = "unloaded"
+				}
+				_, _ = w.Write([]byte(`{"success":true}`))
 			case "/v1/chat/completions":
 				var req map[string]any
 				_ = json.NewDecoder(r.Body).Decode(&req)
