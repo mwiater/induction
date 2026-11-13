@@ -4,7 +4,7 @@ name: jpeg-creative-rate-distortion-v2
 config: induction.yaml
 steps:
 - name: baseline
-  model: GPT-OSS-120B-UD-Q4_K_XL
+  model: GPT-OSS-20B-UD-Q6_K_XL
   nomcp: true
   systemPrompt: |-
     You are researching new algorithms for an ENCODER that emits ordinary 8-bit baseline sequential DCT JPEG. The unchanged decoder is the only decoder. Objective: minimize actual complete .jpg file bytes while matching a specified perceptual quality threshold against the uncompressed source. Decoded pixels MAY differ from source pixels; this is ordinary lossy compression, not a compatibility violation.

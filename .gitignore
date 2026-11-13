@@ -17,6 +17,8 @@
 /induction.yaml
 /inspect_evals.yaml
 /node_modules/
+/pipelines/_hold/
+/pipelines/.local/
 /pipelines/**/*.dev.yaml
 /pipelines/**/*.local.yaml
 /PROJECT_CLEANUP_GUIDE.md

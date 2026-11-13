@@ -35,7 +35,7 @@ steps:
         unknown: The outage duration cannot be determined from the facts.
 
   - name: refrigerator-temperature
-    model: Kev-4B-Q8_0
+    model: Kev-9B-Q8_0
     nomcp: true
     systemPrompt: You are a careful food-safety decision model.
     userPrompt: Was the measured refrigerator temperature above 40°F when power returned?
@@ -59,7 +59,7 @@ steps:
         unknown: The measured refrigerator temperature cannot be determined from the facts.
 
   - name: perishable-foods
-    model: Kev-4B-Q8_0
+    model: vllm-d3-nano-Q8_0
     nomcp: true
     systemPrompt: You are a careful food-safety decision model.
     userPrompt: Does the refrigerator contain perishable food covered by power-outage food-safety guidance?
@@ -79,7 +79,7 @@ steps:
         unknown: Whether perishable food is present cannot be determined from the facts.
 
   - name: unsafe-temperature-duration
-    model: Kev-4B-Q8_0
+    model: Kev-9B-Q8_0
     nomcp: true
     systemPrompt: Do not infer a temperature history from a single thermometer reading. Choose unknown when the stated facts do not establish the duration.
     userPrompt: Do the facts establish that the food was above 40°F for four hours or more?
@@ -160,7 +160,7 @@ steps:
       - Does not present probabilities as medical certainty.
 
   - name: food-safety-conformance
-    model: Kev-4B-Q8_0
+    model: vllm-d3-nano-Q8_0
     nomcp: true
     userPrompt: "{{ inputs.prompt }}"
     decision:
@@ -179,7 +179,7 @@ steps:
         "false": One or more required decisions, uncertainty statements, recommendations, or safety caveats is missing or unsupported.
 
   - name: food-safety-score
-    model: Kev-4B-Q8_0
+    model: Kev-9B-Q8_0
     nomcp: true
     userPrompt: "{{ inputs.prompt }}"
     decision:

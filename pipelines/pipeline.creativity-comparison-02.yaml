@@ -6,7 +6,7 @@ config: induction.yaml
 # moderate sampling profiles. Later stages red-team and revise the candidates.
 steps:
   - name: baseline
-    model: Ornith-1.0-35B-UD-Q4_K_M
+    model: Granite-4.0-H-Small-UD-Q4_K_XL
     nomcp: true
     systemPrompt: &creative_system |
       You are an inventive research assistant. Propose surprising, diverse,
@@ -46,7 +46,7 @@ steps:
       seed: 42
 
   - name: high-creativity
-    model: Ornith-1.0-35B-UD-Q4_K_M
+    model: Agents-A1-MTP-Apex-I-Quality
     nomcp: true
     systemPrompt: *creative_system
     userPrompt: *creative_request
@@ -65,7 +65,7 @@ steps:
       seed: 43
 
   - name: xtc-creativity
-    model: Ornith-1.0-35B-UD-Q4_K_M
+    model: LFM-2.5-24B-A2B-UD-Q6_K_XL
     nomcp: true
     systemPrompt: *creative_system
     userPrompt: *creative_request

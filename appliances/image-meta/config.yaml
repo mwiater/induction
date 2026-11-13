@@ -1,0 +1,9 @@
+server: http://192.168.0.239:9998
+timeout: 20m
+pollInterval: 2s
+loadWaitInterval: 1s
+sidebarWidth: 45
+mcpServers: []
+log:
+  console: false
+  truncateOnRun: false

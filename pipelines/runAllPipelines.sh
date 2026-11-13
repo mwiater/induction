@@ -5,8 +5,7 @@ set -u
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-shopt -s nullglob
-pipelines=(pipelines/*.yaml)
+mapfile -d '' pipelines < <(find pipelines -maxdepth 1 -type f -name '*.yaml' -print0 | sort -z)
 
 if ((${#pipelines[@]} == 0)); then
   echo "No pipeline YAML files found in pipelines/." >&2

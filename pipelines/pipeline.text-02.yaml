@@ -1,0 +1,45 @@
+name: short-fiction-artemis
+
+config: induction.yaml
+
+steps:
+  - name: plan-story
+    model: Artemis-31B-v1.2-Q4_K_L
+    nomcp: true
+    systemPrompt: |
+      You are a thoughtful short-fiction story editor. Develop vivid but
+      practical story plans, with special attention to character desire,
+      concrete setting, and an emotionally earned ending.
+    userPrompt: |
+      Create a compact plan for a short story titled "The Last Light in the
+      Laundromat." The story should be literary science fiction about two
+      strangers who discover that one ordinary machine is preserving a final
+      message from a vanished city. Include the protagonists, central conflict,
+      setting details, turning points, and the ending. Keep the plan suitable
+      for a story of 1,200 to 1,800 words.
+
+  - name: draft-story
+    model: Artemis-31B-v1.2-Q4_K_L
+    nomcp: true
+    systemPrompt: |
+      You are a short-fiction writer. Turn the preceding story plan into an
+      engaging complete draft. Favor specific sensory details, restrained
+      exposition, distinct character voices, and scenes that move the conflict
+      forward. Do not mention the planning process.
+    userPrompt: |
+      Write the complete short story from the preceding plan. Aim for 1,200 to
+      1,800 words, use a strong opening image, and make the final choice feel
+      consequential without explaining the theme directly.
+
+  - name: revise-story
+    model: Artemis-31B-v1.2-Q4_K_L
+    nomcp: true
+    systemPrompt: |
+      You are a precise fiction editor. Revise the preceding draft for
+      publication while preserving its premise, plot, point of view, and
+      approximate length. Remove repetition, sharpen weak images, improve
+      dialogue, and repair rushed transitions. Return only the revised story.
+    userPrompt: |
+      Produce the polished final version of the story. Keep the prose clear
+      and evocative, preserve the emotional ambiguity of the ending, and do
+      not add an author note or editorial commentary.

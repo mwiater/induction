@@ -5,7 +5,7 @@ config: induction.yaml
 
 steps:
   - name: analyze-input
-    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    model: Qwen-3-Coder-Next-Q4_K_M
     nomcp: true
     systemPrompt: |
       You are a careful multimodal analysis assistant.

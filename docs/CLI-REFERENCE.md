@@ -40,7 +40,8 @@ commands require the `--beta` acknowledgement flag.
 | `induction server` | Inspect the configured inference server. |  |
 | `induction server inspect` | Inspect the configured inference server. |  |
 | `induction sessions` | Manage persisted inference sessions. |  |
-| `induction sessions clean` | Remove invalid persisted sessions. |  |
+| `induction sessions clean` | Remove empty, failed, and invalid persisted sessions. |  |
+| `induction sessions purge` | Remove all persisted inference data from sessions, pipeline artifacts, and batches. |  |
 | `induction sessions inspect` | Replay a persisted chat session as an instant transcript. |  |
 | `induction ui` | Preview console UI options. |  |
 | `induction ui theme` | Preview console UI theme colors and styles. |  |

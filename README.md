@@ -1,5 +1,9 @@
 # Induction
 
+The Linux image metadata appliance is a beta, work-in-progress feature. See
+[docs/INDUCTION-IMAGE-META.md](docs/INDUCTION-IMAGE-META.md) for its current
+status, limitations, and usage.
+
 Induction is a Go client for llama.cpp-compatible servers. It provides
 config-driven chat inference, multimodal requests, structured output,
 pipelines, telemetry, model inspection, health checks, and MCP tool support.

@@ -32,3 +32,18 @@ func TestRenderSessionTranscript(t *testing.T) {
 		t.Fatalf("system message leaked into transcript: %q", result)
 	}
 }
+
+func TestSessionsPurgeCommandIsRegistered(t *testing.T) {
+	command := NewRootCommand()
+	sessions, _, err := command.Find([]string{"sessions"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	purge, _, err := sessions.Find([]string{"purge"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if purge.Use != "purge" {
+		t.Fatalf("unexpected purge command: %q", purge.Use)
+	}
+}

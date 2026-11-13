@@ -7,8 +7,8 @@ inputs:
     - ../data/fixtures/documents/fixture-02.pdf
 steps:
   - name: compare
-    model: Qwen-3.5-9B-MTP-General-Q8_0
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
     userPrompt: Compare the provided documents and identify their key themes.
   - name: report
-    model: Qwen-3.5-9B-MTP-General-Q8_0
+    model: Granite-4.0-H-Small-UD-Q4_K_XL
     userPrompt: Produce one concise combined report.

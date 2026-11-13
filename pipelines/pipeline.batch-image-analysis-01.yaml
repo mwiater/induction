@@ -1,6 +1,6 @@
 name: batch-image-analysis
-# `batch.items` is the batch boundary: each item gets a separate complete
-# pipeline run and a separate result. This is not a combined multi-image run.
+# Each batch item executes the complete pipeline independently.
+# Paths are relative to the pipelines/ directory.
 batch:
   items:
     - id: image-001
@@ -8,87 +8,267 @@ batch:
     - id: image-002
       images: [../data/fixtures/images/fixture-02.jpg]
 steps:
-  - name: analyze-image-subjects
-    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
-    nomcp: true
-    systemPrompt: |
-      You are a careful visual analyst. Identify the primary subjects and
-      describe only what is visually supported by the image. Distinguish
-      clearly between people, animals, objects, and important background
-      elements. Describe observable actions, poses, appearance, spatial
-      relationships, and salient details. Do not invent identities, locations,
-      clothing details, or causes that cannot be established from the image.
-    userPrompt: |
-      Analyze the provided image and describe its primary subjects in detail.
-      Organize the analysis by subject and include the visual evidence for each
-      description. State uncertainty when a detail is ambiguous.
-
-  - name: analyze-image-composition
-    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
-    nomcp: true
-    systemPrompt: |
-      You are an expert photography and visual-composition analyst. Focus on
-      formal visual structure rather than guessing the photographer's intent.
-      Base the analysis on observable evidence and use precise spatial language.
-      Consider framing, visual weight, balance, focal points, hierarchy,
-      perspective, depth, leading lines, negative space, color, contrast,
-      lighting, horizon placement, and reflections when they are present.
-    userPrompt: |
-      Analyze the provided image's composition in detail. Explain how the major
-      visual elements are arranged and how that arrangement guides attention.
-      Mention only compositional features that are actually visible.
-
-  - name: analyze-image-environmental
-    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
-    nomcp: true
-    systemPrompt: |
-      You are a cautious environmental-context analyst. Separate direct visual
-      observations from reasonable interpretations. Discuss terrain, water,
-      vegetation, weather, atmosphere, season, built environment, lighting,
-      and apparent human activity when relevant. Never identify a specific
-      place, species, material, altitude, time, or weather condition as fact
-      unless the image provides strong evidence; label inferences explicitly.
-    userPrompt: |
-      Analyze the provided image's environmental context in detail. Describe
-      the visible setting first, then explain cautious interpretations about
-      geography, climate, weather, or human activity. Clearly label anything
-      that cannot be determined with confidence.
-
-  - name: return-json
-    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
-    nomcp: true
-    systemPrompt: |
-      You are a precise JSON serialization assistant. Use the accumulated
-      analyses in the conversation as source material and preserve their useful
-      details without adding unsupported claims. Return exactly one JSON object
-      that conforms to the supplied schema. Use the exact required property
-      names, include every required property, use string values, and do not add
-      properties. Return JSON only: no Markdown fences, explanations, or
-      trailing commentary.
-    userPrompt: |
-      Synthesize all accumulated image analyses into one concise but
-      information-rich JSON object matching the supplied schema. Preserve
-      uncertainty where the earlier analyses identified it; do not turn guesses
-      into facts.
-    responseFormat:
-      type: json_object
-    jsonSchema:
-      type: object
-      properties:
-        subjects:
+- name: analyze-image-subjects
+  model: Granite-Vision-4.1-4B-Q4_K_M
+  nomcp: true
+  systemPrompt: |
+    You are a careful visual analyst. Identify the primary subjects and describe only what is visually supported by the image. Distinguish clearly between people, animals, objects, and important background elements. Describe observable actions, poses, appearance, spatial relationships, and salient details. Do not invent identities, locations, clothing details, or causes that cannot be established from the image.
+  userPrompt: |
+    Analyze the provided image and describe its primary subjects in detail. Organize the analysis by subject and include the visual evidence for each description. State uncertainty when a detail is ambiguous.
+- name: analyze-image-composition
+  model: Granite-Vision-4.1-4B-Q8_0
+  nomcp: true
+  systemPrompt: |
+    You are an expert photography and visual-composition analyst. Focus on formal visual structure rather than guessing the photographer's intent. Base the analysis on observable evidence and use precise spatial language. Consider framing, visual weight, balance, focal points, hierarchy, perspective, depth, leading lines, negative space, color, contrast, lighting, horizon placement, and reflections when they are present.
+  userPrompt: |
+    Analyze the provided image's composition in detail. Explain how the major visual elements are arranged and how that arrangement guides attention. Mention only compositional features that are actually visible.
+- name: analyze-image-environmental
+  model: Gemma-4-E4B-UNC-Q8_K_P
+  nomcp: true
+  systemPrompt: |
+    You are a cautious environmental-context analyst. Separate direct visual observations from reasonable interpretations. Discuss terrain, water, vegetation, weather, atmosphere, season, built environment, lighting, and apparent human activity when relevant. Never identify a specific place, species, material, altitude, time, or weather condition as fact unless the image provides strong evidence; label inferences explicitly.
+  userPrompt: |
+    Analyze the provided image's environmental context in detail. Describe the visible setting first, then explain cautious interpretations about geography, climate, weather, or human activity. Clearly label anything that cannot be determined with confidence.
+- name: analyze-geographic-clues
+  model: Qwen-3.5-9B-MTP-General-Q4_K_M
+  nomcp: true
+  systemPrompt: |-
+    You are a conservative visual geolocation analyst. Identify visible clues such as distinctive landmarks, architecture, writing, road signs, vegetation, terrain, license-plate styles, and infrastructure. Distinguish direct observations from hypotheses. Never infer a precise address or coordinates from generic scenery. An exact place name requires a distinctive recognizable landmark or legible identifying text. If there is insufficient evidence, explicitly say unknown. Do not assume that a photo's apparent cultural style proves its location.
+  userPrompt: |-
+    Assess the likely photo location. Report observed geographic clues, the most specific defensible geographic estimate (or unknown), plausible alternatives if any, and reasons confidence should be low. Do not claim to have consulted maps or external databases.
+- name: analyze-camera-and-medium
+  model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M
+  nomcp: true
+  systemPrompt: |-
+    You are a forensic photographic-process analyst. Distinguish visible appearance from capture technology. Describe grain/noise, sharpness, dynamic range, color rendition, halation, borders, artifacts, and signs of scanning or editing. Film-like appearance can be simulated digitally; a scanned photograph may be a print or reproduction. Do not name a camera make/model, film stock, focal length, aperture, or sensor without direct visible evidence such as a legible border imprint or camera label. State unknown when not identifiable.
+  userPrompt: |-
+    Analyze whether the image appears photographic, rendered, or composited; estimate analog film versus digital versus unknown; characterize film type or stock only if supportable; and assess whether any camera category or specific model can be inferred. List visual evidence and confounding explanations.
+- name: analyze-historical-date
+  model: MiniCPM-V-4.7-35B-A3B-Q4_K_M
+  nomcp: true
+  systemPrompt: |-
+    You are a cautious photo dating analyst. Estimate capture era from observable objects, clothing, architecture, vehicles, signage, technology, photographic processes, and image appearance. Differentiate when a depicted object was made from when the image was captured. Modern photos may depict old scenes; images may be colorized, restored, filtered, or AI-generated. Give a year or interval only when clues justify it, otherwise unknown. Do not invent dates or precise years.
+  userPrompt: |-
+    Identify concrete temporal clues and any contradictions. Estimate the narrowest defensible capture-year interval, or unknown. Explain why a precise year is or is not justified. Distinguish estimated scene era from actual capture year.
+- name: analyze-visible-text-and-details
+  model: Muse-Glimmer-30B-Q4_K_XL
+  nomcp: true
+  systemPrompt: |-
+    You are a careful image transcription and object-detail analyst. Transcribe only text you can clearly read, preserving capitalization and marking uncertain text as uncertain. Do not invent words from blurred signs. Identify distinctive objects, clothing, vehicles, architecture, artwork, symbols, and notable contextual details that help future image search. Avoid identifying private individuals.
+  userPrompt: |-
+    Report legible visible text with context, notable identifiable objects, distinctive details, and useful retrieval keywords. If no readable text is present, say none observed.
+- name: analyze-light-color-and-quality
+  model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+  nomcp: true
+  systemPrompt: |-
+    You are an image quality and lighting analyst. Describe visible lighting direction, softness, color temperature, shadows, exposure, tonal range, dominant colors, focus, depth of field, motion blur, noise, compression artifacts, cropping, and apparent alterations. Do not claim numerical EXIF settings or actual camera metadata. Do not confuse intentional style with technical defects.
+  userPrompt: |-
+    Evaluate the lighting, color palette, focus, sharpness, image quality, apparent editing or restoration, and photographic technique using only visible evidence. Note uncertainty and avoid exact camera settings.
+- name: analyze-search-and-safety-context
+  model: Qwen-3.8-27B-Reasoning-Q4_K_M
+  nomcp: true
+  systemPrompt: |-
+    You are a neutral archival metadata analyst. Summarize visible events or activities, broad image category, searchable keywords, and any notable uncertainty or sensitive-context considerations. Avoid identifying people, inferring sensitive personal attributes, or assigning an exact location to private scenes. Do not invent copyright status, authorship, provenance, or ownership.
+  userPrompt: |-
+    Propose a short neutral title, an archival caption, image category, activities, and a concise set of searchable keywords. Note whether this looks like a historical reproduction, screenshot, illustration, or ordinary photograph if supported.
+- name: return-json
+  model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+  nomcp: true
+  systemPrompt: |-
+    You are a strict archival JSON serialization assistant. Synthesize only the accumulated image analyses, without introducing unsupported details. Output exactly one JSON object matching the schema, with every required field and no additional fields. Keep estimates calibrated: confidence is an evidence-strength judgment from 0.0 (no evidence) to 1.0 (strong direct visual evidence), not a statistical probability. For location, camera, film, and capture year, use null when the specific value cannot be defensibly inferred; use confidence 0.0 and explain why. Do not mistake stylistic resemblance for identification. For capture_year, use null if unknown; if known only as a range, use earliest_year and latest_year and leave capture_year null. A camera category is not a camera make/model. Film type (e.g. color negative) is distinct from film stock (e.g. a branded product). Never fabricate EXIF, GPS, metadata, or external lookup results. Preserve uncertainty, transcribe text only when legible, and output JSON only.
+  userPrompt: |-
+    Synthesize all prior image analyses into complete searchable photographic metadata. Preserve the three original detailed descriptions. Provide separate evidence-backed estimates for location, camera, film, and capture date, with confidence scores and caveats. Populate all fields; use null for unknown estimates and [] for absent lists. Do not add claims not supported by prior steps. Return only schema-valid JSON.
+  responseFormat:
+    type: json_object
+  jsonSchema:
+    type: object
+    properties:
+      subjects:
+        type: string
+      composition:
+        type: string
+      environmental_context:
+        type: string
+      title:
+        type: string
+      caption:
+        type: string
+      image_category:
+        type: string
+      activities:
+        type: array
+        items:
           type: string
-          description: Detailed description of the primary subjects.
-        composition:
+      keywords:
+        type: array
+        items:
           type: string
-          description: Detailed description of the image composition.
-        environmental_context:
+      visible_text:
+        type: array
+        items:
           type: string
-          description: Detailed description of the environmental context.
-      required:
-        - subjects
-        - composition
-        - environmental_context
-      additionalProperties: false
-    output:
-      type: json
-      artifact: "{{source.basename}}.{{source.extension}}.json"
+      distinctive_details:
+        type: array
+        items:
+          type: string
+      lighting:
+        type: string
+      color_palette:
+        type: array
+        items:
+          type: string
+      photographic_technique:
+        type: string
+      image_quality:
+        type: string
+      editing_or_reproduction_clues:
+        type: string
+      location_estimate:
+        type: object
+        properties:
+          value:
+            type:
+            - string
+            - 'null'
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          evidence:
+            type: array
+            items:
+              type: string
+          caveats:
+            type: string
+        required:
+        - value
+        - confidence
+        - evidence
+        - caveats
+        additionalProperties: false
+      camera_estimate:
+        type: object
+        properties:
+          value:
+            type:
+            - string
+            - 'null'
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          evidence:
+            type: array
+            items:
+              type: string
+          caveats:
+            type: string
+          camera_category:
+            type:
+            - string
+            - 'null'
+        required:
+        - value
+        - confidence
+        - evidence
+        - caveats
+        - camera_category
+        additionalProperties: false
+      film_estimate:
+        type: object
+        properties:
+          value:
+            type:
+            - string
+            - 'null'
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          evidence:
+            type: array
+            items:
+              type: string
+          caveats:
+            type: string
+          medium:
+            type: string
+          film_type:
+            type:
+            - string
+            - 'null'
+          film_stock:
+            type:
+            - string
+            - 'null'
+        required:
+        - value
+        - confidence
+        - evidence
+        - caveats
+        - medium
+        - film_type
+        - film_stock
+        additionalProperties: false
+      capture_date_estimate:
+        type: object
+        properties:
+          value:
+            type:
+            - integer
+            - 'null'
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          evidence:
+            type: array
+            items:
+              type: string
+          caveats:
+            type: string
+          earliest_year:
+            type:
+            - integer
+            - 'null'
+          latest_year:
+            type:
+            - integer
+            - 'null'
+          scene_era:
+            type:
+            - string
+            - 'null'
+        required:
+        - value
+        - confidence
+        - evidence
+        - caveats
+        - earliest_year
+        - latest_year
+        - scene_era
+        additionalProperties: false
+    required:
+    - subjects
+    - composition
+    - environmental_context
+    - title
+    - caption
+    - image_category
+    - activities
+    - keywords
+    - visible_text
+    - distinctive_details
+    - lighting
+    - color_palette
+    - photographic_technique
+    - image_quality
+    - editing_or_reproduction_clues
+    - location_estimate
+    - camera_estimate
+    - film_estimate
+    - capture_date_estimate
+    additionalProperties: false
+  output:
+    type: json
+    artifact: '{{source.basename}}.{{source.extension}}.json'

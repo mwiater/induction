@@ -224,13 +224,30 @@ func collectCommandData(cmd *cobra.Command, currentPath, indent string) []comman
 func newCleanSessionsCommand() *cobra.Command {
 	return &cobra.Command{
 		Use: "clean", Args: cobra.NoArgs,
-		Short: "remove invalid persisted sessions",
+		Short: "remove empty, failed, and invalid persisted sessions",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			result, err := induction.CleanSessions("")
 			if err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Sessions scanned: %d\nSessions deleted: %d\nInvalid sessions deleted: %d\nNull-snapshot sessions deleted: %d\n", result.Scanned, result.Deleted, result.InvalidDeleted, result.NullSnapshotsDeleted)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Sessions scanned: %d\nSessions deleted: %d\nInvalid sessions deleted: %d\nNull-snapshot sessions deleted: %d\nEmpty sessions deleted: %d\nFailed sessions deleted: %d\n", result.Scanned, result.Deleted, result.InvalidDeleted, result.NullSnapshotsDeleted, result.EmptyDeleted, result.FailedDeleted)
+			return nil
+		},
+	}
+}
+
+func newPurgeSessionsCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "purge",
+		Args:  cobra.NoArgs,
+		Short: "remove all persisted inference data",
+		Long:  "Remove all contents of .sessions, .pipeline-artifacts, and .batches. The directories themselves are preserved.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			result, err := induction.PurgeInferenceData()
+			if err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Inference data purged: %d entries from %d directories\n", result.Entries, result.Directories)
 			return nil
 		},
 	}
@@ -239,6 +256,7 @@ func newCleanSessionsCommand() *cobra.Command {
 func newSessionsCommand() *cobra.Command {
 	sessions := &cobra.Command{Use: "sessions", Short: "manage persisted inference sessions"}
 	sessions.AddCommand(newCleanSessionsCommand())
+	sessions.AddCommand(newPurgeSessionsCommand())
 	sessions.AddCommand(newInspectSessionCommand())
 	return sessions
 }

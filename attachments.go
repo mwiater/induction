@@ -168,6 +168,9 @@ func attachmentBytesDataURL(data []byte, name string, maxBytes int64, imageOnly 
 		return "", fmt.Errorf("attachment is too large: %d bytes exceeds %d-byte limit", len(data), maxBytes)
 	}
 	mimeType := http.DetectContentType(data)
+	if imageOnly && strings.EqualFold(filepath.Ext(name), ".webp") && len(data) >= 12 && string(data[:4]) == "RIFF" && string(data[8:12]) == "WEBP" {
+		mimeType = "image/webp"
+	}
 	// DetectContentType reports SVG as text/xml; the extension is safe to use
 	// here because SVG is an explicitly supported image format.
 	if strings.EqualFold(filepath.Ext(name), ".svg") && strings.Contains(strings.ToLower(string(data)), "<svg") {

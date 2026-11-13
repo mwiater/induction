@@ -7,7 +7,7 @@ inputs:
     - ../data/fixtures/images/fixture-02.jpg
 steps:
   - name: compare
-    model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL
+    model: Qwen-3.8-27B-Non-Reasoning-Q4_K_M
     userPrompt: Compare all provided images, noting similarities and differences.
   - name: summarize
     model: Qwen-3.6-35B-A3B-MTP-General-Q8_K_XL

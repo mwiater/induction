@@ -29,7 +29,7 @@ steps:
       {{ inputs.prompt }}
 
   - name: complexity-score
-    model: Kev-4B-Q8_0
+    model: Kev-9B-Q8_0
     nomcp: true
     userPrompt: "{{ inputs.prompt }}"
     decision:
@@ -51,7 +51,7 @@ steps:
         - Deep multi-step request requiring advanced reasoning, debugging, or design.
 
   - name: model-broker
-    model: Kev-4B-Q8_0
+    model: vllm-d3-nano-Q8_0
     nomcp: true
     userPrompt: "{{ inputs.prompt }}"
     decision:
@@ -92,7 +92,7 @@ steps:
       - Contains no TODO placeholders or truncated sections.
 
   - name: verify-conformance
-    model: Kev-4B-Q8_0
+    model: Kev-9B-Q8_0
     nomcp: true
     userPrompt: "{{ inputs.prompt }}"
     decision:
@@ -111,7 +111,7 @@ steps:
         "false": One or more contract criteria are missing or violated.
 
   - name: adherence-score
-    model: Kev-4B-Q8_0
+    model: vllm-d3-nano-Q8_0
     nomcp: true
     userPrompt: "{{ inputs.prompt }}"
     decision:

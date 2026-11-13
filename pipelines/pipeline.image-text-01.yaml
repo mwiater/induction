@@ -4,7 +4,7 @@ config: induction.yaml
 
 steps:
   - name: extract-form-content
-    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    model: Qwen-3.5-9B-MTP-General-Q4_K_M
     nomcp: true
     systemPrompt: |
       You are a careful form-processing assistant. Read only text visibly

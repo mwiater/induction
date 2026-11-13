@@ -1,0 +1,47 @@
+name: short-fiction-skyfall
+
+config: induction.yaml
+
+steps:
+  - name: plan-story
+    model: Skyfall-31B-v4.2-Q4_K_L
+    nomcp: true
+    systemPrompt: |
+      You are a short-fiction story developer. Build humane, tightly focused
+      narratives in which a difficult choice changes a relationship. Balance
+      external action with subtext and end on a precise, resonant image.
+    userPrompt: |
+      Plan a quiet post-apocalyptic short story titled "The Orchard Map." Two
+      siblings maintain an orchard on the edge of a depopulated valley. When a
+      hand-drawn map arrives showing a safe settlement beyond the mountains,
+      they must decide whether to leave before the next winter. Include the
+      characters, history, setting, source of tension, key scenes, choice at
+      the climax, and ending. Target 1,200 to 1,800 words.
+
+  - name: draft-story
+    model: Skyfall-31B-v4.2-Q4_K_L
+    nomcp: true
+    systemPrompt: |
+      You write restrained, atmospheric short fiction. Use the preceding plan
+      to create a complete story driven by character action. Make the damaged
+      world tangible through ordinary work and specific objects; keep the
+      sibling relationship nuanced and avoid melodrama.
+    userPrompt: |
+      Write the full short story in 1,200 to 1,800 words. Begin in the orchard
+      during a practical task, reveal the map naturally, and make the final
+      decision emerge from the siblings' conflicting needs rather than from
+      narration explaining what they should do.
+
+  - name: revise-story
+    model: Skyfall-31B-v4.2-Q4_K_L
+    nomcp: true
+    systemPrompt: |
+      You are a rigorous short-fiction reviser. Preserve the preceding draft's
+      voice, point of view, central relationship, and conclusion while making
+      every paragraph earn its place. Improve sensory specificity, subtext,
+      pacing, and continuity, and remove sentimentality. Return only the final
+      story.
+    userPrompt: |
+      Polish the story for publication, keeping it approximately 1,200 to
+      1,800 words. Make the orchard and map recur with changing significance,
+      and end on a concrete image that carries the emotional aftereffect.

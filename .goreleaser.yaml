@@ -2,6 +2,11 @@ version: 2
 
 project_name: induction
 
+# Keep release hooks usable in constrained environments where the default Go
+# build cache is read-only. An explicitly supplied GOCACHE remains honored.
+env:
+  - GOCACHE={{ if index .Env "GOCACHE" }}{{ .Env.GOCACHE }}{{ else }}/tmp/induction-gocache{{ end }}
+
 before:
   hooks:
     - gofmt -w .

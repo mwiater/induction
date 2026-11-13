@@ -39,7 +39,7 @@ steps:
       {{ inputs.prompt }}
 
   - name: performance-review
-    model: Qwen-3.5-9B-MTP-General-Q8_0
+    model: Granite-4.0-Micro-3B-Q8_0
     nomcp: true
     when:
       decision: route-report
@@ -54,7 +54,7 @@ steps:
       {{ inputs.prompt }}
 
   - name: correctness-review
-    model: Qwen-3.5-9B-MTP-General-Q8_0
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
     nomcp: true
     when:
       decision: route-report
@@ -83,7 +83,7 @@ steps:
       {{ inputs.prompt }}
 
   - name: review-conformance
-    model: Kev-4B-Q8_0
+    model: Kev-9B-Q8_0
     nomcp: true
     userPrompt: "{{ inputs.prompt }}"
     decision:
@@ -108,7 +108,7 @@ steps:
         "false": The review is missing, unsupported by the report, or lacks actionable mitigations.
 
   - name: review-score
-    model: Kev-4B-Q8_0
+    model: vllm-d3-nano-Q8_0
     nomcp: true
     userPrompt: "{{ inputs.prompt }}"
     decision:

@@ -4,7 +4,7 @@ config: induction.yaml
 
 steps:
   - name: extract-records
-    model: Muse-Glimmer-30B-Q4_K_XL
+    model: Flint-UD-Q4_K_XL
     nomcp: true
     systemPrompt: |
       You are a conservative document data-extraction assistant. Extract only

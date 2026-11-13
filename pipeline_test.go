@@ -158,7 +158,7 @@ func TestPipelineExampleTypeCounts(t *testing.T) {
 		"pipelines/pipeline.image-text-*.yaml":          1,
 		"pipelines/pipeline.mcp-*.yaml":                 5,
 		"pipelines/pipeline.prompt-optimization-*.yaml": 1,
-		"pipelines/pipeline.text-*.yaml":                1,
+		"pipelines/pipeline.text-*.yaml":                5,
 	}
 	for pattern, expected := range want {
 		paths, err := activePipelinePaths(pattern)

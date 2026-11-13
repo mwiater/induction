@@ -6,13 +6,21 @@ import (
 	"testing"
 )
 
-func TestCleanSessionsRemovesInvalidAndNullSnapshotsOnly(t *testing.T) {
+func TestCleanSessionsRemovesInvalidEmptyNullAndFailedSessions(t *testing.T) {
 	directory := t.TempDir()
-	valid := &ChatSession{Version: chatSessionVersion, ID: "00000000-0000-0000-0000-000000000101", Type: sessionTypeDirect, Model: "model", Messages: []Message{}, Snapshots: []*ModelSnapshot{}}
+	valid := &ChatSession{Version: chatSessionVersion, ID: "00000000-0000-0000-0000-000000000101", Type: sessionTypeDirect, Model: "model", Messages: []Message{}, Snapshots: []*ModelSnapshot{{ModelID: "model"}}}
 	if err := saveChatSessionToDir(directory, valid); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(directory, "invalid.json"), []byte("not json\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	empty := filepath.Join(directory, "empty.json")
+	if err := os.WriteFile(empty, []byte(`{"version":1,"id":"00000000-0000-0000-0000-000000000103","type":"direct","saved":false,"title":"","model":"model","messages":[],"snapshots":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	failed := filepath.Join(directory, "failed.json")
+	if err := os.WriteFile(failed, []byte(`{"version":1,"id":"00000000-0000-0000-0000-000000000104","type":"direct","saved":false,"title":"","model":"model","messages":[],"snapshots":[],"error":"model failed"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	null := filepath.Join(directory, "null.json")
@@ -23,10 +31,10 @@ func TestCleanSessionsRemovesInvalidAndNullSnapshotsOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Scanned != 3 || result.Deleted != 2 || result.InvalidDeleted != 1 || result.NullSnapshotsDeleted != 1 {
+	if result.Scanned != 5 || result.Deleted != 4 || result.InvalidDeleted != 1 || result.NullSnapshotsDeleted != 1 || result.EmptyDeleted != 1 || result.FailedDeleted != 1 {
 		t.Fatalf("unexpected cleanup result: %+v", result)
 	}
 	if _, err := os.Stat(filepath.Join(directory, valid.ID+".json")); err != nil {
-		t.Fatalf("valid empty-snapshot session was removed: %v", err)
+		t.Fatalf("valid session was removed: %v", err)
 	}
 }

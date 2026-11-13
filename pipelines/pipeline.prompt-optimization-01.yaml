@@ -2,7 +2,7 @@ name: prompt-optimization-07-code-review
 
 steps:
   - name: baseline
-    model: Qwen-3.5-9B-MTP-Coding-Q8_0
+    model: Qwen-3-Coder-Next-Q4_K_M
     systemPrompt: You are a helpful software-engineering assistant. Answer directly and do not discuss this experiment.
     userPrompt: &raw_user_prompt |
       [RAW USER PROMPT]
@@ -19,7 +19,7 @@ steps:
       ```
 
   - name: generate-optimized-prompt
-    model: Qwen-3.5-9B-MTP-Coding-Q8_0
+    model: Flint-UD-Q4_K_XL
     systemPrompt: |
       You optimize coding-review prompts. Rewrite only the raw request into a
       self-contained review task. Preserve the language, code, requested scope,

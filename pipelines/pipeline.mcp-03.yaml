@@ -3,13 +3,60 @@ name: MCP Website Research
 steps:
   - name: research-site
     model: GLM-4.7-Flash-Q4_K_M
-    systemPrompt: Use read-only website tools for focused research. Keep citations or URLs attached to the facts they support.
+    systemPrompt: |
+      Use read-only website tools for focused research. Choose between
+      `search_site`, `browse`, `scrape`, and `crawl` based on the page behavior
+      and research need. Keep citations or URLs attached to the facts they
+      support, and avoid retrieving the same page redundantly.
     userPrompt: |
       Use `search_site` starting at https://www.gutenberg.org/ to find public
       information about how Project Gutenberg makes ebooks available. Visit no
       more than five relevant pages and collect the key claims with their URLs.
+      If the relevant content is dynamically rendered, use `browse` on the
+      specific page. Use `crawl` only if bounded traversal is more appropriate
+      than the search results, and use `scrape` to cleanly extract the most
+      authoritative page, preferably as Markdown. Explain which tool produced
+      each result.
 
   - name: verify-and-explain
-    model: GLM-4.7-Flash-Q4_K_M
-    systemPrompt: You write a source-grounded research note from the preceding browser results. Do not add facts that are absent from those results.
-    userPrompt: Summarize the site's ebook-access model for a general reader. Use `fetch_url_as_text` on the most authoritative page found in the preceding research to verify its wording, then provide three sourced takeaways and a short limitations note.
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: |
+      You write a source-grounded research note from the preceding website
+      results. Do not add facts that are absent from those results. Use `scrape`
+      for clean verification, escalating to `browse` only when the page needs
+      JavaScript rendering. Keep the verified URL attached to each claim.
+    userPrompt: |
+      Summarize the site's ebook-access model for a general reader. Use
+      `scrape` on the most authoritative page found in the preceding research
+      to verify its wording, using Markdown or a targeted selector when useful.
+      If scraping cannot expose the relevant content, use `browse` and explain
+      why. Provide three sourced takeaways and a short limitations note.
+
+  - name: open-scrape-session
+    model: Granite-Vision-4.1-4B-Q8_0
+    systemPrompt: Use only read-only MCP scraping tools and preserve session identifiers exactly.
+    userPrompt: |
+      Use `open_scrape_session` to open a reusable browser scraping session
+      with type `browser` and strategy `browser`. Return the session_id and
+      explain that it must be reused for the following requests.
+
+  - name: scrape-related-pages
+    model: Qwen-3.5-9B-MTP-General-Q4_K_M
+    systemPrompt: |
+      Use the session_id returned by the preceding step. Keep the session
+      identifier unchanged and use `scrape_session` for both requests so normal
+      browser state is preserved. Report the URL and extraction settings for
+      each result.
+    userPrompt: |
+      Using the preceding session_id, call `scrape_session` for
+      https://www.gutenberg.org/ and then for a relevant linked page found from
+      the first result. Use Markdown output and keep the two page results
+      separate. Do not open a second session.
+
+  - name: close-scrape-session
+    model: Qwen-3.5-9B-MTP-General-Q4_K_M
+    systemPrompt: Close the read-only scraping session after the preceding extraction and report the result.
+    userPrompt: |
+      Call `close_scrape_session` with the exact session_id from the
+      open-scrape-session step. Confirm whether the session was closed
+      successfully and do not perform additional page requests afterward.

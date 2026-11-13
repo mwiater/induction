@@ -1,22 +1,53 @@
-name: MCP Test
+name: MCP Tool Capability Test
 
 steps:
   - name: discover
-    model: Agents-A1-MTP-Apex-I-Quality
-    systemPrompt: You are a helpful assistant.
-    userPrompt: List the tools and tool details you have available to you.
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: You are a helpful assistant testing the configured MCP server.
+    userPrompt: |
+      List every available MCP tool and summarize its purpose, required
+      arguments, optional arguments, and read-only status. Group the tools into
+      feeds/data, structured JSON, weather, and browser/scraping capabilities.
 
   - name: fetchRSS1
-    model: Agents-A1-MTP-Apex-I-Quality
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
     systemPrompt: You are a helpful assistant.
     userPrompt: "Gather the items in this RSS feed: https://www.wweek.com/arc/outboundfeeds/rss/?outputType=xml"
 
   - name: fetchRSS2
-    model: Agents-A1-MTP-Apex-I-Quality
+    model: LFM-2.5-8B-A1B-UD-Q8_K_XL
     systemPrompt: You are a helpful assistant.
     userPrompt: "Gather the items in this RSS feed: https://www.koin.com/news/portland/feed/"
 
-  - name: list
+  - name: browse-page
     model: Agents-A1-MTP-Apex-I-Quality
+    systemPrompt: Use the configured read-only MCP browser tools. Report only content returned by the tool and preserve the URL.
+    userPrompt: |
+      Use `browse` on https://www.gutenberg.org/ to retrieve the current visible
+      page content and links. Report whether browser rendering was needed and
+      summarize the most relevant visible navigation links.
+
+  - name: scrape-page
+    model: GPT-OSS-20B-UD-Q6_K_XL
+    systemPrompt: Use the configured read-only scraping tools and report the extraction settings used.
+    userPrompt: |
+      Use `scrape` on https://www.gutenberg.org/ with Markdown output and the
+      default automatic strategy. Return the main extracted content and state
+      the URL and output format.
+
+  - name: crawl-site
+    model: GLM-4.7-Flash-Q4_K_M
+    systemPrompt: Use bounded, read-only website traversal. Do not exceed the requested limits.
+    userPrompt: |
+      Use `crawl` starting at https://www.gutenberg.org/ with the same-host
+      restriction, a maximum depth of 1, and no more than 3 pages. Look for
+      pages explaining how Project Gutenberg makes ebooks available. List the
+      pages visited and the relevant findings.
+
+  - name: summarize-results
+    model: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-UD-Q4_K_XL
     systemPrompt: You are a helpful assistant.
-    userPrompt: List all of the feed items you found from each source, grouped by source.
+    userPrompt: |
+      Summarize all preceding tool-test results. Group the RSS items by source,
+      then report the browser, scrape, and crawl results separately. Preserve
+      URLs and clearly identify unavailable or failed tool results.
