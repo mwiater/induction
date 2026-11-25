@@ -2,8 +2,6 @@ version: 2
 
 project_name: induction
 
-# Keep release hooks usable in constrained environments where the default Go
-# build cache is read-only. An explicitly supplied GOCACHE remains honored.
 env:
   - GOCACHE={{ if index .Env "GOCACHE" }}{{ .Env.GOCACHE }}{{ else }}/tmp/induction-gocache{{ end }}
 
@@ -17,9 +15,40 @@ builds:
   - id: induction
     main: ./cmd/induction
     binary: induction
+    env:
+      - CGO_ENABLED=0
     goos:
       - linux
     goarch:
       - amd64
     ldflags:
       - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    formats: ['tar.gz']
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE*
+      - README*
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+release:
+  github:
+    owner: mwiater
+    name: induction
+  draft: false
+  prerelease: auto
