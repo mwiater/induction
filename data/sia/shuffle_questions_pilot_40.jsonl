@@ -1,0 +1,40 @@
+{"id":"mean-05","question":"What is the arithmetic mean of 28, 32, and 36?","options":["32","96","36","28"],"correct":0,"difficulty":"medium"}
+{"id":"add-09","question":"A community garden has 89 tomato plants and 40 pepper plants. How many plants are there in total?","options":["129","3560","139","128"],"correct":0,"difficulty":"easy"}
+{"id":"operator-order-07","question":"Using standard order of operations, evaluate 7 × 8 + 7.","options":["105","56","63","64"],"correct":2,"difficulty":"medium"}
+{"id":"unit-price-03","question":"One ticket costs $7. What is the total cost of 5 tickets with no fees?","options":["$28","$42","$12","$35"],"correct":3,"difficulty":"medium"}
+{"id":"modular-01","question":"What is the remainder when (93 × 128 + 7) is divided by 12?","options":["8","7","10","9"],"correct":1,"difficulty":"hard"}
+{"id":"next-step-10","question":"A counter begins at 65 and increases by 9 once. What is its new value?","options":["75","74","56","83"],"correct":1,"difficulty":"easy"}
+{"id":"arithmetic-sequence-02","question":"The sequence is 5, 13, 21, 29, 37, ... . What is the next term?","options":["46","37","53","45"],"correct":3,"difficulty":"medium"}
+{"id":"difference-01","question":"One container holds 54 liters and another holds 45 liters. What is the absolute difference in their volumes, in liters?","options":["9","54","19","99"],"correct":0,"difficulty":"medium"}
+{"id":"discount-05","question":"A jacket costs $100. It is discounted by 20% with no additional taxes or fees. What is the sale price?","options":["$81","$20","$120","$80"],"correct":3,"difficulty":"medium"}
+{"id":"two-percent-03","question":"A price starts at $400, rises by 20%, then falls by 10% of its new value. What is the final price?","options":["$440","$400","$432","$360"],"correct":2,"difficulty":"hard"}
+{"id":"nth-term-07","question":"An arithmetic sequence begins with 11 and increases by 13 each step. What is its 11th term, counting the first term as term 1?","options":["264","154","128","141"],"correct":3,"difficulty":"hard"}
+{"id":"time-03","question":"A train departs at 16:20 on a 24-hour clock and the trip lasts 55 minutes. What is the arrival time on the same day?","options":["17:15","18:15","17:30","17:00"],"correct":0,"difficulty":"medium"}
+{"id":"counting-08","question":"A product can have 9 different shells, 10 different buttons, and 3 different straps. Exactly one of each is chosen independently. How many distinct combinations are possible?","options":["270","120","22","279"],"correct":0,"difficulty":"hard"}
+{"id":"operator-order-04","question":"Using standard order of operations, evaluate 11 × 8 + 10.","options":["88","198","190","98"],"correct":3,"difficulty":"medium"}
+{"id":"proportion-09","question":"A recipe uses 52 grams of flour for 13 servings. Keeping the same ratio, how many grams of flour are needed for 6 servings?","options":["76","24","52","37"],"correct":1,"difficulty":"medium"}
+{"id":"perimeter-09","question":"A rectangle is 12 cm long and 9 cm wide. What is its perimeter in cm?","options":["33","108","42","21"],"correct":2,"difficulty":"easy"}
+{"id":"area-02","question":"A rectangular floor measures 14 meters by 7 meters. What is its area in square meters?","options":["21","112","42","98"],"correct":3,"difficulty":"medium"}
+{"id":"squared-plus-08","question":"Compute 7 squared, then add 11. What is the result?","options":["25","60","324","38"],"correct":1,"difficulty":"medium"}
+{"id":"squared-plus-01","question":"Compute 9 squared, then add 10. What is the result?","options":["28","71","91","361"],"correct":2,"difficulty":"medium"}
+{"id":"weighted-points-07","question":"A game awards 3 points for a win and 2 points for a draw. A team has 9 wins and 8 draws. How many points does it have?","options":["42","43","51","17"],"correct":1,"difficulty":"medium"}
+{"id":"inventory-03","question":"A store receives 3 cartons containing 6 notebooks each and sells 5 notebooks. How many remain from this delivery?","options":["4","23","13","-12"],"correct":2,"difficulty":"medium"}
+{"id":"divide-10","question":"56 stickers are divided equally among 8 students. How many stickers does each student receive?","options":["8","9","48","7"],"correct":3,"difficulty":"easy"}
+{"id":"distance-10","question":"A vehicle travels at a constant 8 km per hour for 5 hours. How many kilometers does it travel?","options":["48","13","40","35"],"correct":2,"difficulty":"medium"}
+{"id":"multiply-07","question":"There are 7 trays with 8 muffins on each tray. How many muffins are there?","options":["56","48","15","63"],"correct":0,"difficulty":"easy"}
+{"id":"distance-08","question":"A vehicle travels at a constant 15 km per hour for 5 hours. How many kilometers does it travel?","options":["75","20","70","90"],"correct":0,"difficulty":"medium"}
+{"id":"two-step-08","question":"A workshop prepares 15 boxes with 3 bolts per box, then adds 4 loose bolts. How many bolts are there altogether?","options":["22","49","41","105"],"correct":1,"difficulty":"medium"}
+{"id":"two-step-01","question":"A workshop prepares 12 boxes with 3 bolts per box, then adds 4 loose bolts. How many bolts are there altogether?","options":["40","19","84","32"],"correct":0,"difficulty":"medium"}
+{"id":"combinations-03","question":"How many different groups of 2 people can be chosen from 10 distinct people if order does not matter?","options":["20","36","45","90"],"correct":2,"difficulty":"hard"}
+{"id":"subtract-09","question":"A library had 208 bookmarks and gave away 138. How many bookmarks remain?","options":["80","60","70","346"],"correct":2,"difficulty":"easy"}
+{"id":"mean-08","question":"What is the arithmetic mean of 9, 18, and 27?","options":["27","18","9","54"],"correct":1,"difficulty":"medium"}
+{"id":"percent-of-06","question":"What is 30% of 100?","options":["60","3","30","70"],"correct":2,"difficulty":"medium"}
+{"id":"pairs-02","question":"A box contains 4 distinct red cards and 11 distinct blue cards. How many unordered pairs contain exactly one red and one blue card?","options":["44","15","40","105"],"correct":0,"difficulty":"hard"}
+{"id":"proportion-04","question":"A recipe uses 36 grams of flour for 6 servings. Keeping the same ratio, how many grams of flour are needed for 4 servings?","options":["36","30","60","24"],"correct":3,"difficulty":"medium"}
+{"id":"squared-plus-10","question":"Compute 10 squared, then add 8. What is the result?","options":["28","108","92","324"],"correct":1,"difficulty":"medium"}
+{"id":"equations-07","question":"Integers x and y satisfy x + y = 23 and x − y = 5. What is x?","options":["9","14","5","23"],"correct":1,"difficulty":"hard"}
+{"id":"fractions-03","question":"What is 5/12 + 5/12, written as a fraction with denominator 12 (do not simplify)?","options":["11/12","0/12","10/12","25/12"],"correct":2,"difficulty":"medium"}
+{"id":"minimum-09","question":"Which number is the smallest: 43, 85, 73, or 28?","options":["73","85","43","28"],"correct":3,"difficulty":"easy"}
+{"id":"maximum-03","question":"Which number is the largest: 85, 41, 28, or 94?","options":["85","94","28","41"],"correct":1,"difficulty":"easy"}
+{"id":"inventory-04","question":"A store receives 11 cartons containing 13 notebooks each and sells 4 notebooks. How many remain from this delivery?","options":["139","147","91","20"],"correct":0,"difficulty":"medium"}
+{"id":"formal-logic-08","question":"Every sors is a blue object. No blue object is transparent. Which statement must be true?","options":["Some sors are transparent.","Every transparent object is a sors.","Every blue object is a sors.","No sors is transparent."],"correct":3,"difficulty":"hard"}

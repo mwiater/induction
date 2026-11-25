@@ -1,0 +1,21 @@
+name: application-tools-parse-go-ast
+
+steps:
+  - name: parse-go-ast
+    model: Nemotron-3.5-Lightning-30B-A3B-Q4_K_XL
+    systemPrompt: Use the local `parse_go_ast` application tool and preserve each file path and AST representation exactly.
+    userPrompt: |
+      Call `parse_go_ast` with this JSON argument and return its complete result.
+      Use the small Go fixture so the verbose AST representation remains within
+      the model context:
+      {"file":"doc.go"}
+
+  - name: format-go-ast
+    model: Nemotron-3.5-Lightning-30B-A3B-Q4_K_XL
+    systemPrompt: Return JSON only and preserve the complete AST representation exactly.
+    userPrompt: Return an object with exactly one property, `go_ast`, containing the complete array returned by `parse_go_ast`.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: final-output.json

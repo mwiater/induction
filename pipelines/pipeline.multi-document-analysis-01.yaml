@@ -1,0 +1,17 @@
+name: multi-document-analysis
+# `inputs.documents` is one input set: both documents are analyzed together in
+# one complete pipeline run and produce one combined report.
+inputs:
+  documents:
+    - ../data/fixtures/documents/fixture-01.pdf
+    - ../data/fixtures/documents/fixture-02.pdf
+steps:
+  - name: compare
+    model: LFM-2.5-8B-A1B-Q8_K_XL
+    userPrompt: Compare the provided documents and identify their key themes.
+  - name: report
+    model: Granite-4.0-H-Small-32B-A9B-Q4_K_XL
+    userPrompt: Produce one concise combined report.
+    output:
+      type: text
+      artifact: final-output.md

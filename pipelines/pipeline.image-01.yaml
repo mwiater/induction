@@ -1,0 +1,218 @@
+# Single-image image analysis pipeline with three focused steps.
+# Replace the first step image path to analyze another image.
+name: image-analysis
+config: induction.yaml
+steps:
+- name: analyze-image
+  model: Gemma-4-E4B-UNC-Q8_K_P
+  systemPrompt: |
+    You are a careful visual analyst. Analyze the image in one pass, describing only what is visually supported and clearly separating observations from cautious inferences. Cover subjects, composition, environment, visible text and distinctive details, lighting, color, image quality, photographic technique, editing or reproduction clues, activities, and searchable context; do not invent identities, locations, dates, metadata, or causes.
+  userPrompt: |
+    Analyze the provided image comprehensively. Organize the notes under useful labels, include concrete visual evidence, transcribe only legible text, and state uncertainty whenever a detail is ambiguous.
+  image: ../data/fixtures/images/fixture-01.jpg
+- name: analyze-context-and-estimates
+  model: Granite-4.1-4B-Q4_K_M
+  systemPrompt: |
+    You are a conservative archival and photographic-process analyst. Using the image and the preceding visual analysis, assess location, camera category, medium or film, and capture date only from evidence; distinguish scene era from capture year, label hypotheses, and use unknown when unsupported. Do not claim external lookups, EXIF, precise coordinates, camera models, film stocks, authorship, provenance, or sensitive personal attributes without direct evidence.
+  userPrompt: |
+    Review the preceding visual analysis and produce concise evidence for location, camera, film or medium, and capture date estimates, including alternatives and caveats. Also provide a neutral title, caption, category, activities, and retrieval keywords.
+- name: return-json
+  model: Orion-1.1-26B-A4B-Q4_K_L
+  systemPrompt: |-
+    You are a strict archival JSON serialization assistant. Synthesize only the accumulated image analyses, without unsupported details, and output exactly one schema-valid JSON object. Every descriptive string field must contain no more than two detailed sentences; keep evidence arrays concise. Use null for unknown estimates, confidence 0.0 with an explanation when evidence is absent, and [] for absent lists; preserve uncertainty, transcribe text only when legible, and output JSON only.
+  userPrompt: |-
+    Synthesize all prior image analyses into complete searchable photographic metadata. Limit every descriptive output field to at most two detailed sentences, provide separate evidence-backed estimates for location, camera, film, and capture date with confidence scores and caveats, populate all fields using null or [] when unknown or absent, and return only schema-valid JSON.
+  responseFormat:
+    type: json_object
+  jsonSchema:
+    type: object
+    properties:
+      subjects:
+        type: string
+      composition:
+        type: string
+      environmental_context:
+        type: string
+      title:
+        type: string
+      caption:
+        type: string
+      image_category:
+        type: string
+      activities:
+        type: array
+        items:
+          type: string
+      keywords:
+        type: array
+        items:
+          type: string
+      visible_text:
+        type: array
+        items:
+          type: string
+      distinctive_details:
+        type: array
+        items:
+          type: string
+      lighting:
+        type: string
+      color_palette:
+        type: array
+        items:
+          type: string
+      photographic_technique:
+        type: string
+      image_quality:
+        type: string
+      editing_or_reproduction_clues:
+        type: string
+      location_estimate:
+        type: object
+        properties:
+          value:
+            type:
+            - string
+            - 'null'
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          evidence:
+            type: array
+            items:
+              type: string
+          caveats:
+            type: string
+        required:
+        - value
+        - confidence
+        - evidence
+        - caveats
+        additionalProperties: false
+      camera_estimate:
+        type: object
+        properties:
+          value:
+            type:
+            - string
+            - 'null'
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          evidence:
+            type: array
+            items:
+              type: string
+          caveats:
+            type: string
+          camera_category:
+            type:
+            - string
+            - 'null'
+        required:
+        - value
+        - confidence
+        - evidence
+        - caveats
+        - camera_category
+        additionalProperties: false
+      film_estimate:
+        type: object
+        properties:
+          value:
+            type:
+            - string
+            - 'null'
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          evidence:
+            type: array
+            items:
+              type: string
+          caveats:
+            type: string
+          medium:
+            type: string
+          film_type:
+            type:
+            - string
+            - 'null'
+          film_stock:
+            type:
+            - string
+            - 'null'
+        required:
+        - value
+        - confidence
+        - evidence
+        - caveats
+        - medium
+        - film_type
+        - film_stock
+        additionalProperties: false
+      capture_date_estimate:
+        type: object
+        properties:
+          value:
+            type:
+            - integer
+            - 'null'
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          evidence:
+            type: array
+            items:
+              type: string
+          caveats:
+            type: string
+          earliest_year:
+            type:
+            - integer
+            - 'null'
+          latest_year:
+            type:
+            - integer
+            - 'null'
+          scene_era:
+            type:
+            - string
+            - 'null'
+        required:
+        - value
+        - confidence
+        - evidence
+        - caveats
+        - earliest_year
+        - latest_year
+        - scene_era
+        additionalProperties: false
+    required:
+    - subjects
+    - composition
+    - environmental_context
+    - title
+    - caption
+    - image_category
+    - activities
+    - keywords
+    - visible_text
+    - distinctive_details
+    - lighting
+    - color_palette
+    - photographic_technique
+    - image_quality
+    - editing_or_reproduction_clues
+    - location_estimate
+    - camera_estimate
+    - film_estimate
+    - capture_date_estimate
+    additionalProperties: false
+  output:
+    type: json
+    artifact: final-output.json

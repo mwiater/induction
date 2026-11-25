@@ -1,0 +1,16 @@
+version: 2
+
+project_name: induction-image-meta
+dist: dist/appliances/image-meta
+
+env:
+  - GOCACHE={{ if index .Env "GOCACHE" }}{{ .Env.GOCACHE }}{{ else }}/tmp/induction-gocache{{ end }}
+
+builds:
+  - id: induction-image-meta
+    main: ./cmd/induction-image-meta
+    binary: induction-image-meta
+    goos: [linux]
+    goarch: [amd64]
+    ldflags:
+      - -s -w -buildid=

@@ -1,0 +1,31 @@
+name: MCP JSON Endpoint Inspection
+
+steps:
+  - name: discover-api-data
+    model: Qwen-3-Coder-Next-Q4_K_M
+    usemcp: true
+    systemPrompt: You are an API investigation assistant. Use only read-only MCP tools and explain what each response establishes.
+    userPrompt: |
+      Use `discover_json` on https://api.github.com/repos/openai/openai-python
+      to identify direct JSON responses or embedded JSON data. Report the most
+      useful endpoint candidates and what fields they appear to contain. If
+      discovery requires JavaScript-rendered content, use `browse`; use `scrape`
+      only for human-readable page context. Distinguish direct JSON endpoints,
+      embedded JSON, and network JSON responses.
+
+  - name: fetch-api-record
+    model: Qwen-3.5-9B-MTP-General-Q4_K_M
+    usemcp: true
+    systemPrompt: |
+      Use the preceding discovery results to make one precise read-only JSON
+      request. Prefer `fetch_url_as_JSON` for the final structured request.
+      Preserve the URL and distinguish returned fields from interpretation;
+      do not substitute scraped page text for the JSON record.
+    userPrompt: |
+      Use `fetch_url_as_JSON` on the best direct JSON endpoint found in the
+      preceding step. Summarize the repository's name, description, default
+      branch, issue count, and last-updated field when present. State explicitly
+      when a field is absent.
+    output:
+      type: text
+      artifact: final-output.md

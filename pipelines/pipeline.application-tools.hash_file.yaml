@@ -1,0 +1,19 @@
+name: application-tools-hash-file
+
+steps:
+  - name: hash-file
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: Use the local `hash_file` application tool and preserve the path, algorithm, and digest exactly.
+    userPrompt: |
+      Call `hash_file` with this JSON argument and return its complete result:
+      {"path":"README.md","algorithm":"sha256"}
+
+  - name: format-file-hash
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    systemPrompt: Return JSON only and preserve the digest exactly.
+    userPrompt: Return an object with exactly one property, `file_hash`, containing the complete result from `hash_file`.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: final-output.json

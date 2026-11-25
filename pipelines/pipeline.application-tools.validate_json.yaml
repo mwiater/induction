@@ -1,0 +1,19 @@
+name: application-tools-validate-json
+
+steps:
+  - name: validate-json
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: Use the local `validate_json` application tool. Preserve its valid status, error, and offset fields exactly.
+    userPrompt: |
+      Call `validate_json` with this JSON argument and return its complete result:
+      {"content":"{\"status\":\"ok\",\"count\":2}"}
+
+  - name: format-validation
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    systemPrompt: Return JSON only and preserve the validation result exactly.
+    userPrompt: Return an object with exactly one property, `validation`, containing the complete result from `validate_json`.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: final-output.json

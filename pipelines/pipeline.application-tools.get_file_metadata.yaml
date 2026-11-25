@@ -1,0 +1,19 @@
+name: application-tools-get-file-metadata
+
+steps:
+  - name: collect-file-metadata
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: Use the local `get_file_metadata` application tool and preserve every returned metadata field exactly.
+    userPrompt: |
+      Call `get_file_metadata` with this JSON argument and return its complete result:
+      {"path":"data/fixtures/images/fixture-01.jpg"}
+
+  - name: format-file-metadata
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    systemPrompt: Return JSON only and preserve the preceding metadata result.
+    userPrompt: Return an object with exactly one property, `file_metadata`, containing the complete result from `get_file_metadata`.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: final-output.json

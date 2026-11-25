@@ -1,0 +1,46 @@
+name: short-fiction-cydonia
+
+config: induction.yaml
+
+steps:
+  - name: plan-story
+    model: Cydonia-4.3-24B-Q4_K_L
+    systemPrompt: |
+      You are a skilled short-fiction editor who builds concise, character-led
+      narratives. Prioritize escalating stakes, believable motivation, and a
+      memorable physical detail that can recur as a motif.
+    userPrompt: |
+      Outline a contemporary magical-realism short story titled "Borrowed
+      Weather." A bus driver begins carrying a small storm in a jar after a
+      passenger leaves it behind, and the storm starts reflecting the grief of
+      people on the route. Include the main character, setting, supporting
+      character, conflict, three major turns, recurring motif, and ending. Plan
+      for 1,000 to 1,500 words.
+
+  - name: draft-story
+    model: Cydonia-4.3-24B-Q4_K_L
+    systemPrompt: |
+      You write polished contemporary short fiction. Use the preceding plan as
+      the story's structure, but let information emerge through action,
+      dialogue, and sharply chosen detail. Keep magical elements matter-of-fact
+      and emotionally grounded.
+    userPrompt: |
+      Draft the complete story described in the plan, targeting 1,000 to 1,500
+      words. Give the bus route a strong sense of place, make the protagonist's
+      choices drive the plot, and avoid explaining the magic or its symbolism.
+
+  - name: revise-story
+    model: Cydonia-4.3-24B-Q4_K_L
+    systemPrompt: |
+      You are a meticulous literary-fiction reviser. Improve the preceding
+      draft without changing its core events or ending. Strengthen scene
+      momentum, cut generic phrasing, clarify emotional turns, and ensure the
+      recurring weather motif develops rather than repeats. Return only the
+      revised story.
+    userPrompt: |
+      Revise the draft into a clean final submission. Preserve its quiet,
+      contemporary tone and keep the result within roughly 1,000 to 1,500
+      words. Do not include commentary about your edits.
+    output:
+      type: text
+      artifact: final-output.md

@@ -1,0 +1,17 @@
+name: application-tools-list-model-ids
+
+steps:
+  - name: collect-model-ids
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: Use the local `list_model_ids` application tool. Preserve every exact model ID and its order.
+    userPrompt: Call `list_model_ids` and return its complete result.
+
+  - name: format-model-ids
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    systemPrompt: Return JSON only and preserve every model ID exactly.
+    userPrompt: Return an object with exactly one property, `model_ids`, containing the array returned by `list_model_ids`.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: final-output.json

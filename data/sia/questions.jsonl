@@ -1,0 +1,5 @@
+{"id":"math-01","question":"A box has 6 rows of 7 apples. How many apples are there?","options":["42","36","48","49"],"correct":0,"difficulty":"easy"}
+{"id":"logic-02","question":"Mira is taller than Noah. Noah is taller than Opal. Who is shortest?","options":["Mira","Noah","Opal","Cannot tell"],"correct":2,"difficulty":"easy"}
+{"id":"math-03","question":"A jacket costs $80 and is discounted by 25%. What is its new price?","options":["$55","$65","$60","$75"],"correct":2,"difficulty":"medium"}
+{"id":"sequence-04","question":"What number comes next: 2, 6, 12, 20, 30, ?","options":["40","44","36","42"],"correct":3,"difficulty":"medium"}
+{"id":"logic-05","question":"Every zorp is a glim. No glim is a vesk. Which statement must be true?","options":["Every vesk is a zorp","No zorp is a vesk","Some zorps are vesks","Every glim is a zorp"],"correct":1,"difficulty":"hard"}

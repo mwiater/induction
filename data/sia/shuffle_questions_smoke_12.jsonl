@@ -1,0 +1,12 @@
+{"id": "multiply-10", "question": "There are 13 trays with 5 muffins on each tray. How many muffins are there?", "options": ["65", "18", "78", "60"], "correct": 0, "difficulty": "easy"}
+{"id": "next-step-01", "question": "A counter begins at 78 and increases by 11 once. What is its new value?", "options": ["100", "89", "67", "90"], "correct": 1, "difficulty": "easy"}
+{"id": "perimeter-08", "question": "A rectangle is 7 cm long and 3 cm wide. What is its perimeter in cm?", "options": ["17", "21", "20", "10"], "correct": 2, "difficulty": "easy"}
+{"id": "divide-04", "question": "102 stickers are divided equally among 6 students. How many stickers does each student receive?", "options": ["96", "19", "6", "17"], "correct": 3, "difficulty": "easy"}
+{"id": "inventory-06", "question": "A store receives 13 cartons containing 10 notebooks each and sells 4 notebooks. How many remain from this delivery?", "options": ["126", "19", "134", "90"], "correct": 0, "difficulty": "medium"}
+{"id": "discount-02", "question": "A jacket costs $240. It is discounted by 20% with no additional taxes or fees. What is the sale price?", "options": ["$48", "$192", "$288", "$220"], "correct": 1, "difficulty": "medium"}
+{"id": "mean-03", "question": "What is the arithmetic mean of 7, 15, and 23?", "options": ["7", "45", "15", "23"], "correct": 2, "difficulty": "medium"}
+{"id": "discount-08", "question": "A jacket costs $200. It is discounted by 50% with no additional taxes or fees. What is the sale price?", "options": ["$101", "$300", "$150", "$100"], "correct": 3, "difficulty": "medium"}
+{"id": "nth-term-09", "question": "An arithmetic sequence begins with 5 and increases by 13 each step. What is its 11th term, counting the first term as term 1?", "options": ["135", "198", "148", "122"], "correct": 0, "difficulty": "hard"}
+{"id": "combinations-10", "question": "How many different groups of 2 people can be chosen from 6 distinct people if order does not matter?", "options": ["30", "15", "10", "12"], "correct": 1, "difficulty": "hard"}
+{"id": "counting-07", "question": "A product can have 3 different shells, 12 different buttons, and 4 different straps. Exactly one of each is chosen independently. How many distinct combinations are possible?", "options": ["19", "147", "144", "84"], "correct": 2, "difficulty": "hard"}
+{"id": "nth-term-08", "question": "An arithmetic sequence begins with 6 and increases by 12 each step. What is its 4th term, counting the first term as term 1?", "options": ["54", "30", "72", "42"], "correct": 3, "difficulty": "hard"}

@@ -1,0 +1,167 @@
+name: decision-routing-01
+config: induction.yaml
+
+steps:
+  - name: route-report
+    model: Kev-4B-Q8_0
+    userPrompt: |
+      Review this software engineering report and identify its most important
+      concern, then provide concise findings and concrete mitigations:
+
+      A service accepts user supplied filenames and reads each referenced file
+      before validating the path against an allowed root.
+    decision:
+      endpoint: systemone
+      type: choice
+      questionID: route_focus
+      state: "{{ inputs.prompt }}"
+      instructions: Choose the single most important review focus for this software engineering report.
+      candidates:
+        security: Security vulnerabilities or unsafe access control.
+        performance: Runtime, throughput, or resource-use problems.
+        correctness: Functional or logical correctness problems.
+        other: Any other engineering concern.
+
+  - name: security-review
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    when:
+      decision: route-report
+      equals: security
+      minConfidence: 0.55
+    systemPrompt: You are a careful software security reviewer.
+    userPrompt: |
+      Review the report for security risks. Give concise findings and
+      concrete mitigations.
+
+      Report:
+      {{ inputs.prompt }}
+
+  - name: performance-review
+    model: Granite-4.0-Micro-3B-Q8_0
+    when:
+      decision: route-report
+      equals: performance
+      minConfidence: 0.55
+    systemPrompt: You are a careful software performance reviewer.
+    userPrompt: |
+      Review the report for performance risks. Give concise findings and
+      concrete mitigations.
+
+      Report:
+      {{ inputs.prompt }}
+
+  - name: correctness-review
+    model: LFM-2.5-8B-A1B-Q8_K_XL
+    when:
+      decision: route-report
+      equals: correctness
+      minConfidence: 0.55
+    systemPrompt: You are a careful software correctness reviewer.
+    userPrompt: |
+      Review the report for correctness risks. Give concise findings and
+      concrete mitigations.
+
+      Report:
+      {{ inputs.prompt }}
+
+  - name: general-review
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    when:
+      decision: route-report
+      equals: other
+    systemPrompt: You are a careful software engineering reviewer.
+    userPrompt: |
+      Review the report for its most important engineering risks. Give
+      concise findings and concrete mitigations.
+
+      Report:
+      {{ inputs.prompt }}
+
+  - name: review-conformance
+    model: Kev-9B-Q8_0
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: noul
+      questionID: conforms
+      state: |
+        Report:
+        {{ inputs.prompt }}
+
+        Selected review focus:
+        {{ steps.route-report.output }}
+
+        Review output:
+        {{ steps.security-review.output }}
+        {{ steps.performance-review.output }}
+        {{ steps.correctness-review.output }}
+        {{ steps.general-review.output }}
+      instructions: Does the selected review provide actionable findings and concrete mitigations grounded in the report?
+      criteria:
+        "true": The review is grounded in the report and includes actionable findings and concrete mitigations.
+        "false": The review is missing, unsupported by the report, or lacks actionable mitigations.
+
+  - name: review-score
+    model: Kev-9B-Q8_0
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: score
+      questionID: review_quality
+      state: |
+        Report:
+        {{ inputs.prompt }}
+
+        Review output:
+        {{ steps.security-review.output }}
+        {{ steps.performance-review.output }}
+        {{ steps.correctness-review.output }}
+        {{ steps.general-review.output }}
+      instructions: Rate the review's grounding, actionability, and completeness.
+      criteria:
+        - The review is absent or unusable.
+        - The review has critical omissions or unsupported claims.
+        - The review is partially useful but misses important detail.
+        - The review is strong with only minor omissions.
+        - The review is fully grounded, actionable, and complete.
+
+  - name: remediate-review
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    when:
+      decision: review-conformance
+      equals: "false"
+    userPrompt: |
+      Rewrite the review so it is grounded only in the report, identifies the
+      selected concern, and gives concise actionable mitigations. Return the
+      complete replacement review only.
+
+      Report:
+      {{ inputs.prompt }}
+
+      Previous review:
+      {{ steps.security-review.output }}
+      {{ steps.performance-review.output }}
+      {{ steps.correctness-review.output }}
+      {{ steps.general-review.output }}
+
+  - name: remediate-review-score
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    when:
+      decision: review-score
+      maxScore: 2.999
+    userPrompt: |
+      Improve the review so it is grounded, complete, and actionable. Return
+      the complete replacement review only.
+
+      Report:
+      {{ inputs.prompt }}
+
+      Previous review:
+      {{ steps.remediate-review.output }}
+      {{ steps.security-review.output }}
+      {{ steps.performance-review.output }}
+      {{ steps.correctness-review.output }}
+      {{ steps.general-review.output }}
+    output:
+      type: text
+      artifact: final-output.md

@@ -1,0 +1,17 @@
+name: application-tools-get-free-disk-space
+
+steps:
+  - name: collect-disk-space
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: Use the local `get_free_disk_space` application tool and preserve its numeric fields exactly.
+    userPrompt: Call `get_free_disk_space` and return its complete structured result.
+
+  - name: format-disk-space
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    systemPrompt: Return JSON only and preserve the preceding application-tool result.
+    userPrompt: Return an object with exactly one property, `disk_space`, containing the complete result from `get_free_disk_space`.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: final-output.json

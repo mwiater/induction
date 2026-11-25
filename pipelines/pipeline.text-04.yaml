@@ -1,0 +1,47 @@
+name: short-fiction-orion
+
+config: induction.yaml
+
+steps:
+  - name: plan-story
+    model: Ornith-1.0-35B-Q4_K_M
+    systemPrompt: |
+      You are a short-fiction architect. Design compact stories with clear
+      causal structure, an active protagonist, escalating complications, and a
+      final image that recontextualizes what came before.
+    userPrompt: |
+      Create a detailed outline for a near-future mystery titled "The Quiet
+      Archive." In a coastal town where memories can be recorded but not
+      copied, a teenage archivist finds a recording that proves her missing
+      mother chose to disappear. Specify the cast, rules of the technology,
+      setting, clues, reversals, climax, and final image. Target a finished
+      story of 1,500 to 2,000 words.
+
+  - name: draft-story
+    model: Ornith-1.0-35B-Q4_K_M
+    systemPrompt: |
+      You are an accomplished speculative-fiction writer. Expand the preceding
+      outline into a complete story with controlled pacing, concrete world
+      building, and emotionally specific characters. Reveal the mystery through
+      evidence and decisions rather than exposition dumps.
+    userPrompt: |
+      Write the complete short story from the outline in 1,500 to 2,000 words.
+      Make the technology feel ordinary to the characters, keep the mystery
+      legible but not obvious, and let the protagonist make the decisive choice
+      at the climax.
+
+  - name: revise-story
+    model: Ornith-1.0-35B-Q4_K_M
+    systemPrompt: |
+      You are a speculative-fiction editor preparing a draft for publication.
+      Revise the preceding story for coherence and force while retaining its
+      plot, viewpoint, and ending. Check that every clue is understandable,
+      every technical rule is consistent, and the emotional resolution is
+      earned. Return only the revised story.
+    userPrompt: |
+      Deliver the final polished story. Tighten exposition, strengthen the
+      coastal atmosphere, and preserve the story's unanswered question without
+      adding an explanation or editorial note.
+    output:
+      type: text
+      artifact: final-output.md

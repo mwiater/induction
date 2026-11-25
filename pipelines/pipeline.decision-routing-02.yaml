@@ -1,0 +1,229 @@
+name: decision-routing-02-food-safety-after-power-outage
+config: induction.yaml
+
+steps:
+  - name: outage-duration
+    model: Kev-4B-Q8_0
+    systemPrompt: You are a careful food-safety decision model.
+    userPrompt: |
+      Assess this refrigerator food-safety case after a power outage. Use the
+      supplied facts, preserve uncertainty about temperature history, and
+      provide a cautious recommendation for the perishable foods.
+
+      Facts: the outage lasted 6 hours, the refrigerator door stayed closed,
+      the measured temperature when power returned was 46°F, temperature
+      history is unavailable, and the contents are raw chicken, milk, and
+      leftovers.
+    decision:
+      endpoint: systemone
+      type: choice
+      questionID: outage_duration
+      state:
+        outage_duration_hours: 6
+        refrigerator_door_stayed_closed: true
+        refrigerator_temperature_when_power_returned_f: 46
+        refrigerator_temperature_history_available: false
+        refrigerator_contents:
+          - raw chicken
+          - milk
+          - leftovers
+      instructions: Did the power outage last more than four hours?
+      candidates:
+        over_four_hours: The outage lasted more than four hours.
+        four_hours_or_less: The outage lasted four hours or less.
+        unknown: The outage duration cannot be determined from the facts.
+
+  - name: refrigerator-temperature
+    model: Kev-4B-Q8_0
+    systemPrompt: You are a careful food-safety decision model.
+    userPrompt: Was the measured refrigerator temperature above 40°F when power returned?
+    decision:
+      endpoint: systemone
+      type: choice
+      questionID: refrigerator_temperature
+      state:
+        outage_duration_hours: 6
+        refrigerator_door_stayed_closed: true
+        refrigerator_temperature_when_power_returned_f: 46
+        refrigerator_temperature_history_available: false
+        refrigerator_contents:
+          - raw chicken
+          - milk
+          - leftovers
+      instructions: Was the measured refrigerator temperature above 40°F when power returned?
+      candidates:
+        above_40F: The measured refrigerator temperature was above 40°F when power returned.
+        at_or_below_40F: The measured refrigerator temperature was at or below 40°F when power returned.
+        unknown: The measured refrigerator temperature cannot be determined from the facts.
+
+  - name: perishable-foods
+    model: Kev-4B-Q8_0
+    systemPrompt: You are a careful food-safety decision model.
+    userPrompt: Does the refrigerator contain perishable food covered by power-outage food-safety guidance?
+    decision:
+      endpoint: systemone
+      type: choice
+      questionID: perishable_foods
+      state:
+        refrigerator_contents:
+          - raw chicken
+          - milk
+          - leftovers
+      instructions: Does the refrigerator contain perishable food covered by power-outage food-safety guidance?
+      candidates:
+        perishable_food_present: The refrigerator contains perishable food such as raw chicken, milk, or leftovers.
+        no_perishable_food: The refrigerator contains no perishable food covered by the guidance.
+        unknown: Whether perishable food is present cannot be determined from the facts.
+
+  - name: unsafe-temperature-duration
+    model: Kev-4B-Q8_0
+    systemPrompt: Do not infer a temperature history from a single thermometer reading. Choose unknown when the stated facts do not establish the duration.
+    userPrompt: Do the facts establish that the food was above 40°F for four hours or more?
+    decision:
+      endpoint: systemone
+      type: choice
+      questionID: unsafe_temperature_duration
+      state:
+        outage_duration_hours: 6
+        refrigerator_door_stayed_closed: true
+        refrigerator_temperature_when_power_returned_f: 46
+        refrigerator_temperature_history_available: false
+        refrigerator_contents:
+          - raw chicken
+          - milk
+          - leftovers
+      instructions: Do the facts establish that the food was above 40°F for four hours or more?
+      candidates:
+        four_hours_or_more_established: The facts establish that food was above 40°F for four hours or more.
+        less_than_four_hours_established: The facts establish that food was above 40°F for less than four hours.
+        duration_unknown: The facts do not establish how long the food was at or above 40°F.
+
+  - name: food-safety-decision-tree
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    systemPrompt: |
+      You are a clear, cautious food-safety explainer. Use the supplied
+      decision results and FDA guidance. Do not invent facts or treat model
+      probabilities as medical certainty. Clearly distinguish the measured
+      facts from unknowns.
+    userPrompt: |
+      Print a readable four-level decision tree for this household food-safety
+      problem. At every level, show every candidate's semantic value and
+      normalized probability from that level's result, then identify the
+      selected value. Do not omit alternatives or report only the winning
+      probability. Format each level as a tree node with all candidate branches;
+      mark the selected branch with `→` and the other branches with `├` or `└`.
+      After the four levels, print the path followed as an ordered sequence of
+      selected values.
+
+      Use these complete decision results:
+      Level 1, outage duration:
+      {{steps.outage-duration.output}}
+
+      Level 2, refrigerator temperature:
+      {{steps.refrigerator-temperature.output}}
+
+      Level 3, perishable foods present:
+      {{steps.perishable-foods.output}}
+
+      Level 4, duration above 40°F:
+      {{steps.unsafe-temperature-duration.output}}
+
+      Then give a concise practical recommendation for the raw chicken, milk,
+      and leftovers. FDA guidance says the refrigerator keeps food cold for
+      about four hours if unopened; refrigerated perishable food that has
+      been above 40°F for four hours or more should be discarded. If it is
+      unknown how long food has been at or above 40°F, do not take a chance
+      with it. Do not use smell or appearance to decide whether food is safe.
+      Explain how the unknown temperature history affects this case. Do not
+      imply that the probabilities are calibrated medical certainty.
+
+      Guidance source:
+      https://www.fda.gov/food/buy-store-serve-safe-food/food-and-water-safety-during-power-outages-and-floods
+
+      Required output contract:
+      - Print all four decision levels with every candidate, normalized probability, and selected value.
+      - Clearly distinguish measured facts from unknown temperature history.
+      - Give a cautious recommendation for raw chicken, milk, and leftovers.
+      - Do not use smell or appearance as a safety test.
+      - Do not present model probabilities as medical certainty.
+    contract:
+      - Includes all four decision levels and every candidate branch.
+      - Reports each selected value and normalized probability.
+      - Clearly preserves the unknown temperature-history fact.
+      - Provides cautious recommendations for raw chicken, milk, and leftovers.
+      - Does not use smell or appearance as a safety test.
+      - Does not present probabilities as medical certainty.
+
+  - name: food-safety-conformance
+    model: Kev-4B-Q8_0
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: noul
+      questionID: conforms
+      state: |
+        Food-safety decision tree:
+        {{ steps.food-safety-decision-tree.output }}
+
+        Required contract:
+        {{ steps.food-safety-decision-tree.contract }}
+      instructions: Does the food-safety decision tree satisfy every required contract criterion without inventing facts or overstating certainty?
+      criteria:
+        "true": Every required decision, uncertainty, recommendation, and safety caveat is present.
+        "false": One or more required decisions, uncertainty statements, recommendations, or safety caveats is missing or unsupported.
+
+  - name: food-safety-score
+    model: Kev-9B-Q8_0
+    userPrompt: "{{ inputs.prompt }}"
+    decision:
+      endpoint: systemone
+      type: score
+      questionID: safety_quality
+      state: |
+        Food-safety decision tree:
+        {{ steps.food-safety-decision-tree.output }}
+
+        Required contract:
+        {{ steps.food-safety-decision-tree.contract }}
+      instructions: Rate the decision tree's factual grounding, uncertainty handling, completeness, and practical safety guidance.
+      criteria:
+        - The output is unsafe, unsupported, or unusable.
+        - Major safety or factual requirements are missing.
+        - The output is partially useful but has notable omissions.
+        - The output is cautious and mostly complete with minor issues.
+        - The output is fully grounded, complete, cautious, and practical.
+
+  - name: remediate-food-safety
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    when:
+      decision: food-safety-conformance
+      equals: "false"
+    userPrompt: |
+      Rewrite the decision tree so it satisfies every required contract
+      criterion. Preserve the supplied facts and unknown temperature history.
+      Return the complete replacement decision tree only.
+
+      Required contract:
+      {{ steps.food-safety-decision-tree.contract }}
+
+      Previous decision tree:
+      {{ steps.food-safety-decision-tree.output }}
+
+  - name: remediate-food-safety-score
+    model: Qwen-3.5-9B-MTP-General-Q8_0
+    when:
+      decision: food-safety-score
+      maxScore: 2.999
+    userPrompt: |
+      Improve the decision tree so it is fully grounded, complete, cautious,
+      and practical. Return the complete replacement decision tree only.
+
+      Required contract:
+      {{ steps.food-safety-decision-tree.contract }}
+
+      Previous decision tree:
+      {{ steps.remediate-food-safety.output }}
+      {{ steps.food-safety-decision-tree.output }}
+    output:
+      type: text
+      artifact: final-output.md

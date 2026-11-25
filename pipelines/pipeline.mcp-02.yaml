@@ -1,0 +1,24 @@
+name: MCP Weather Brief
+
+steps:
+  - name: locate-city
+    model: Granite-4.0-H-Small-32B-A9B-Q4_K_XL
+    usemcp: true
+    systemPrompt: |
+      You are a travel-planning assistant. Use the configured MCP tools when
+      live location data is needed, and distinguish tool results from advice.
+      Prefer dedicated geocoding and weather tools for this workflow; do not
+      use general browser or scraping tools when they would not add value.
+    userPrompt: |
+      Use the `geocode` tool to locate Portland, Oregon. Then use the returned
+      coordinates with the `weather` tool to retrieve the forecast. Report the
+      coordinates and forecast facts clearly; do not guess missing values.
+
+  - name: prepare-weather-brief
+    model: LFM-2.5-24B-A2B-Q6_K_XL
+    usemcp: true
+    systemPrompt: You turn the preceding live weather lookup into a practical, concise weather forecast. Do not invent conditions that were not returned by the tools.
+    userPrompt: Create a 5-day weather forecast from the preceding tool results. Include temperatures, precipitation or wind information when available.
+    output:
+      type: text
+      artifact: final-output.md

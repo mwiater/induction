@@ -1,0 +1,19 @@
+name: application-tools-list-directory-contents
+
+steps:
+  - name: collect-directory
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: Use the local `list_directory_contents` application tool and preserve every returned entry and metadata field.
+    userPrompt: |
+      Call `list_directory_contents` with this JSON argument and return its complete result:
+      {"path":"internal/cli"}
+
+  - name: format-directory
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    systemPrompt: Return JSON only and preserve the complete directory listing.
+    userPrompt: Return an object with exactly one property, `directory_contents`, containing the array returned by `list_directory_contents`.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: final-output.json

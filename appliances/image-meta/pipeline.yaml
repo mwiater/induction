@@ -1,0 +1,35 @@
+# Appliance adaptation of pipelines/pipeline.image-01.yaml.
+# The source fixture image is supplied at runtime by the appliance runner.
+name: image-analysis
+steps:
+- name: analyze-image
+  model: Gemma-4-E4B-UNC-Q8_K_P
+  systemPrompt: |
+    You are a careful visual analyst. Analyze the image in one pass, describing only what is visually supported and clearly separating observations from cautious inferences. Cover subjects, composition, environment, visible text and distinctive details, lighting, color, image quality, photographic technique, editing or reproduction clues, activities, and searchable context; do not invent identities, locations, dates, metadata, or causes.
+  userPrompt: |
+    Analyze the provided image comprehensively. Organize the notes under useful labels, include concrete visual evidence, transcribe only legible text, and state uncertainty whenever a detail is ambiguous.
+- name: analyze-context-and-estimates
+  model: Granite-4.1-4B-Q4_K_M
+  systemPrompt: |
+    You are a conservative archival and photographic-process analyst. Using the image and the preceding visual analysis, assess location, camera category, medium or film, and capture date only from evidence; distinguish scene era from capture year, label hypotheses, and use unknown when unsupported. Do not claim external lookups, EXIF, precise coordinates, camera models, film stocks, authorship, provenance, or sensitive personal attributes without direct evidence.
+  userPrompt: |
+    Review the preceding visual analysis and produce concise evidence for location, camera, film or medium, and capture date estimates, including alternatives and caveats. Also provide a neutral title, caption, category, activities, and retrieval keywords.
+- name: return-json
+  model: MiniCPM-4.7-35B-A3B-Q4_K_M
+  systemPrompt: |-
+    You are a precise JSON serialization assistant. Use the accumulated analyses in the conversation as source material and preserve their useful details without adding unsupported claims. Return exactly one JSON object that conforms to the supplied schema. Use the exact required property names, include every required property, use string values, and do not add properties. Return JSON only: no Markdown fences, explanations, or trailing commentary.
+  userPrompt: |-
+    Synthesize all accumulated image analyses into one concise but information-rich JSON object matching the supplied schema. Preserve uncertainty where the earlier analyses identified it; do not turn guesses into facts.
+  responseFormat:
+    type: json_object
+  jsonSchema:
+    type: object
+    properties:
+      subjects: {type: string, description: Detailed description of the primary subjects.}
+      composition: {type: string, description: Detailed description of the image composition.}
+      environmental_context: {type: string, description: Detailed description of the environmental context.}
+    required: [subjects, composition, environmental_context]
+    additionalProperties: false
+  output:
+    type: json
+    artifact: "{{source.basename}}.{{source.extension}}.json"

@@ -1,0 +1,33 @@
+name: application-tools-list-model-profiles
+
+steps:
+  - name: collect-model-profiles
+    model: Granite-4.0-Micro-3B-Q8_0
+    systemPrompt: |
+      You are a precise application diagnostics assistant. Use the local
+      `list_model_profiles` application tool to query the configured llama.cpp
+      /v1/models endpoint and return enriched routing profiles. Preserve the
+      exact IDs, canonical family slugs, local model paths, Hugging Face
+      metadata, quantization filenames, context capacities, vision flags,
+      inferred parameter sizes, and architecture flags. Do not invent,
+      normalize, or rename returned values.
+    userPrompt: |
+      Call the `list_model_profiles` tool and return its complete result.
+
+  - name: format-model-profiles
+    model: Qwen-3.6-35B-A3B-MTP-Coding-Q8_K_XL
+    systemPrompt: |
+      Convert the preceding model profile tool result into a JSON object.
+      Preserve every profile and its order. Return JSON only.
+    userPrompt: |
+      Return an object with exactly one property, `model_profiles`, containing
+      the complete array returned by `list_model_profiles`, in the original
+      order. Each item must preserve these fields exactly: `id`, `family_slug`,
+      `local_path`, `huggingface_url`, `huggingface_author`,
+      `huggingface_repo`, `quantization_file`, `context_capacity`,
+      `vision_supported`, `inferred_parameters`, and `architecture_flags`.
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: final-output.json

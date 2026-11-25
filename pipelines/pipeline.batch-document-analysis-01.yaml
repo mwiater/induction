@@ -1,0 +1,31 @@
+name: batch-document-analysis
+# `batch.items` is the batch boundary: each document gets a separate complete
+# pipeline run and a separate result.
+batch:
+  items:
+    - id: document-001
+      documents: [../data/fixtures/documents/fixture-01.pdf]
+    - id: document-002
+      documents: [../data/fixtures/documents/fixture-02.pdf]
+steps:
+  - name: extract
+    model: Agents-A1-Apex-35B-A3B-MTP-I-Quality
+    userPrompt: Identify the subject, purpose, and key facts in the document. Be concise; use at most 8 bullet points and preserve only facts supported by the document.
+    parameters:
+      temperature: 0.2
+  - name: summarize
+    model: Flint-40B-A2.5B-Q4_K_XL
+    userPrompt: Produce a concise structured analysis of the preceding document facts. Use at most 500 words, omit repetition, and do not add unsupported claims.
+    parameters:
+      temperature: 0.2
+  - name: return-json
+    model: Agents-A1-Apex-35B-A3B-MTP-I-Quality
+    systemPrompt: Return exactly one valid JSON object and no Markdown, commentary, or code fences.
+    userPrompt: Convert only the preceding document summary into one concise valid JSON object. Preserve its facts without adding unsupported claims. Keep string values short and omit no required information.
+    parameters:
+      temperature: 0.1
+    responseFormat:
+      type: json_object
+    output:
+      type: json
+      artifact: "{{source.basename}}.{{source.extension}}.json"
