@@ -4,6 +4,9 @@ pollInterval: 2s
 loadWaitInterval: 1s
 sidebarWidth: 64
 log:
+  # Optional log destination and console toggle. Defaults are used when omitted.
+  # path: induction.log
+  # console: false
   prefix: "induction: "
   microseconds: true
   truncateOnRun: true
@@ -19,8 +22,16 @@ log:
 #   searchResults: 20
 #   preferredProviders:
 #     - unsloth
+#   preferredQuantizations:
+#     - Q4_K_M
+#   includePatterns:
+#     - "*Q4_K_M*"
+#   excludePatterns:
+#     - "*IQ*"
+#   availableRAM: 32GB
+#   availableVRAM: 16GB
 #   modelsPath: /path/to/saved/models
-#   huggingFaceToken: {optional-hugging-face-token}
+#   huggingFaceToken: "your-hugging-face-token"
 
 # Optional resource budget configuration:
 # Enable the cutoff and configure at least one threshold. Each threshold is
